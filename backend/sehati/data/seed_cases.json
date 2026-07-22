@@ -1,0 +1,4238 @@
+[
+  {
+    "id": "AUR-1042",
+    "status": "Diagnosis in Progress",
+    "stage": "diagnosis",
+    "priority": "High",
+    "createdAt": "Jul 4, 2026 · 08:12",
+    "updatedAt": "6 minutes ago",
+    "chiefComplaint": "Productive cough, fever & pleuritic chest pain — 4 days",
+    "primaryImpression": "Community-acquired pneumonia (right lower lobe)",
+    "patient": {
+      "name": "Robert Hayes",
+      "age": 58,
+      "gender": "Male",
+      "weight": "82 kg",
+      "height": "178 cm",
+      "bmi": "25.9",
+      "bloodType": "O+",
+      "occupation": "Warehouse supervisor",
+      "avatarHue": 214
+    },
+    "history": {
+      "previousIllnesses": [
+        "Type 2 diabetes (8 yrs)",
+        "Hypertension",
+        "Seasonal bronchitis"
+      ],
+      "medications": [
+        "Metformin 1000 mg BID",
+        "Lisinopril 10 mg OD",
+        "Atorvastatin 20 mg OD"
+      ],
+      "allergies": [
+        "Penicillin (rash)"
+      ],
+      "familyHistory": [
+        "Father — COPD",
+        "Mother — Type 2 diabetes"
+      ],
+      "lifestyle": "Sedentary; limited physical activity due to shift work.",
+      "smoking": "Ex-smoker — 20 pack-years, quit 3 years ago",
+      "alcohol": "Occasional (2–3 units/week)",
+      "surgeries": [
+        "Appendectomy (1994)"
+      ]
+    },
+    "complaint": {
+      "symptoms": [
+        "Productive cough (rust-colored sputum)",
+        "Fever & chills",
+        "Pleuritic chest pain",
+        "Shortness of breath",
+        "Fatigue"
+      ],
+      "painScale": 6,
+      "duration": "4 days",
+      "timeline": "Gradual onset, worsening over the last 48 hours",
+      "aggravating": "Deep breathing, coughing, lying flat",
+      "relieving": "Sitting upright, shallow breathing, paracetamol (partial)"
+    },
+    "vitals": {
+      "bp": "145/90",
+      "hr": "104",
+      "rr": "24",
+      "spo2": "92%",
+      "temp": "38.6°C"
+    },
+    "interview": [
+      {
+        "role": "ai",
+        "text": "Hello Robert, I'm Aura, an AI assistant helping Dr. Nolan prepare for your visit. I'd like to ask a few questions about your symptoms. Can you describe the cough you've been having?",
+        "time": "08:13"
+      },
+      {
+        "role": "patient",
+        "text": "It started as a dry cough but for the last two days I've been bringing up thick phlegm. It looks kind of rusty-brown.",
+        "time": "08:13"
+      },
+      {
+        "role": "ai",
+        "text": "Thank you. Rust-colored sputum is useful information. Are you experiencing any chest pain, and if so, does anything make it worse?",
+        "time": "08:14"
+      },
+      {
+        "role": "patient",
+        "text": "Yes, a sharp pain on the right side of my chest. It gets much worse when I take a deep breath or cough.",
+        "time": "08:14"
+      },
+      {
+        "role": "ai",
+        "text": "That sharp pain worsening with breathing is called pleuritic pain. Have you had a fever or chills?",
+        "time": "08:15"
+      },
+      {
+        "role": "patient",
+        "text": "I had shaking chills two nights ago and my thermometer read 38.7. I feel hot and worn out.",
+        "time": "08:15"
+      },
+      {
+        "role": "ai",
+        "text": "Are you more short of breath than usual — for example, climbing stairs or walking to the car?",
+        "time": "08:16"
+      },
+      {
+        "role": "patient",
+        "text": "Definitely. Walking across the warehouse leaves me winded, which never used to happen.",
+        "time": "08:16"
+      },
+      {
+        "role": "ai",
+        "text": "Have you noticed any leg swelling, calf pain, or recent long travel or immobilization?",
+        "time": "08:17"
+      },
+      {
+        "role": "patient",
+        "text": "No swelling or calf pain. No long trips — I have been at work every day.",
+        "time": "08:17"
+      },
+      {
+        "role": "ai",
+        "text": "Understood — that helps me weigh a blood clot as less likely. Last question: are you keeping up with fluids, and how is your appetite?",
+        "time": "08:18"
+      },
+      {
+        "role": "patient",
+        "text": "Appetite is poor and I feel a bit dehydrated. I've been drinking water but not much.",
+        "time": "08:18"
+      },
+      {
+        "role": "ai",
+        "text": "Thank you, Robert. I have enough to prepare a structured summary for Dr. Nolan. Please rest — the care team will see you shortly.",
+        "time": "08:19"
+      }
+    ],
+    "summary": {
+      "chiefComplaint": "58-year-old male with 4 days of productive cough, fever, and right-sided pleuritic chest pain, now with exertional dyspnea.",
+      "hpi": "Symptoms began 4 days ago with a dry cough that became productive of rust-colored sputum over the last 48 hours. Reports rigors with a documented temperature of 38.7°C, progressive pleuritic right-sided chest pain, and new exertional breathlessness. No hemoptysis, leg swelling, or calf pain. Poor oral intake with mild dehydration.",
+      "relevantHistory": [
+        "Type 2 diabetes (immunocompromising risk)",
+        "Hypertension",
+        "Ex-smoker, 20 pack-years",
+        "Recurrent seasonal bronchitis"
+      ],
+      "medications": [
+        "Metformin 1000 mg BID",
+        "Lisinopril 10 mg OD",
+        "Atorvastatin 20 mg OD"
+      ],
+      "riskFactors": [
+        "Diabetes mellitus",
+        "Former smoker",
+        "Age > 50",
+        "Chronic hypertension"
+      ],
+      "redFlags": [
+        "SpO₂ 92% on room air",
+        "Respiratory rate 24/min",
+        "Rust-colored sputum + fever",
+        "Diabetic host"
+      ],
+      "timeline": [
+        {
+          "time": "Day 1",
+          "event": "Dry cough, mild malaise"
+        },
+        {
+          "time": "Day 2",
+          "event": "Fever with rigors (38.7°C)"
+        },
+        {
+          "time": "Day 3",
+          "event": "Productive rust-colored sputum, pleuritic pain"
+        },
+        {
+          "time": "Day 4 (today)",
+          "event": "Exertional dyspnea, presents to clinic"
+        }
+      ],
+      "symptoms": [
+        "Productive cough",
+        "Fever & rigors",
+        "Pleuritic chest pain",
+        "Dyspnea on exertion",
+        "Fatigue",
+        "Poor appetite"
+      ],
+      "findings": [
+        "Likely focal consolidation given rust-colored sputum & pleuritic pain",
+        "Hypoxia suggests parenchymal involvement",
+        "Diabetes raises risk of atypical/severe course"
+      ]
+    },
+    "exams": [
+      {
+        "id": "e1",
+        "name": "Blood Pressure",
+        "reason": "Assess for sepsis-related hypotension and baseline hypertension control.",
+        "importance": "Important",
+        "confidence": 96,
+        "status": "complete",
+        "finding": "145/90 mmHg",
+        "normalRange": "<130/85 mmHg",
+        "flag": "abnormal",
+        "note": "Consistent with known hypertension; no hypotension to suggest septic shock."
+      },
+      {
+        "id": "e2",
+        "name": "Heart Rate",
+        "reason": "Tachycardia is a marker of systemic infection and severity (part of CURB-65 / SIRS).",
+        "importance": "Important",
+        "confidence": 95,
+        "status": "complete",
+        "finding": "104 bpm",
+        "normalRange": "60–100 bpm",
+        "flag": "abnormal"
+      },
+      {
+        "id": "e3",
+        "name": "Respiratory Rate",
+        "reason": "Key severity marker; RR ≥ 30 contributes to CURB-65 score.",
+        "importance": "Critical",
+        "confidence": 97,
+        "status": "complete",
+        "finding": "24 /min",
+        "normalRange": "12–20 /min",
+        "flag": "abnormal"
+      },
+      {
+        "id": "e4",
+        "name": "Oxygen Saturation",
+        "reason": "Detects hypoxemia from alveolar consolidation; drives admission decision.",
+        "importance": "Critical",
+        "confidence": 98,
+        "status": "complete",
+        "finding": "92% on room air",
+        "normalRange": "≥ 95%",
+        "flag": "abnormal",
+        "note": "Borderline hypoxia — recommend repeat and consider supplemental O₂."
+      },
+      {
+        "id": "e5",
+        "name": "Temperature",
+        "reason": "Confirms febrile response to infection.",
+        "importance": "Important",
+        "confidence": 94,
+        "status": "complete",
+        "finding": "38.6°C",
+        "normalRange": "36.1–37.2°C",
+        "flag": "abnormal"
+      },
+      {
+        "id": "e6",
+        "name": "Chest Auscultation",
+        "reason": "Localize consolidation — expect bronchial breath sounds/crackles over the affected lobe.",
+        "importance": "Critical",
+        "confidence": 92,
+        "status": "complete",
+        "finding": "Coarse crackles + bronchial breathing, right lower zone",
+        "normalRange": "Vesicular breath sounds bilaterally",
+        "flag": "abnormal",
+        "note": "Focal findings strongly localize to the right lower lobe."
+      },
+      {
+        "id": "e7",
+        "name": "Cardiac Auscultation",
+        "reason": "Screen for murmurs/gallop to weigh cardiac causes of dyspnea.",
+        "importance": "Routine",
+        "confidence": 80,
+        "status": "complete",
+        "finding": "Normal S1/S2, no murmurs or gallop",
+        "normalRange": "Normal heart sounds",
+        "flag": "normal"
+      },
+      {
+        "id": "e8",
+        "name": "Lower-limb Examination",
+        "reason": "Screen for DVT signs to weigh pulmonary embolism.",
+        "importance": "Important",
+        "confidence": 84,
+        "status": "complete",
+        "finding": "No calf swelling, tenderness or asymmetry",
+        "normalRange": "No signs of DVT",
+        "flag": "normal"
+      }
+    ],
+    "diagnoses": [
+      {
+        "id": "dx-cap",
+        "name": "Community-acquired Pneumonia",
+        "confidence": 84,
+        "priority": "High",
+        "category": "Respiratory infection",
+        "tagline": "Right lower lobe bacterial pneumonia, likely S. pneumoniae",
+        "reasoning": "The constellation of fever with rigors, productive rust-colored sputum, pleuritic pain, focal right-lower-zone crackles with bronchial breathing, and hypoxia is highly characteristic of a lobar bacterial pneumonia. Rust-colored sputum is a classic descriptor for Streptococcus pneumoniae. Diabetes and age increase both likelihood and severity.",
+        "supporting": [
+          "Rust-colored (rusty) sputum",
+          "Focal right-lower-zone crackles + bronchial breathing",
+          "Fever with rigors (38.7°C)",
+          "Pleuritic chest pain",
+          "Hypoxia (SpO₂ 92%)",
+          "Diabetic host"
+        ],
+        "contradicting": [
+          "No prior imaging yet to confirm consolidation",
+          "CRP/WBC pending at time of assessment"
+        ],
+        "missing": [
+          "Chest X-ray confirmation",
+          "Inflammatory markers (CRP, WBC)",
+          "Sputum & blood cultures"
+        ],
+        "recommendedTests": [
+          "Chest X-ray",
+          "CBC with differential",
+          "CRP",
+          "Blood & sputum cultures"
+        ],
+        "confidenceExplanation": "Confidence is weighted from the strength of matching clinical features. Rust-colored sputum (+18), focal auscultation findings (+22), fever/rigors (+14), hypoxia (+12), and host risk (+8) contribute positively. The absence of confirmatory imaging and inflammatory markers currently caps the ceiling.",
+        "whyNot100": "Imaging has not yet confirmed a consolidation, and a small subset of pneumonia mimics (e.g., pulmonary infarction from PE, aspiration) can present similarly. Confidence will rise to ~95% once a chest X-ray shows lobar consolidation and inflammatory markers are elevated.",
+        "riskAssessment": "CURB-65 ≈ 1–2 (RR 24, age 58). Borderline hypoxia in a diabetic host warrants close monitoring; consider short-stay observation rather than immediate discharge.",
+        "nextAction": "Order a chest X-ray and CBC/CRP now. If consolidation is confirmed, start empiric non-penicillin antibiotics (penicillin allergy) — e.g. respiratory fluoroquinolone or macrolide + cephalosporin per local guidance.",
+        "references": [
+          {
+            "type": "guideline",
+            "title": "ATS/IDSA Guideline on Community-acquired Pneumonia in Adults",
+            "source": "Am J Respir Crit Care Med",
+            "year": 2019,
+            "snippet": "Recommends chest imaging plus clinical criteria for diagnosis and CURB-65/PSI for severity stratification.",
+            "strength": "Strong"
+          },
+          {
+            "type": "paper",
+            "title": "Value of sputum color in predicting bacterial etiology of lower respiratory infection",
+            "source": "Eur Respir J",
+            "year": 2012,
+            "snippet": "Purulent, rust-tinged sputum showed higher positive predictive value for bacterial pneumonia.",
+            "strength": "Moderate"
+          },
+          {
+            "type": "textbook",
+            "title": "Harrison's Principles of Internal Medicine, Ch. 121 — Pneumonia",
+            "source": "21st ed.",
+            "year": 2022,
+            "snippet": "Classic lobar pneumonia from S. pneumoniae presents with rigors, pleuritic pain and rusty sputum.",
+            "strength": "Supportive"
+          }
+        ],
+        "similarCases": [
+          {
+            "title": "61 M, diabetic, RLL pneumonia",
+            "outcome": "Recovered — 5-day fluoroquinolone course",
+            "similarity": 91,
+            "detail": "Near-identical presentation; CXR confirmed RLL consolidation, discharged after 24h observation."
+          },
+          {
+            "title": "55 M, ex-smoker, lobar pneumonia",
+            "outcome": "Recovered after short admission",
+            "similarity": 84,
+            "detail": "Presented with rusty sputum and SpO₂ 90%; responded to IV then oral antibiotics."
+          }
+        ],
+        "trend": [
+          {
+            "label": "Intake",
+            "value": 61
+          },
+          {
+            "label": "Interview",
+            "value": 68
+          },
+          {
+            "label": "Exam",
+            "value": 79
+          },
+          {
+            "label": "Now",
+            "value": 84
+          }
+        ],
+        "discussion": [
+          {
+            "role": "doctor",
+            "text": "Why pneumonia over bronchitis here?",
+            "time": "now"
+          },
+          {
+            "role": "ai",
+            "text": "The distinguishing features are the focal signs and hypoxia. Acute bronchitis rarely produces localized bronchial breathing over a single lobe, and it does not usually cause an SpO₂ of 92% or a respiratory rate of 24. Combined with rigors and rusty sputum, this points to alveolar consolidation rather than airway-limited inflammation. A chest X-ray will settle it — I'd expect a lobar infiltrate.",
+            "time": "now"
+          }
+        ]
+      },
+      {
+        "id": "dx-pe",
+        "name": "Pulmonary Embolism",
+        "confidence": 34,
+        "priority": "High",
+        "category": "Vascular / thrombotic",
+        "tagline": "Considered due to pleuritic pain, dyspnea & hypoxia",
+        "reasoning": "PE can present with pleuritic chest pain, dyspnea and hypoxia, which overlap with this case. However, the febrile course with rigors, productive rusty sputum and focal auscultation findings favor infection. No DVT signs, no immobilization, and no tachy-arrhythmia lower the pre-test probability.",
+        "supporting": [
+          "Pleuritic chest pain",
+          "Dyspnea",
+          "Hypoxia (SpO₂ 92%)",
+          "Tachycardia"
+        ],
+        "contradicting": [
+          "High fever with rigors (atypical for PE)",
+          "Productive rust-colored sputum",
+          "Focal consolidation signs on auscultation",
+          "No DVT signs / no immobilization",
+          "Wells score low"
+        ],
+        "missing": [
+          "D-Dimer",
+          "CT pulmonary angiogram if D-Dimer positive"
+        ],
+        "recommendedTests": [
+          "D-Dimer",
+          "CTPA (if indicated)",
+          "ECG"
+        ],
+        "confidenceExplanation": "A low Wells score, absence of DVT risk factors, and a strongly infective picture pull confidence down. Hypoxia and pleuritic pain keep PE on the differential but as a secondary consideration.",
+        "whyNot100": "PE cannot be fully excluded on clinical grounds alone in a hypoxic patient; a negative D-Dimer would effectively rule it out given the low pre-test probability.",
+        "riskAssessment": "Wells score ≈ 1.5 (tachycardia). Low probability — D-Dimer is an appropriate rule-out test.",
+        "nextAction": "Send a D-Dimer alongside the septic workup. A negative result in this low-probability patient safely excludes PE without CT radiation.",
+        "references": [
+          {
+            "type": "guideline",
+            "title": "ESC Guidelines on the Diagnosis and Management of Acute PE",
+            "source": "Eur Heart J",
+            "year": 2019,
+            "snippet": "Recommends Wells/Geneva scoring and D-Dimer for low/intermediate probability patients before imaging.",
+            "strength": "Strong"
+          },
+          {
+            "type": "paper",
+            "title": "Fever in acute pulmonary embolism",
+            "source": "Chest",
+            "year": 2000,
+            "snippet": "High-grade fever with rigors is uncommon in PE and should prompt a search for infection.",
+            "strength": "Moderate"
+          }
+        ],
+        "similarCases": [
+          {
+            "title": "59 M, pleuritic pain, hypoxia",
+            "outcome": "PE excluded by negative D-Dimer",
+            "similarity": 72,
+            "detail": "Low Wells score; infection ultimately confirmed on imaging."
+          }
+        ],
+        "trend": [
+          {
+            "label": "Intake",
+            "value": 44
+          },
+          {
+            "label": "Interview",
+            "value": 40
+          },
+          {
+            "label": "Exam",
+            "value": 34
+          },
+          {
+            "label": "Now",
+            "value": 34
+          }
+        ],
+        "discussion": [
+          {
+            "role": "doctor",
+            "text": "Why not pulmonary embolism? He is hypoxic.",
+            "time": "now"
+          },
+          {
+            "role": "ai",
+            "text": "Hypoxia is shared by both, so it doesn't discriminate. What tips me away from PE is the combination that PE rarely explains: a temperature of 38.7°C with rigors, rust-colored purulent sputum, and focal bronchial breathing over one lobe. His Wells score is about 1.5 and he has no DVT signs or immobilization. That said, I wouldn't dismiss it — a D-Dimer is cheap and, if negative, safely closes the door on PE here.",
+            "time": "now"
+          }
+        ]
+      },
+      {
+        "id": "dx-hf",
+        "name": "Acute Heart Failure",
+        "confidence": 22,
+        "priority": "Medium",
+        "category": "Cardiac",
+        "tagline": "Dyspnea in a hypertensive patient — lower likelihood",
+        "reasoning": "Hypertension and dyspnea raise heart failure as a possibility, but the febrile, focal, and productive-cough picture is not typical. No orthopnea history, no peripheral edema, normal heart sounds without a gallop, and a clear cardiac exam make decompensated heart failure unlikely as the primary driver.",
+        "supporting": [
+          "Exertional dyspnea",
+          "Hypertension",
+          "Tachycardia"
+        ],
+        "contradicting": [
+          "Fever with rigors",
+          "Focal (not bilateral basal) crackles",
+          "No gallop / normal heart sounds",
+          "No peripheral edema or orthopnea",
+          "Rust-colored sputum favors infection"
+        ],
+        "missing": [
+          "BNP / NT-proBNP",
+          "ECG",
+          "Echocardiogram if BNP elevated"
+        ],
+        "recommendedTests": [
+          "NT-proBNP",
+          "ECG",
+          "Chest X-ray (cardiac silhouette)"
+        ],
+        "confidenceExplanation": "Confidence is low because the cardinal features of decompensated heart failure (bilateral crackles, gallop, edema, orthopnea) are absent, and an infective explanation is much stronger.",
+        "whyNot100": "Not applicable — heart failure is a low-probability contributor. A normal NT-proBNP would effectively exclude it.",
+        "riskAssessment": "Low probability. Worth a single NT-proBNP to exclude given the hypertensive history and tachycardia.",
+        "nextAction": "Add NT-proBNP and ECG to the panel; no further cardiac workup unless BNP is elevated.",
+        "references": [
+          {
+            "type": "guideline",
+            "title": "ESC Guidelines for Heart Failure",
+            "source": "Eur Heart J",
+            "year": 2021,
+            "snippet": "Natriuretic peptides recommended to rule out heart failure in patients presenting with dyspnea.",
+            "strength": "Moderate"
+          }
+        ],
+        "similarCases": [
+          {
+            "title": "63 M, dyspnea + HTN",
+            "outcome": "HF excluded — normal NT-proBNP",
+            "similarity": 61,
+            "detail": "Dyspnea attributed to respiratory infection after negative cardiac workup."
+          }
+        ],
+        "trend": [
+          {
+            "label": "Intake",
+            "value": 31
+          },
+          {
+            "label": "Interview",
+            "value": 26
+          },
+          {
+            "label": "Exam",
+            "value": 22
+          },
+          {
+            "label": "Now",
+            "value": 22
+          }
+        ],
+        "discussion": [
+          {
+            "role": "doctor",
+            "text": "What finding would change your confidence in heart failure?",
+            "time": "now"
+          },
+          {
+            "role": "ai",
+            "text": "The single most decisive input would be NT-proBNP. A clearly elevated level (e.g. > 900 pg/mL for his age) plus an S3 gallop, bilateral basal crackles and peripheral edema would move heart failure up substantially. Right now every one of those cardinal signs is absent, which is why I have it at 22%. A normal BNP would let me effectively rule it out.",
+            "time": "now"
+          }
+        ]
+      }
+    ],
+    "tests": [
+      {
+        "id": "t1",
+        "name": "Chest X-ray (PA + lateral)",
+        "category": "Imaging",
+        "reason": "Confirm and localize consolidation; assess for effusion/complications.",
+        "expectedFinding": "Right lower lobe consolidation",
+        "priority": "High",
+        "cost": "$",
+        "urgency": "Immediate",
+        "diagnosticValue": 94,
+        "status": "completed",
+        "result": "Right lower lobe infiltrate",
+        "resultFlag": "abnormal",
+        "resultDetail": "Dense air-space opacification of the right lower lobe with air bronchograms. Small blunting of the right costophrenic angle (para-pneumonic effusion). No pneumothorax."
+      },
+      {
+        "id": "t2",
+        "name": "CBC with differential",
+        "category": "Hematology",
+        "reason": "Detect leukocytosis with neutrophilia supporting bacterial infection.",
+        "expectedFinding": "Elevated WBC with neutrophil predominance",
+        "priority": "High",
+        "cost": "$",
+        "urgency": "Immediate",
+        "diagnosticValue": 82,
+        "status": "completed",
+        "result": "WBC 16.4 ×10⁹/L (neutrophils 86%)",
+        "resultFlag": "abnormal",
+        "resultDetail": "Marked neutrophilic leukocytosis consistent with acute bacterial infection."
+      },
+      {
+        "id": "t3",
+        "name": "C-reactive protein (CRP)",
+        "category": "Inflammatory marker",
+        "reason": "Quantify inflammatory burden and provide a baseline to track treatment response.",
+        "expectedFinding": "Markedly elevated",
+        "priority": "High",
+        "cost": "$",
+        "urgency": "Immediate",
+        "diagnosticValue": 78,
+        "status": "completed",
+        "result": "188 mg/L",
+        "resultFlag": "critical",
+        "resultDetail": "Severely elevated (normal < 5 mg/L), strongly supporting bacterial pneumonia."
+      },
+      {
+        "id": "t4",
+        "name": "D-Dimer",
+        "category": "Coagulation",
+        "reason": "Rule out pulmonary embolism given hypoxia and pleuritic pain (low Wells).",
+        "expectedFinding": "Normal or mildly elevated",
+        "priority": "Medium",
+        "cost": "$",
+        "urgency": "Same day",
+        "diagnosticValue": 66,
+        "status": "completed",
+        "result": "0.4 mg/L (negative)",
+        "resultFlag": "normal",
+        "resultDetail": "Below threshold — combined with low Wells score, effectively excludes PE."
+      },
+      {
+        "id": "t5",
+        "name": "12-lead ECG",
+        "category": "Cardiac",
+        "reason": "Screen for right-heart strain (PE) and ischemia given chest pain.",
+        "expectedFinding": "Sinus tachycardia",
+        "priority": "Medium",
+        "cost": "$",
+        "urgency": "Same day",
+        "diagnosticValue": 55,
+        "status": "completed",
+        "result": "Sinus tachycardia, no ischemic changes",
+        "resultFlag": "normal",
+        "resultDetail": "Rate 104, no S1Q3T3, no ST-segment changes."
+      },
+      {
+        "id": "t6",
+        "name": "Blood & sputum cultures",
+        "category": "Microbiology",
+        "reason": "Identify causative organism and tailor antibiotics.",
+        "expectedFinding": "Pending (48h)",
+        "priority": "Medium",
+        "cost": "$$",
+        "urgency": "Before antibiotics",
+        "diagnosticValue": 70,
+        "status": "pending",
+        "resultDetail": "Collected prior to first antibiotic dose; results expected in 24–48 hours."
+      },
+      {
+        "id": "t7",
+        "name": "NT-proBNP",
+        "category": "Cardiac",
+        "reason": "Exclude a cardiac contribution to dyspnea.",
+        "expectedFinding": "Normal",
+        "priority": "Low",
+        "cost": "$",
+        "urgency": "Routine",
+        "diagnosticValue": 48,
+        "status": "completed",
+        "result": "120 pg/mL (normal)",
+        "resultFlag": "normal",
+        "resultDetail": "Normal for age — heart failure effectively excluded."
+      }
+    ],
+    "timeline": [
+      {
+        "time": "08:12",
+        "date": "Jul 4",
+        "title": "Patient submitted symptoms",
+        "description": "Robert completed intake describing 4 days of cough, fever and chest pain.",
+        "actor": "patient",
+        "stage": "intake"
+      },
+      {
+        "time": "08:19",
+        "date": "Jul 4",
+        "title": "AI interview completed",
+        "description": "12-message adaptive interview; structured summary generated automatically.",
+        "actor": "ai",
+        "stage": "interview"
+      },
+      {
+        "time": "08:41",
+        "date": "Jul 4",
+        "title": "Doctor opened case",
+        "description": "Dr. Nolan reviewed the AI summary and flagged as high priority.",
+        "actor": "doctor",
+        "stage": "interview"
+      },
+      {
+        "time": "09:05",
+        "date": "Jul 4",
+        "title": "Physical examination completed",
+        "description": "Vitals and focused respiratory exam entered; hypoxia and RLL crackles documented.",
+        "actor": "doctor",
+        "stage": "examination"
+      },
+      {
+        "time": "09:10",
+        "date": "Jul 4",
+        "title": "AI updated differential",
+        "description": "Pneumonia confidence rose to 84% after focal findings and hypoxia were entered.",
+        "actor": "ai",
+        "stage": "differential"
+      },
+      {
+        "time": "09:22",
+        "date": "Jul 4",
+        "title": "Tests ordered",
+        "description": "CXR, CBC, CRP, D-Dimer, ECG and cultures ordered.",
+        "actor": "doctor",
+        "stage": "tests"
+      },
+      {
+        "time": "10:48",
+        "date": "Jul 4",
+        "title": "Results received",
+        "description": "RLL infiltrate, WBC 16.4, CRP 188, D-Dimer negative. AI re-ranked differential.",
+        "actor": "system",
+        "stage": "results"
+      },
+      {
+        "time": "10:52",
+        "date": "Jul 4",
+        "title": "Final diagnosis proposed",
+        "description": "AI proposes community-acquired pneumonia at 94% confidence, awaiting physician sign-off.",
+        "actor": "ai",
+        "stage": "diagnosis"
+      }
+    ],
+    "finalDiagnosis": {
+      "name": "Community-acquired Pneumonia (right lower lobe)",
+      "confidence": 94,
+      "status": "proposed",
+      "reasoning": "Imaging confirmed a right lower lobe infiltrate matching the focal auscultation findings. Neutrophilic leukocytosis (WBC 16.4) and a markedly elevated CRP (188 mg/L) confirm a bacterial infective process. A negative D-Dimer and normal NT-proBNP exclude the two competing diagnoses (PE and heart failure). The clinical picture — rust-colored sputum, rigors, pleuritic pain — is classic for pneumococcal lobar pneumonia.",
+      "evidenceSummary": [
+        "CXR: right lower lobe consolidation with air bronchograms + small effusion",
+        "WBC 16.4 ×10⁹/L with 86% neutrophils",
+        "CRP 188 mg/L (severe inflammatory response)",
+        "Focal RLL crackles & bronchial breathing on exam",
+        "Rust-colored sputum with rigors"
+      ],
+      "ruledOut": [
+        {
+          "name": "Pulmonary Embolism",
+          "reason": "Negative D-Dimer with low Wells score; fever and consolidation favor infection."
+        },
+        {
+          "name": "Acute Heart Failure",
+          "reason": "Normal NT-proBNP; no gallop, edema, or bilateral congestion."
+        }
+      ],
+      "treatment": [
+        "Empiric antibiotics avoiding penicillins (allergy): respiratory fluoroquinolone (e.g. levofloxacin 750 mg OD) OR macrolide + cephalosporin per local policy",
+        "Supplemental oxygen to maintain SpO₂ ≥ 94%",
+        "IV fluids for dehydration; monitor glucose closely (diabetic + infection)",
+        "Antipyretics/analgesia for fever and pleuritic pain"
+      ],
+      "monitoring": [
+        "Repeat SpO₂ and RR every 4 hours",
+        "Track CRP & WBC at 48–72h for treatment response",
+        "Blood glucose q6h",
+        "Re-image if not improving by day 3"
+      ],
+      "complications": [
+        "Para-pneumonic effusion / empyema",
+        "Sepsis",
+        "Diabetic decompensation (DKA/HHS)",
+        "Respiratory failure"
+      ],
+      "followUp": [
+        "Clinical review at 48 hours",
+        "Repeat chest X-ray at 6 weeks to confirm resolution",
+        "Pneumococcal & influenza vaccination once recovered",
+        "Smoking-cessation reinforcement"
+      ]
+    },
+    "notes": [
+      {
+        "time": "09:07",
+        "author": "Dr. Nolan",
+        "text": "Focal RLL crackles confirmed, SpO₂ 92%. Agree pneumonia most likely. Sending septic screen + D-Dimer to be safe given hypoxia."
+      },
+      {
+        "time": "10:55",
+        "author": "Dr. Nolan",
+        "text": "Imaging & bloods confirm CAP. Penicillin allergy noted — will use levofloxacin. Short-stay observation given diabetes and SpO₂."
+      }
+    ],
+    "insights": [
+      {
+        "kind": "critical",
+        "title": "Borderline hypoxia",
+        "text": "SpO₂ 92% in a diabetic host — consider short-stay observation and supplemental oxygen rather than discharge."
+      },
+      {
+        "kind": "warning",
+        "title": "Penicillin allergy on file",
+        "text": "Avoid amoxicillin/co-amoxiclav. Aura has filtered antibiotic suggestions to non-penicillin options."
+      },
+      {
+        "kind": "success",
+        "title": "PE safely excluded",
+        "text": "Negative D-Dimer with a low Wells score removes pulmonary embolism from the differential without CT radiation."
+      },
+      {
+        "kind": "suggestion",
+        "title": "Diabetes co-management",
+        "text": "Infection may destabilize glucose. Recommend q6h glucose monitoring and sliding-scale review."
+      }
+    ],
+    "nextSteps": [
+      "Confirm final diagnosis and sign off pneumonia",
+      "Start non-penicillin empiric antibiotics",
+      "Admit to short-stay unit for oxygen & monitoring",
+      "Set 48-hour clinical review"
+    ],
+    "recentUpdates": [
+      {
+        "time": "6 min ago",
+        "text": "Final diagnosis proposed — CAP at 94% confidence",
+        "actor": "ai"
+      },
+      {
+        "time": "1 hr ago",
+        "text": "Test results received and differential re-ranked",
+        "actor": "system"
+      },
+      {
+        "time": "1 hr ago",
+        "text": "Dr. Nolan ordered 6 investigations",
+        "actor": "doctor"
+      },
+      {
+        "time": "2 hr ago",
+        "text": "Physical examination findings entered",
+        "actor": "doctor"
+      }
+    ],
+    "assistantThread": [
+      {
+        "role": "ai",
+        "text": "I've prepared everything for Robert's case. Community-acquired pneumonia is now confirmed at 94% confidence after imaging. Ask me anything — I can explain the differential, walk through the evidence, or draft the treatment plan.",
+        "time": "now"
+      }
+    ],
+    "progress": [
+      {
+        "key": "intake",
+        "label": "Patient Intake",
+        "status": "done"
+      },
+      {
+        "key": "interview",
+        "label": "AI Interview",
+        "status": "done"
+      },
+      {
+        "key": "examination",
+        "label": "Physical Examination",
+        "status": "done"
+      },
+      {
+        "key": "differential",
+        "label": "Differential Diagnosis",
+        "status": "done"
+      },
+      {
+        "key": "tests",
+        "label": "Tests Ordered",
+        "status": "done"
+      },
+      {
+        "key": "results",
+        "label": "Results Review",
+        "status": "done"
+      },
+      {
+        "key": "diagnosis",
+        "label": "Final Diagnosis",
+        "status": "active"
+      },
+      {
+        "key": "treatment",
+        "label": "Treatment",
+        "status": "pending"
+      },
+      {
+        "key": "followup",
+        "label": "Follow-up",
+        "status": "pending"
+      },
+      {
+        "key": "completion",
+        "label": "Completion",
+        "status": "pending"
+      }
+    ]
+  },
+  {
+    "id": "AUR-1043",
+    "status": "Awaiting Tests",
+    "stage": "tests",
+    "priority": "High",
+    "createdAt": "Jul 4, 2026 · 11:30",
+    "updatedAt": "18 minutes ago",
+    "chiefComplaint": "Migrating right lower quadrant abdominal pain — 16 hours",
+    "primaryImpression": "Acute appendicitis",
+    "patient": {
+      "name": "Sofia Marino",
+      "age": 24,
+      "gender": "Female",
+      "weight": "61 kg",
+      "height": "166 cm",
+      "bmi": "22.1",
+      "bloodType": "A+",
+      "occupation": "Graduate student",
+      "avatarHue": 330
+    },
+    "history": {
+      "previousIllnesses": [
+        "None significant"
+      ],
+      "medications": [
+        "Combined oral contraceptive pill"
+      ],
+      "allergies": [
+        "None known"
+      ],
+      "familyHistory": [
+        "Mother — migraine"
+      ],
+      "lifestyle": "Active; runs 3× weekly.",
+      "smoking": "Never",
+      "alcohol": "Social (weekends)",
+      "surgeries": [
+        "None"
+      ]
+    },
+    "complaint": {
+      "symptoms": [
+        "Periumbilical pain migrating to RLQ",
+        "Nausea",
+        "Loss of appetite",
+        "Low-grade fever"
+      ],
+      "painScale": 7,
+      "duration": "16 hours",
+      "timeline": "Started around the navel last night, now sharp in the right lower abdomen",
+      "aggravating": "Movement, coughing, walking",
+      "relieving": "Lying still with knees drawn up"
+    },
+    "vitals": {
+      "bp": "118/74",
+      "hr": "96",
+      "rr": "18",
+      "spo2": "99%",
+      "temp": "37.9°C"
+    },
+    "interview": [
+      {
+        "role": "ai",
+        "text": "Hi Sofia, I'm Aura. I'd like to understand your abdominal pain. Where did it start and where is it now?",
+        "time": "11:31"
+      },
+      {
+        "role": "patient",
+        "text": "It began around my belly button last night, kind of dull. This morning it moved and now it is sharp on the lower right side.",
+        "time": "11:31"
+      },
+      {
+        "role": "ai",
+        "text": "That migration pattern is important. Does anything make it worse — moving, coughing, or pressing on it?",
+        "time": "11:32"
+      },
+      {
+        "role": "patient",
+        "text": "Moving and coughing hurt a lot. The car ride here over bumps was awful.",
+        "time": "11:32"
+      },
+      {
+        "role": "ai",
+        "text": "Have you felt sick to your stomach or lost your appetite?",
+        "time": "11:33"
+      },
+      {
+        "role": "patient",
+        "text": "Yes, no appetite at all and a bit nauseous. I couldn't finish breakfast.",
+        "time": "11:33"
+      },
+      {
+        "role": "ai",
+        "text": "When was your last menstrual period, and is there any chance you could be pregnant?",
+        "time": "11:34"
+      },
+      {
+        "role": "patient",
+        "text": "My period finished a week ago and I take the pill. Pregnancy is very unlikely.",
+        "time": "11:34"
+      },
+      {
+        "role": "ai",
+        "text": "Thank you, Sofia. This is enough to prepare a summary. The care team will examine you shortly.",
+        "time": "11:35"
+      }
+    ],
+    "summary": {
+      "chiefComplaint": "24-year-old female with 16 hours of periumbilical pain that migrated to the right lower quadrant, with nausea and anorexia.",
+      "hpi": "Classic migratory pain beginning periumbilically and localizing to McBurney’s point. Associated anorexia, nausea and low-grade fever. Pain worsens with movement and coughing (suggesting peritoneal irritation). LMP one week ago, on OCP — pregnancy unlikely.",
+      "relevantHistory": [
+        "No prior abdominal surgery",
+        "On combined oral contraceptive"
+      ],
+      "medications": [
+        "Combined oral contraceptive pill"
+      ],
+      "riskFactors": [
+        "Age (peak incidence 10–30)"
+      ],
+      "redFlags": [
+        "Migratory RLQ pain",
+        "Pain worse with movement (peritonism)",
+        "Fever with anorexia"
+      ],
+      "timeline": [
+        {
+          "time": "~19:00 (last night)",
+          "event": "Dull periumbilical pain begins"
+        },
+        {
+          "time": "Morning",
+          "event": "Pain migrates to RLQ, becomes sharp"
+        },
+        {
+          "time": "Now",
+          "event": "Nausea, anorexia, low-grade fever"
+        }
+      ],
+      "symptoms": [
+        "Migratory RLQ pain",
+        "Nausea",
+        "Anorexia",
+        "Low-grade fever"
+      ],
+      "findings": [
+        "Presentation classic for appendicitis",
+        "Need to exclude gynecological causes",
+        "Assess for peritoneal signs"
+      ]
+    },
+    "exams": [
+      {
+        "id": "e1",
+        "name": "Abdominal palpation (RLQ)",
+        "reason": "Elicit McBurney point tenderness and guarding.",
+        "importance": "Critical",
+        "confidence": 93,
+        "status": "complete",
+        "finding": "Tenderness + guarding at McBurney point",
+        "normalRange": "Soft, non-tender",
+        "flag": "abnormal"
+      },
+      {
+        "id": "e2",
+        "name": "Rovsing sign",
+        "reason": "Palpation of LLQ eliciting RLQ pain supports appendicitis.",
+        "importance": "Important",
+        "confidence": 85,
+        "status": "complete",
+        "finding": "Positive",
+        "normalRange": "Negative",
+        "flag": "abnormal"
+      },
+      {
+        "id": "e3",
+        "name": "Rebound tenderness",
+        "reason": "Assess for peritoneal irritation.",
+        "importance": "Important",
+        "confidence": 82,
+        "status": "complete",
+        "finding": "Positive rebound in RLQ",
+        "normalRange": "Negative",
+        "flag": "abnormal"
+      },
+      {
+        "id": "e4",
+        "name": "Temperature",
+        "reason": "Low-grade fever supports inflammation.",
+        "importance": "Routine",
+        "confidence": 88,
+        "status": "complete",
+        "finding": "37.9°C",
+        "normalRange": "36.1–37.2°C",
+        "flag": "abnormal"
+      },
+      {
+        "id": "e5",
+        "name": "Psoas sign",
+        "reason": "Retrocecal appendix irritation of psoas muscle.",
+        "importance": "Routine",
+        "confidence": 70,
+        "status": "complete",
+        "finding": "Mildly positive",
+        "normalRange": "Negative",
+        "flag": "abnormal"
+      }
+    ],
+    "diagnoses": [
+      {
+        "id": "dx-appy",
+        "name": "Acute Appendicitis",
+        "confidence": 88,
+        "priority": "High",
+        "category": "Surgical abdomen",
+        "tagline": "Uncomplicated acute appendicitis — Alvarado 8/10",
+        "reasoning": "Textbook migratory pain to McBurney point with anorexia, nausea, low-grade fever, guarding, positive Rovsing and rebound. Alvarado score of 8 places this at high probability. Ultrasound/CT will confirm and exclude perforation.",
+        "supporting": [
+          "Migratory RLQ pain",
+          "McBurney tenderness + guarding",
+          "Positive Rovsing & rebound",
+          "Anorexia + nausea",
+          "Low-grade fever"
+        ],
+        "contradicting": [
+          "Imaging not yet performed",
+          "WBC pending"
+        ],
+        "missing": [
+          "CBC (leukocytosis)",
+          "Abdominal ultrasound / CT",
+          "Urine β-hCG",
+          "Urinalysis"
+        ],
+        "recommendedTests": [
+          "CBC",
+          "CRP",
+          "Abdominal ultrasound",
+          "Urine β-hCG"
+        ],
+        "confidenceExplanation": "Alvarado score 8/10 (migration +1, anorexia +1, nausea +1, RLQ tenderness +2, rebound +1, fever +1, leukocytosis pending). High clinical probability drives confidence to 88%.",
+        "whyNot100": "Imaging confirmation and a white cell count are still pending. A normal appendix on a good-quality ultrasound would substantially lower confidence.",
+        "riskAssessment": "High risk of progression to perforation if delayed > 24–48h. Surgical review should not wait for all results.",
+        "nextAction": "Keep nil-by-mouth, IV fluids, analgesia, urgent surgical consult, and expedite ultrasound + bloods.",
+        "references": [
+          {
+            "type": "guideline",
+            "title": "World Society of Emergency Surgery — Jerusalem Guidelines for Acute Appendicitis",
+            "source": "World J Emerg Surg",
+            "year": 2020,
+            "snippet": "Recommends Alvarado/AIR scoring with imaging to reduce negative appendectomy rate.",
+            "strength": "Strong"
+          },
+          {
+            "type": "paper",
+            "title": "Diagnostic accuracy of the Alvarado score",
+            "source": "BMJ",
+            "year": 2011,
+            "snippet": "Alvarado ≥ 7 has high sensitivity for appendicitis in adults.",
+            "strength": "Moderate"
+          }
+        ],
+        "similarCases": [
+          {
+            "title": "22 F, migratory RLQ pain",
+            "outcome": "Laparoscopic appendectomy — uncomplicated",
+            "similarity": 90,
+            "detail": "Alvarado 8, US showed non-compressible appendix; recovered in 2 days."
+          }
+        ],
+        "trend": [
+          {
+            "label": "Intake",
+            "value": 70
+          },
+          {
+            "label": "Interview",
+            "value": 78
+          },
+          {
+            "label": "Exam",
+            "value": 88
+          },
+          {
+            "label": "Now",
+            "value": 88
+          }
+        ],
+        "discussion": [
+          {
+            "role": "doctor",
+            "text": "What test should I order first?",
+            "time": "now"
+          },
+          {
+            "role": "ai",
+            "text": "A urine β-hCG first — it is fast and rules out ectopic pregnancy, which is the can’t-miss mimic in a woman of this age. Then a CBC/CRP and a graded-compression ultrasound of the RLQ. In parallel, I would not delay the surgical consult; an Alvarado of 8 warrants review regardless of imaging turnaround.",
+            "time": "now"
+          }
+        ]
+      },
+      {
+        "id": "dx-ovarian",
+        "name": "Ovarian Torsion / Cyst",
+        "confidence": 31,
+        "priority": "Medium",
+        "category": "Gynecological",
+        "tagline": "Must-exclude gynecological mimic",
+        "reasoning": "Right adnexal pathology can mimic appendicitis. However, the classic migratory pattern and GI symptoms favor appendicitis. Pelvic ultrasound with Doppler will assess adnexae and blood flow.",
+        "supporting": [
+          "RLQ pain in a young woman",
+          "Nausea"
+        ],
+        "contradicting": [
+          "Classic periumbilical→RLQ migration",
+          "Anorexia + fever (more infective/inflammatory)",
+          "No sudden severe onset typical of torsion"
+        ],
+        "missing": [
+          "Pelvic ultrasound with Doppler",
+          "Urine β-hCG"
+        ],
+        "recommendedTests": [
+          "Pelvic ultrasound (Doppler)",
+          "Urine β-hCG"
+        ],
+        "confidenceExplanation": "Kept on the differential because of sex and pain location, but the migratory GI-predominant picture is atypical for torsion.",
+        "whyNot100": "Torsion is a surgical emergency that imaging must exclude; a normal Doppler flow lowers it further.",
+        "riskAssessment": "Moderate — torsion threatens ovarian viability, so imaging should assess adnexal flow.",
+        "nextAction": "Ensure the ultrasound request explicitly includes pelvic views with Doppler.",
+        "references": [
+          {
+            "type": "textbook",
+            "title": "Williams Gynecology — Adnexal Masses",
+            "source": "4th ed.",
+            "year": 2020,
+            "snippet": "Torsion classically presents with sudden severe unilateral pain, often with a palpable mass.",
+            "strength": "Supportive"
+          }
+        ],
+        "similarCases": [
+          {
+            "title": "26 F, RLQ pain",
+            "outcome": "Appendicitis confirmed; ovaries normal",
+            "similarity": 64,
+            "detail": "Doppler normal, appendix inflamed on US."
+          }
+        ],
+        "trend": [
+          {
+            "label": "Intake",
+            "value": 40
+          },
+          {
+            "label": "Interview",
+            "value": 35
+          },
+          {
+            "label": "Exam",
+            "value": 31
+          },
+          {
+            "label": "Now",
+            "value": 31
+          }
+        ],
+        "discussion": []
+      },
+      {
+        "id": "dx-uti",
+        "name": "Urinary Tract Infection",
+        "confidence": 15,
+        "priority": "Low",
+        "category": "Infective",
+        "tagline": "Lower likelihood — screen with urinalysis",
+        "reasoning": "Right-sided pain and fever could reflect a UTI, but there are no urinary symptoms and the pain pattern is not typical. A urinalysis is a cheap screen.",
+        "supporting": [
+          "Fever",
+          "Abdominal pain"
+        ],
+        "contradicting": [
+          "No dysuria/frequency",
+          "Migratory pain to McBurney point",
+          "Anorexia predominates"
+        ],
+        "missing": [
+          "Urinalysis"
+        ],
+        "recommendedTests": [
+          "Urinalysis",
+          "Urine culture"
+        ],
+        "confidenceExplanation": "Absence of urinary symptoms keeps this low; included for completeness and easy exclusion.",
+        "whyNot100": "A clean urinalysis effectively removes it.",
+        "riskAssessment": "Low.",
+        "nextAction": "Include urinalysis with the workup.",
+        "references": [],
+        "similarCases": [],
+        "trend": [
+          {
+            "label": "Intake",
+            "value": 20
+          },
+          {
+            "label": "Exam",
+            "value": 15
+          },
+          {
+            "label": "Now",
+            "value": 15
+          }
+        ],
+        "discussion": []
+      }
+    ],
+    "tests": [
+      {
+        "id": "t1",
+        "name": "Urine β-hCG",
+        "category": "Point-of-care",
+        "reason": "Exclude pregnancy/ectopic before imaging & surgery.",
+        "expectedFinding": "Negative",
+        "priority": "High",
+        "cost": "$",
+        "urgency": "Immediate",
+        "diagnosticValue": 75,
+        "status": "completed",
+        "result": "Negative",
+        "resultFlag": "normal",
+        "resultDetail": "Pregnancy excluded."
+      },
+      {
+        "id": "t2",
+        "name": "CBC with differential",
+        "category": "Hematology",
+        "reason": "Detect leukocytosis supporting appendicitis.",
+        "expectedFinding": "Mild leukocytosis",
+        "priority": "High",
+        "cost": "$",
+        "urgency": "Immediate",
+        "diagnosticValue": 72,
+        "status": "completed",
+        "result": "WBC 13.8 ×10⁹/L (neutrophilia)",
+        "resultFlag": "abnormal",
+        "resultDetail": "Leukocytosis with left shift consistent with appendicitis."
+      },
+      {
+        "id": "t3",
+        "name": "Graded-compression ultrasound (RLQ + pelvis)",
+        "category": "Imaging",
+        "reason": "Visualize appendix and adnexae with Doppler.",
+        "expectedFinding": "Non-compressible appendix > 6mm",
+        "priority": "High",
+        "cost": "$$",
+        "urgency": "Urgent",
+        "diagnosticValue": 88,
+        "status": "ordered",
+        "resultDetail": "Requested with pelvic Doppler views. Awaiting sonographer."
+      },
+      {
+        "id": "t4",
+        "name": "CRP",
+        "category": "Inflammatory marker",
+        "reason": "Support inflammatory process; baseline for monitoring.",
+        "expectedFinding": "Elevated",
+        "priority": "Medium",
+        "cost": "$",
+        "urgency": "Same day",
+        "diagnosticValue": 60,
+        "status": "completed",
+        "result": "54 mg/L",
+        "resultFlag": "abnormal",
+        "resultDetail": "Moderately elevated, consistent with acute inflammation."
+      },
+      {
+        "id": "t5",
+        "name": "Urinalysis",
+        "category": "Point-of-care",
+        "reason": "Screen for UTI and hematuria (stones).",
+        "expectedFinding": "Normal",
+        "priority": "Low",
+        "cost": "$",
+        "urgency": "Same day",
+        "diagnosticValue": 45,
+        "status": "completed",
+        "result": "No nitrites/leukocytes",
+        "resultFlag": "normal",
+        "resultDetail": "UTI unlikely."
+      }
+    ],
+    "timeline": [
+      {
+        "time": "11:30",
+        "date": "Jul 4",
+        "title": "Patient submitted symptoms",
+        "description": "Sofia described 16h of migrating abdominal pain.",
+        "actor": "patient",
+        "stage": "intake"
+      },
+      {
+        "time": "11:35",
+        "date": "Jul 4",
+        "title": "AI interview completed",
+        "description": "Structured summary generated; gynecological causes flagged for exclusion.",
+        "actor": "ai",
+        "stage": "interview"
+      },
+      {
+        "time": "11:52",
+        "date": "Jul 4",
+        "title": "Physical examination completed",
+        "description": "McBurney tenderness, positive Rovsing and rebound documented.",
+        "actor": "doctor",
+        "stage": "examination"
+      },
+      {
+        "time": "12:00",
+        "date": "Jul 4",
+        "title": "AI differential generated",
+        "description": "Appendicitis 88% (Alvarado 8), with gynecological mimics flagged.",
+        "actor": "ai",
+        "stage": "differential"
+      },
+      {
+        "time": "12:10",
+        "date": "Jul 4",
+        "title": "Tests ordered",
+        "description": "β-hCG, CBC, CRP, urinalysis and ultrasound ordered; surgery consulted.",
+        "actor": "doctor",
+        "stage": "tests"
+      }
+    ],
+    "notes": [
+      {
+        "time": "11:54",
+        "author": "Dr. Adeyemi",
+        "text": "Classic appendicitis picture, Alvarado 8. β-hCG negative. Surgery informed, awaiting US. NBM + IV fluids started."
+      }
+    ],
+    "insights": [
+      {
+        "kind": "critical",
+        "title": "Time-sensitive surgical case",
+        "text": "Risk of perforation rises after 24–48h. Aura recommends surgical review now, in parallel with imaging."
+      },
+      {
+        "kind": "success",
+        "title": "Pregnancy excluded",
+        "text": "Negative β-hCG removes ectopic pregnancy — the key can’t-miss mimic — from the differential."
+      },
+      {
+        "kind": "suggestion",
+        "title": "Analgesia is safe",
+        "text": "Evidence shows analgesia does not mask the surgical abdomen; adequate pain relief is recommended."
+      }
+    ],
+    "nextSteps": [
+      "Await ultrasound to confirm appendicitis",
+      "Continue NBM + IV fluids + analgesia",
+      "Surgical review for likely laparoscopic appendectomy"
+    ],
+    "recentUpdates": [
+      {
+        "time": "18 min ago",
+        "text": "Bloods back: WBC 13.8, CRP 54 — supportive",
+        "actor": "system"
+      },
+      {
+        "time": "40 min ago",
+        "text": "β-hCG negative",
+        "actor": "system"
+      },
+      {
+        "time": "55 min ago",
+        "text": "Ultrasound ordered with pelvic Doppler",
+        "actor": "doctor"
+      }
+    ],
+    "assistantThread": [
+      {
+        "role": "ai",
+        "text": "Sofia's presentation is a classic Alvarado-8 appendicitis. Bloods support it and pregnancy is excluded — we're waiting on ultrasound. Ask me about the differential or what to prioritize while imaging is pending.",
+        "time": "now"
+      }
+    ],
+    "progress": [
+      {
+        "key": "intake",
+        "label": "Patient Intake",
+        "status": "done"
+      },
+      {
+        "key": "interview",
+        "label": "AI Interview",
+        "status": "done"
+      },
+      {
+        "key": "examination",
+        "label": "Physical Examination",
+        "status": "done"
+      },
+      {
+        "key": "differential",
+        "label": "Differential Diagnosis",
+        "status": "done"
+      },
+      {
+        "key": "tests",
+        "label": "Tests Ordered",
+        "status": "active"
+      },
+      {
+        "key": "results",
+        "label": "Results Review",
+        "status": "pending"
+      },
+      {
+        "key": "diagnosis",
+        "label": "Final Diagnosis",
+        "status": "pending"
+      },
+      {
+        "key": "treatment",
+        "label": "Treatment",
+        "status": "pending"
+      },
+      {
+        "key": "followup",
+        "label": "Follow-up",
+        "status": "pending"
+      },
+      {
+        "key": "completion",
+        "label": "Completion",
+        "status": "pending"
+      }
+    ]
+  },
+  {
+    "id": "AUR-1044",
+    "status": "Diagnosis in Progress",
+    "stage": "differential",
+    "priority": "High",
+    "createdAt": "Jul 3, 2026 · 16:05",
+    "updatedAt": "2 hours ago",
+    "chiefComplaint": "Worsening breathlessness, leg swelling & orthopnea — 1 week",
+    "primaryImpression": "Decompensated heart failure",
+    "patient": {
+      "name": "Margaret Ellis",
+      "age": 71,
+      "gender": "Female",
+      "weight": "78 kg",
+      "height": "162 cm",
+      "bmi": "29.7",
+      "bloodType": "B+",
+      "occupation": "Retired teacher",
+      "avatarHue": 268
+    },
+    "history": {
+      "previousIllnesses": [
+        "Hypertension (15 yrs)",
+        "Atrial fibrillation",
+        "Prior myocardial infarction (2019)",
+        "Chronic kidney disease stage 3"
+      ],
+      "medications": [
+        "Bisoprolol 5 mg OD",
+        "Apixaban 5 mg BID",
+        "Furosemide 40 mg OD",
+        "Ramipril 5 mg OD"
+      ],
+      "allergies": [
+        "None known"
+      ],
+      "familyHistory": [
+        "Father — ischemic heart disease",
+        "Brother — stroke"
+      ],
+      "lifestyle": "Limited mobility; increasingly housebound.",
+      "smoking": "Ex-smoker, quit 15 years ago",
+      "alcohol": "Rare",
+      "surgeries": [
+        "Coronary stent (2019)"
+      ]
+    },
+    "complaint": {
+      "symptoms": [
+        "Progressive exertional dyspnea",
+        "Orthopnea (4 pillows)",
+        "Paroxysmal nocturnal dyspnea",
+        "Bilateral ankle swelling",
+        "Fatigue",
+        "Weight gain 3 kg in a week"
+      ],
+      "painScale": 2,
+      "duration": "1 week",
+      "timeline": "Gradually worsening; now breathless at rest",
+      "aggravating": "Lying flat, exertion",
+      "relieving": "Sitting upright, propping with pillows"
+    },
+    "vitals": {
+      "bp": "158/96",
+      "hr": "108 (irregular)",
+      "rr": "26",
+      "spo2": "90%",
+      "temp": "36.8°C"
+    },
+    "interview": [
+      {
+        "role": "ai",
+        "text": "Hello Margaret, I'm Aura. Can you tell me how your breathing has changed over the past week?",
+        "time": "16:06"
+      },
+      {
+        "role": "patient",
+        "text": "I get out of breath just walking to the kitchen. At night I wake up gasping and have to sit up.",
+        "time": "16:06"
+      },
+      {
+        "role": "ai",
+        "text": "How many pillows do you sleep on now compared to before?",
+        "time": "16:07"
+      },
+      {
+        "role": "patient",
+        "text": "I am up to four pillows. If I lie flat I feel like I am suffocating.",
+        "time": "16:07"
+      },
+      {
+        "role": "ai",
+        "text": "Have you noticed swelling in your ankles or a change in your weight?",
+        "time": "16:08"
+      },
+      {
+        "role": "patient",
+        "text": "My ankles are puffy by evening and my scales are up about 3 kilos this week.",
+        "time": "16:08"
+      },
+      {
+        "role": "ai",
+        "text": "Any chest pain, palpitations, or missed medication doses recently?",
+        "time": "16:09"
+      },
+      {
+        "role": "patient",
+        "text": "No real chest pain. My heart flutters sometimes. I did run out of my water tablet for a few days.",
+        "time": "16:09"
+      },
+      {
+        "role": "ai",
+        "text": "Thank you, Margaret — that missed diuretic is an important clue. I will prepare a summary for your cardiologist.",
+        "time": "16:10"
+      }
+    ],
+    "summary": {
+      "chiefComplaint": "71-year-old female with 1 week of progressive dyspnea, orthopnea (4 pillows), PND, bilateral ankle edema and 3 kg weight gain.",
+      "hpi": "Progressive congestive symptoms over one week on a background of ischemic cardiomyopathy, AF and CKD. Orthopnea, PND and peripheral edema with rapid weight gain point to fluid overload. Notably lapsed her furosemide for several days — a common precipitant of decompensation.",
+      "relevantHistory": [
+        "Prior MI with stent (2019)",
+        "Atrial fibrillation on apixaban",
+        "CKD stage 3",
+        "Long-standing hypertension"
+      ],
+      "medications": [
+        "Bisoprolol",
+        "Apixaban",
+        "Furosemide (recently lapsed)",
+        "Ramipril"
+      ],
+      "riskFactors": [
+        "Ischemic cardiomyopathy",
+        "Uncontrolled hypertension",
+        "Medication non-adherence",
+        "AF"
+      ],
+      "redFlags": [
+        "SpO₂ 90%",
+        "RR 26",
+        "Orthopnea + PND",
+        "Rapid weight gain"
+      ],
+      "timeline": [
+        {
+          "time": "7 days ago",
+          "event": "Ran out of furosemide"
+        },
+        {
+          "time": "4 days ago",
+          "event": "Ankle swelling and mild breathlessness"
+        },
+        {
+          "time": "1 day ago",
+          "event": "PND, sleeping upright on 4 pillows"
+        },
+        {
+          "time": "Today",
+          "event": "Breathless at rest, presents to clinic"
+        }
+      ],
+      "symptoms": [
+        "Exertional dyspnea",
+        "Orthopnea",
+        "PND",
+        "Peripheral edema",
+        "Weight gain",
+        "Fatigue"
+      ],
+      "findings": [
+        "Congestive picture consistent with decompensated HF",
+        "Likely diuretic-lapse precipitant",
+        "Assess renal function given CKD + diuresis"
+      ]
+    },
+    "exams": [
+      {
+        "id": "e1",
+        "name": "JVP assessment",
+        "reason": "Raised JVP indicates volume overload.",
+        "importance": "Critical",
+        "confidence": 90,
+        "status": "complete",
+        "finding": "Elevated to 6 cm above sternal angle",
+        "normalRange": "< 3 cm",
+        "flag": "abnormal"
+      },
+      {
+        "id": "e2",
+        "name": "Lung auscultation",
+        "reason": "Bibasal crackles indicate pulmonary edema.",
+        "importance": "Critical",
+        "confidence": 89,
+        "status": "complete",
+        "finding": "Bibasal fine crackles",
+        "normalRange": "Clear",
+        "flag": "abnormal"
+      },
+      {
+        "id": "e3",
+        "name": "Peripheral edema",
+        "reason": "Assess degree of fluid overload.",
+        "importance": "Important",
+        "confidence": 92,
+        "status": "complete",
+        "finding": "Pitting edema to mid-shin bilaterally",
+        "normalRange": "None",
+        "flag": "abnormal"
+      },
+      {
+        "id": "e4",
+        "name": "Cardiac auscultation",
+        "reason": "Detect gallop rhythm / murmurs.",
+        "importance": "Important",
+        "confidence": 84,
+        "status": "complete",
+        "finding": "Irregularly irregular, S3 gallop present",
+        "normalRange": "Regular, no gallop",
+        "flag": "abnormal"
+      },
+      {
+        "id": "e5",
+        "name": "Oxygen saturation",
+        "reason": "Assess pulmonary congestion severity.",
+        "importance": "Critical",
+        "confidence": 95,
+        "status": "complete",
+        "finding": "90% on room air",
+        "normalRange": "≥ 95%",
+        "flag": "abnormal"
+      }
+    ],
+    "diagnoses": [
+      {
+        "id": "dx-hf",
+        "name": "Decompensated Heart Failure",
+        "confidence": 86,
+        "priority": "High",
+        "category": "Cardiac",
+        "tagline": "Acute-on-chronic HFrEF, diuretic-lapse precipitant",
+        "reasoning": "The congestive syndrome — orthopnea, PND, raised JVP, bibasal crackles, S3 gallop, peripheral edema and rapid weight gain — on a background of ischemic cardiomyopathy is diagnostic of decompensated heart failure. A lapsed diuretic is the likely trigger. NT-proBNP and echo will confirm and grade severity.",
+        "supporting": [
+          "Orthopnea + PND",
+          "Raised JVP",
+          "S3 gallop",
+          "Bibasal crackles",
+          "Bilateral pitting edema",
+          "3 kg weight gain",
+          "Prior MI"
+        ],
+        "contradicting": [
+          "Confirmatory NT-proBNP pending",
+          "No echo yet"
+        ],
+        "missing": [
+          "NT-proBNP",
+          "Echocardiogram (EF)",
+          "Renal function & electrolytes",
+          "Chest X-ray"
+        ],
+        "recommendedTests": [
+          "NT-proBNP",
+          "Echocardiogram",
+          "U&E / creatinine",
+          "Chest X-ray",
+          "ECG"
+        ],
+        "confidenceExplanation": "Multiple cardinal congestive signs each add substantial weight (JVP +16, S3 +14, orthopnea/PND +18, edema +12, weight gain +10). Pending BNP/echo currently caps confidence at 86%.",
+        "whyNot100": "Objective confirmation (elevated NT-proBNP, reduced EF on echo) is pending. A normal BNP would be highly unusual given the exam and would force reconsideration.",
+        "riskAssessment": "High — resting hypoxia and CKD raise the risk of cardiorenal deterioration. Needs prompt IV diuresis with close renal monitoring.",
+        "nextAction": "Start IV furosemide, monitor U&E and fluid balance, obtain NT-proBNP, ECG, CXR and echo. Review anticoagulation and rate control for AF.",
+        "references": [
+          {
+            "type": "guideline",
+            "title": "ESC Guidelines for the Diagnosis and Treatment of Acute and Chronic Heart Failure",
+            "source": "Eur Heart J",
+            "year": 2021,
+            "snippet": "Natriuretic peptides + echocardiography are central to diagnosis; treat congestion with loop diuretics.",
+            "strength": "Strong"
+          },
+          {
+            "type": "paper",
+            "title": "Precipitants of heart failure hospitalization",
+            "source": "JACC",
+            "year": 2018,
+            "snippet": "Medication non-adherence and dietary indiscretion are among the most common precipitants.",
+            "strength": "Moderate"
+          }
+        ],
+        "similarCases": [
+          {
+            "title": "74 F, HFrEF decompensation",
+            "outcome": "Recovered with IV diuresis",
+            "similarity": 88,
+            "detail": "Diuretic lapse precipitant; EF 35% on echo, discharged after optimization."
+          }
+        ],
+        "trend": [
+          {
+            "label": "Intake",
+            "value": 64
+          },
+          {
+            "label": "Interview",
+            "value": 74
+          },
+          {
+            "label": "Exam",
+            "value": 86
+          },
+          {
+            "label": "Now",
+            "value": 86
+          }
+        ],
+        "discussion": [
+          {
+            "role": "doctor",
+            "text": "Could this be a COPD exacerbation instead?",
+            "time": "now"
+          },
+          {
+            "role": "ai",
+            "text": "It is worth considering, but several features point away from airways disease: she has orthopnea and PND, an S3 gallop, a raised JVP and pitting edema — all congestive signs rather than bronchospasm. She is an ex-smoker without a documented COPD diagnosis or wheeze. If the chest X-ray shows interstitial edema and NT-proBNP is high, heart failure is confirmed. I would still auscultate for wheeze and check the CXR for hyperinflation to be thorough.",
+            "time": "now"
+          }
+        ]
+      },
+      {
+        "id": "dx-copd",
+        "name": "COPD Exacerbation",
+        "confidence": 28,
+        "priority": "Medium",
+        "category": "Respiratory",
+        "tagline": "Ex-smoker with dyspnea — less likely",
+        "reasoning": "Smoking history and dyspnea raise COPD, but the congestive signs (edema, orthopnea, S3, raised JVP) are cardiac, not respiratory. No wheeze or documented obstructive disease.",
+        "supporting": [
+          "Ex-smoker",
+          "Dyspnea",
+          "Hypoxia"
+        ],
+        "contradicting": [
+          "Orthopnea + PND",
+          "Raised JVP + S3",
+          "Peripheral edema",
+          "No wheeze / no COPD diagnosis"
+        ],
+        "missing": [
+          "Spirometry (when stable)",
+          "Chest X-ray"
+        ],
+        "recommendedTests": [
+          "Chest X-ray",
+          "ABG"
+        ],
+        "confidenceExplanation": "Congestive signs dominate; the airflow-obstruction picture is absent. Kept for completeness.",
+        "whyNot100": "A CXR and BNP will discriminate; overlap syndromes exist in older smokers.",
+        "riskAssessment": "Low–moderate; treat the dominant cardiac process first.",
+        "nextAction": "CXR to distinguish congestion from hyperinflation.",
+        "references": [],
+        "similarCases": [],
+        "trend": [
+          {
+            "label": "Intake",
+            "value": 38
+          },
+          {
+            "label": "Exam",
+            "value": 28
+          },
+          {
+            "label": "Now",
+            "value": 28
+          }
+        ],
+        "discussion": []
+      },
+      {
+        "id": "dx-pe2",
+        "name": "Pulmonary Embolism",
+        "confidence": 18,
+        "priority": "Medium",
+        "category": "Vascular",
+        "tagline": "Low likelihood on anticoagulation",
+        "reasoning": "PE causes dyspnea and hypoxia, but she is therapeutically anticoagulated with apixaban and the picture is congestive/bilateral rather than pleuritic. Low probability.",
+        "supporting": [
+          "Dyspnea",
+          "Hypoxia",
+          "Tachycardia (AF)"
+        ],
+        "contradicting": [
+          "On apixaban (therapeutic)",
+          "Bilateral congestive signs",
+          "No pleuritic pain / no DVT signs"
+        ],
+        "missing": [
+          "D-Dimer (limited value on anticoagulation)"
+        ],
+        "recommendedTests": [
+          "CTPA only if clinical suspicion rises"
+        ],
+        "confidenceExplanation": "Therapeutic anticoagulation and a congestive picture keep this low.",
+        "whyNot100": "Cannot be fully excluded clinically, but pre-test probability is low.",
+        "riskAssessment": "Low.",
+        "nextAction": "No PE-specific workup unless she fails to respond to diuresis.",
+        "references": [],
+        "similarCases": [],
+        "trend": [
+          {
+            "label": "Intake",
+            "value": 24
+          },
+          {
+            "label": "Exam",
+            "value": 18
+          },
+          {
+            "label": "Now",
+            "value": 18
+          }
+        ],
+        "discussion": []
+      }
+    ],
+    "tests": [
+      {
+        "id": "t1",
+        "name": "NT-proBNP",
+        "category": "Cardiac",
+        "reason": "Confirm heart failure and grade severity.",
+        "expectedFinding": "Markedly elevated",
+        "priority": "High",
+        "cost": "$",
+        "urgency": "Immediate",
+        "diagnosticValue": 85,
+        "status": "ordered",
+        "resultDetail": "Sample sent; result pending."
+      },
+      {
+        "id": "t2",
+        "name": "Echocardiogram",
+        "category": "Imaging",
+        "reason": "Assess ejection fraction and valves.",
+        "expectedFinding": "Reduced EF",
+        "priority": "High",
+        "cost": "$$",
+        "urgency": "Urgent",
+        "diagnosticValue": 90,
+        "status": "ordered",
+        "resultDetail": "Booked with cardiology."
+      },
+      {
+        "id": "t3",
+        "name": "U&E / creatinine",
+        "category": "Biochemistry",
+        "reason": "Baseline renal function before aggressive diuresis (CKD).",
+        "expectedFinding": "Impaired",
+        "priority": "High",
+        "cost": "$",
+        "urgency": "Immediate",
+        "diagnosticValue": 70,
+        "status": "ordered",
+        "resultDetail": "Result pending."
+      },
+      {
+        "id": "t4",
+        "name": "Chest X-ray",
+        "category": "Imaging",
+        "reason": "Assess pulmonary congestion / cardiomegaly.",
+        "expectedFinding": "Interstitial edema, cardiomegaly",
+        "priority": "Medium",
+        "cost": "$",
+        "urgency": "Same day",
+        "diagnosticValue": 68,
+        "status": "ordered",
+        "resultDetail": "Awaiting."
+      },
+      {
+        "id": "t5",
+        "name": "12-lead ECG",
+        "category": "Cardiac",
+        "reason": "Assess AF rate and ischemia.",
+        "expectedFinding": "AF with rapid ventricular response",
+        "priority": "Medium",
+        "cost": "$",
+        "urgency": "Immediate",
+        "diagnosticValue": 60,
+        "status": "completed",
+        "result": "AF, ventricular rate 108, no acute ischemia",
+        "resultFlag": "abnormal",
+        "resultDetail": "Rate-controlled review recommended."
+      }
+    ],
+    "timeline": [
+      {
+        "time": "16:05",
+        "date": "Jul 3",
+        "title": "Patient submitted symptoms",
+        "description": "Margaret described 1 week of worsening breathlessness and swelling.",
+        "actor": "patient",
+        "stage": "intake"
+      },
+      {
+        "time": "16:10",
+        "date": "Jul 3",
+        "title": "AI interview completed",
+        "description": "Diuretic lapse identified as likely precipitant.",
+        "actor": "ai",
+        "stage": "interview"
+      },
+      {
+        "time": "16:30",
+        "date": "Jul 3",
+        "title": "Physical examination completed",
+        "description": "Raised JVP, S3 gallop, bibasal crackles, pitting edema documented.",
+        "actor": "doctor",
+        "stage": "examination"
+      },
+      {
+        "time": "16:40",
+        "date": "Jul 3",
+        "title": "AI differential generated",
+        "description": "Decompensated HF 86%; COPD and PE considered and down-weighted.",
+        "actor": "ai",
+        "stage": "differential"
+      }
+    ],
+    "notes": [
+      {
+        "time": "16:33",
+        "author": "Dr. Chen",
+        "text": "Clear congestive picture, likely diuretic lapse. Starting IV furosemide, watching renals given CKD. NT-proBNP + echo requested."
+      }
+    ],
+    "insights": [
+      {
+        "kind": "critical",
+        "title": "Cardiorenal risk",
+        "text": "CKD stage 3 plus aggressive diuresis risks worsening renal function — Aura recommends daily U&E and cautious diuretic titration."
+      },
+      {
+        "kind": "suggestion",
+        "title": "Adherence support",
+        "text": "Decompensation followed a lapsed diuretic. Consider a blister-pack and pharmacy follow-up to prevent readmission."
+      },
+      {
+        "kind": "warning",
+        "title": "Rate control in AF",
+        "text": "Ventricular rate 108 — review bisoprolol dosing once euvolemic."
+      }
+    ],
+    "nextSteps": [
+      "Await NT-proBNP & echo to confirm HFrEF",
+      "IV diuresis with daily renal monitoring",
+      "Optimize AF rate control",
+      "Medication-adherence plan"
+    ],
+    "recentUpdates": [
+      {
+        "time": "2 hr ago",
+        "text": "ECG confirms AF at 108 bpm",
+        "actor": "system"
+      },
+      {
+        "time": "2 hr ago",
+        "text": "IV furosemide started",
+        "actor": "doctor"
+      },
+      {
+        "time": "3 hr ago",
+        "text": "AI differential generated — HF 86%",
+        "actor": "ai"
+      }
+    ],
+    "assistantThread": [
+      {
+        "role": "ai",
+        "text": "Margaret shows a textbook congestive picture — decompensated heart failure at 86%, most likely triggered by a lapsed diuretic. NT-proBNP and echo are pending. Ask me about the precipitant, the cardiorenal balance, or alternative diagnoses.",
+        "time": "now"
+      }
+    ],
+    "progress": [
+      {
+        "key": "intake",
+        "label": "Patient Intake",
+        "status": "done"
+      },
+      {
+        "key": "interview",
+        "label": "AI Interview",
+        "status": "done"
+      },
+      {
+        "key": "examination",
+        "label": "Physical Examination",
+        "status": "done"
+      },
+      {
+        "key": "differential",
+        "label": "Differential Diagnosis",
+        "status": "active"
+      },
+      {
+        "key": "tests",
+        "label": "Tests Ordered",
+        "status": "pending"
+      },
+      {
+        "key": "results",
+        "label": "Results Review",
+        "status": "pending"
+      },
+      {
+        "key": "diagnosis",
+        "label": "Final Diagnosis",
+        "status": "pending"
+      },
+      {
+        "key": "treatment",
+        "label": "Treatment",
+        "status": "pending"
+      },
+      {
+        "key": "followup",
+        "label": "Follow-up",
+        "status": "pending"
+      },
+      {
+        "key": "completion",
+        "label": "Completion",
+        "status": "pending"
+      }
+    ]
+  },
+  {
+    "id": "AUR-1045",
+    "status": "Awaiting Examination",
+    "stage": "examination",
+    "priority": "Medium",
+    "createdAt": "Jul 4, 2026 · 13:20",
+    "updatedAt": "35 minutes ago",
+    "chiefComplaint": "Recurrent wheeze, cough & nighttime breathlessness — 3 weeks",
+    "primaryImpression": "Uncontrolled asthma",
+    "patient": {
+      "name": "Daniel Osei",
+      "age": 19,
+      "gender": "Male",
+      "weight": "68 kg",
+      "height": "175 cm",
+      "bmi": "22.2",
+      "bloodType": "O-",
+      "occupation": "University student",
+      "avatarHue": 150
+    },
+    "history": {
+      "previousIllnesses": [
+        "Childhood asthma",
+        "Eczema",
+        "Allergic rhinitis"
+      ],
+      "medications": [
+        "Salbutamol inhaler PRN (using frequently)"
+      ],
+      "allergies": [
+        "Pollen",
+        "House dust mite"
+      ],
+      "familyHistory": [
+        "Mother — asthma",
+        "Sister — eczema"
+      ],
+      "lifestyle": "Active; plays football but limited recently by symptoms.",
+      "smoking": "Never",
+      "alcohol": "Occasional",
+      "surgeries": [
+        "None"
+      ]
+    },
+    "complaint": {
+      "symptoms": [
+        "Wheeze",
+        "Dry cough (worse at night)",
+        "Chest tightness",
+        "Breathlessness on exertion"
+      ],
+      "painScale": 1,
+      "duration": "3 weeks",
+      "timeline": "Worse over the last 3 weeks, especially at night and after football",
+      "aggravating": "Exercise, cold air, nighttime, pollen",
+      "relieving": "Salbutamol inhaler (partial, temporary)"
+    },
+    "vitals": {
+      "bp": "122/76",
+      "hr": "88",
+      "rr": "20",
+      "spo2": "96%",
+      "temp": "36.7°C"
+    },
+    "interview": [
+      {
+        "role": "ai",
+        "text": "Hi Daniel, I'm Aura. Tell me about your breathing over the last few weeks — when is it worst?",
+        "time": "13:21"
+      },
+      {
+        "role": "patient",
+        "text": "I wheeze and cough a lot at night, and after football I get really tight-chested.",
+        "time": "13:21"
+      },
+      {
+        "role": "ai",
+        "text": "How often are you using your blue (salbutamol) inhaler right now?",
+        "time": "13:22"
+      },
+      {
+        "role": "patient",
+        "text": "Way more than usual — maybe three or four times a day this week.",
+        "time": "13:22"
+      },
+      {
+        "role": "ai",
+        "text": "Are you waking up at night because of coughing or wheeze?",
+        "time": "13:23"
+      },
+      {
+        "role": "patient",
+        "text": "Yes, most nights I wake up at least once coughing.",
+        "time": "13:23"
+      },
+      {
+        "role": "ai",
+        "text": "Have you had any cold symptoms, fever, or is anyone around you unwell?",
+        "time": "13:24"
+      },
+      {
+        "role": "patient",
+        "text": "No fever, just the wheeze and cough. It is pollen season though and my hay fever is bad.",
+        "time": "13:24"
+      },
+      {
+        "role": "ai",
+        "text": "Thank you, Daniel. Your inhaler use and night symptoms suggest your asthma is not well controlled. I will prepare a summary and recommend some checks.",
+        "time": "13:25"
+      }
+    ],
+    "summary": {
+      "chiefComplaint": "19-year-old male with 3 weeks of worsening wheeze, nocturnal cough, chest tightness and exertional breathlessness.",
+      "hpi": "Known childhood asthmatic with atopy (eczema, allergic rhinitis) presenting with a 3-week deterioration during pollen season. Escalating reliever use (3–4×/day), nocturnal waking, and exercise-induced symptoms indicate poor control. No fever or infective features.",
+      "relevantHistory": [
+        "Childhood asthma",
+        "Atopic triad (asthma, eczema, rhinitis)",
+        "Allergen triggers (pollen, dust mite)"
+      ],
+      "medications": [
+        "Salbutamol PRN (overusing)"
+      ],
+      "riskFactors": [
+        "Atopy",
+        "Pollen season",
+        "No inhaled corticosteroid (no preventer)"
+      ],
+      "redFlags": [
+        "Reliever use 3–4×/day",
+        "Nocturnal symptoms most nights",
+        "Exercise limitation"
+      ],
+      "timeline": [
+        {
+          "time": "3 weeks ago",
+          "event": "Symptoms begin with pollen season"
+        },
+        {
+          "time": "1 week ago",
+          "event": "Reliever use escalates to 3–4×/day"
+        },
+        {
+          "time": "Now",
+          "event": "Nightly waking, exercise-limited"
+        }
+      ],
+      "symptoms": [
+        "Wheeze",
+        "Nocturnal dry cough",
+        "Chest tightness",
+        "Exertional breathlessness"
+      ],
+      "findings": [
+        "Uncontrolled asthma likely",
+        "No preventer inhaler prescribed",
+        "Assess peak flow and auscultation"
+      ]
+    },
+    "exams": [
+      {
+        "id": "e1",
+        "name": "Chest auscultation",
+        "reason": "Detect expiratory wheeze / air entry.",
+        "importance": "Critical",
+        "confidence": 90,
+        "status": "pending"
+      },
+      {
+        "id": "e2",
+        "name": "Peak expiratory flow",
+        "reason": "Quantify airflow limitation vs predicted.",
+        "importance": "Critical",
+        "confidence": 92,
+        "status": "pending"
+      },
+      {
+        "id": "e3",
+        "name": "Oxygen saturation",
+        "reason": "Assess severity.",
+        "importance": "Important",
+        "confidence": 88,
+        "status": "complete",
+        "finding": "96% on room air",
+        "normalRange": "≥ 95%",
+        "flag": "normal"
+      },
+      {
+        "id": "e4",
+        "name": "Respiratory rate",
+        "reason": "Severity marker.",
+        "importance": "Important",
+        "confidence": 85,
+        "status": "complete",
+        "finding": "20 /min",
+        "normalRange": "12–20 /min",
+        "flag": "normal"
+      },
+      {
+        "id": "e5",
+        "name": "Inhaler technique check",
+        "reason": "Poor technique is a common cause of apparent poor control.",
+        "importance": "Important",
+        "confidence": 80,
+        "status": "pending"
+      }
+    ],
+    "diagnoses": [
+      {
+        "id": "dx-asthma",
+        "name": "Uncontrolled Asthma",
+        "confidence": 79,
+        "priority": "Medium",
+        "category": "Respiratory",
+        "tagline": "Atopic asthma, poorly controlled — needs a preventer",
+        "reasoning": "A known atopic asthmatic with a classic pattern of nocturnal cough, wheeze, exercise-induced symptoms and escalating reliever use during pollen season. The absence of a preventer (inhaled corticosteroid) explains the poor control. Peak flow and auscultation will confirm reversible airflow limitation.",
+        "supporting": [
+          "History of childhood asthma + atopy",
+          "Nocturnal cough & wheeze",
+          "Exercise-induced symptoms",
+          "Escalating salbutamol use",
+          "Seasonal/allergen trigger"
+        ],
+        "contradicting": [
+          "Peak flow not yet measured",
+          "Auscultation pending"
+        ],
+        "missing": [
+          "Peak expiratory flow (± reversibility)",
+          "Chest auscultation",
+          "Inhaler technique review"
+        ],
+        "recommendedTests": [
+          "Peak flow diary",
+          "Spirometry with reversibility",
+          "FeNO (if available)"
+        ],
+        "confidenceExplanation": "The atopic history and symptom pattern are strongly consistent (+50 combined). Confidence is held at 79% pending objective airflow measurement.",
+        "whyNot100": "Objective confirmation of reversible airflow obstruction (spirometry/peak flow) is pending. Normal spirometry when asymptomatic would require serial peak flows to confirm.",
+        "riskAssessment": "Moderate — poorly controlled asthma risks an acute severe attack. Overuse of reliever without a preventer is a recognized risk marker.",
+        "nextAction": "Examine chest, measure peak flow, review inhaler technique, and start a low-dose inhaled corticosteroid preventer with an asthma action plan.",
+        "references": [
+          {
+            "type": "guideline",
+            "title": "GINA — Global Strategy for Asthma Management and Prevention",
+            "source": "Global Initiative for Asthma",
+            "year": 2024,
+            "snippet": "Recommends ICS-containing therapy for all; reliever-only treatment is discouraged.",
+            "strength": "Strong"
+          },
+          {
+            "type": "paper",
+            "title": "Short-acting β-agonist overuse and asthma risk",
+            "source": "Eur Respir J",
+            "year": 2020,
+            "snippet": "Using ≥ 3 SABA canisters/year is associated with increased exacerbation and mortality risk.",
+            "strength": "Moderate"
+          }
+        ],
+        "similarCases": [
+          {
+            "title": "21 M, atopic, poor control",
+            "outcome": "Controlled after starting ICS",
+            "similarity": 87,
+            "detail": "Nocturnal symptoms resolved on low-dose ICS + technique correction."
+          }
+        ],
+        "trend": [
+          {
+            "label": "Intake",
+            "value": 66
+          },
+          {
+            "label": "Interview",
+            "value": 79
+          },
+          {
+            "label": "Now",
+            "value": 79
+          }
+        ],
+        "discussion": [
+          {
+            "role": "doctor",
+            "text": "What would increase confidence here?",
+            "time": "now"
+          },
+          {
+            "role": "ai",
+            "text": "The most valuable input would be spirometry showing reversible airflow obstruction — a ≥ 12% and 200 mL improvement in FEV1 after salbutamol would be near-confirmatory and push confidence above 90%. A peak-flow diary showing > 20% diurnal variability would do the same. Confirming a good inhaler technique also matters, because poor technique can mimic uncontrolled disease.",
+            "time": "now"
+          }
+        ]
+      },
+      {
+        "id": "dx-resp-infection",
+        "name": "Post-viral Cough / Bronchitis",
+        "confidence": 22,
+        "priority": "Low",
+        "category": "Respiratory",
+        "tagline": "Less likely without infective features",
+        "reasoning": "A lingering post-viral cough can cause weeks of coughing, but the wheeze, exercise trigger, atopy and reliever response point to asthma. No fever or coryzal prodrome reported.",
+        "supporting": [
+          "Prolonged cough"
+        ],
+        "contradicting": [
+          "No fever / coryza",
+          "Wheeze + exercise trigger",
+          "Strong atopic history",
+          "Reliever provides partial relief"
+        ],
+        "missing": [
+          "Chest auscultation"
+        ],
+        "recommendedTests": [
+          "None specific"
+        ],
+        "confidenceExplanation": "Kept low because infective features are absent and the pattern is allergic/asthmatic.",
+        "whyNot100": "Overlap is possible if a viral trigger set off the flare.",
+        "riskAssessment": "Low.",
+        "nextAction": "No specific action; treat asthma.",
+        "references": [],
+        "similarCases": [],
+        "trend": [
+          {
+            "label": "Intake",
+            "value": 28
+          },
+          {
+            "label": "Now",
+            "value": 22
+          }
+        ],
+        "discussion": []
+      }
+    ],
+    "tests": [
+      {
+        "id": "t1",
+        "name": "Spirometry with reversibility",
+        "category": "Pulmonary function",
+        "reason": "Confirm reversible airflow obstruction.",
+        "expectedFinding": "Obstructive with ≥12% reversibility",
+        "priority": "High",
+        "cost": "$",
+        "urgency": "Routine",
+        "diagnosticValue": 88,
+        "status": "recommended"
+      },
+      {
+        "id": "t2",
+        "name": "Peak flow diary (2 weeks)",
+        "category": "Monitoring",
+        "reason": "Demonstrate diurnal variability.",
+        "expectedFinding": ">20% variability",
+        "priority": "Medium",
+        "cost": "$",
+        "urgency": "Routine",
+        "diagnosticValue": 72,
+        "status": "recommended"
+      },
+      {
+        "id": "t3",
+        "name": "FeNO",
+        "category": "Biomarker",
+        "reason": "Assess eosinophilic airway inflammation.",
+        "expectedFinding": "Elevated",
+        "priority": "Low",
+        "cost": "$",
+        "urgency": "Routine",
+        "diagnosticValue": 60,
+        "status": "recommended"
+      }
+    ],
+    "timeline": [
+      {
+        "time": "13:20",
+        "date": "Jul 4",
+        "title": "Patient submitted symptoms",
+        "description": "Daniel described 3 weeks of wheeze and nocturnal cough.",
+        "actor": "patient",
+        "stage": "intake"
+      },
+      {
+        "time": "13:25",
+        "date": "Jul 4",
+        "title": "AI interview completed",
+        "description": "Escalating reliever use and night symptoms flagged as poor control.",
+        "actor": "ai",
+        "stage": "interview"
+      },
+      {
+        "time": "13:40",
+        "date": "Jul 4",
+        "title": "AI recommended examination",
+        "description": "Peak flow, chest auscultation and inhaler-technique check recommended.",
+        "actor": "ai",
+        "stage": "examination"
+      }
+    ],
+    "notes": [
+      {
+        "time": "13:42",
+        "author": "Dr. Nolan",
+        "text": "Atopic teen, reliever overuse, no preventer. Will examine, do peak flow and likely start ICS with an action plan."
+      }
+    ],
+    "insights": [
+      {
+        "kind": "warning",
+        "title": "Reliever overuse",
+        "text": "Using salbutamol 3–4×/day with no preventer is a recognized risk marker for severe attacks — Aura recommends starting an inhaled corticosteroid."
+      },
+      {
+        "kind": "suggestion",
+        "title": "Check inhaler technique",
+        "text": "Poor technique frequently masquerades as treatment failure. A quick technique review is high-value."
+      }
+    ],
+    "nextSteps": [
+      "Complete chest exam & peak flow",
+      "Review inhaler technique",
+      "Start inhaled corticosteroid preventer",
+      "Provide written asthma action plan"
+    ],
+    "recentUpdates": [
+      {
+        "time": "35 min ago",
+        "text": "Examination recommended by Aura",
+        "actor": "ai"
+      },
+      {
+        "time": "1 hr ago",
+        "text": "Structured summary generated",
+        "actor": "ai"
+      }
+    ],
+    "assistantThread": [
+      {
+        "role": "ai",
+        "text": "Daniel's asthma looks poorly controlled — frequent reliever use, night symptoms, no preventer. I've recommended peak flow and a technique check. Ask me about starting a preventer or the differential.",
+        "time": "now"
+      }
+    ],
+    "progress": [
+      {
+        "key": "intake",
+        "label": "Patient Intake",
+        "status": "done"
+      },
+      {
+        "key": "interview",
+        "label": "AI Interview",
+        "status": "done"
+      },
+      {
+        "key": "examination",
+        "label": "Physical Examination",
+        "status": "active"
+      },
+      {
+        "key": "differential",
+        "label": "Differential Diagnosis",
+        "status": "pending"
+      },
+      {
+        "key": "tests",
+        "label": "Tests Ordered",
+        "status": "pending"
+      },
+      {
+        "key": "results",
+        "label": "Results Review",
+        "status": "pending"
+      },
+      {
+        "key": "diagnosis",
+        "label": "Final Diagnosis",
+        "status": "pending"
+      },
+      {
+        "key": "treatment",
+        "label": "Treatment",
+        "status": "pending"
+      },
+      {
+        "key": "followup",
+        "label": "Follow-up",
+        "status": "pending"
+      },
+      {
+        "key": "completion",
+        "label": "Completion",
+        "status": "pending"
+      }
+    ]
+  },
+  {
+    "id": "AUR-1046",
+    "status": "AI Interview",
+    "stage": "interview",
+    "priority": "Low",
+    "createdAt": "Jul 4, 2026 · 14:50",
+    "updatedAt": "9 minutes ago",
+    "chiefComplaint": "Recurrent throbbing headaches with visual aura — 3 months",
+    "primaryImpression": "Migraine with aura",
+    "patient": {
+      "name": "Priya Nair",
+      "age": 29,
+      "gender": "Female",
+      "weight": "58 kg",
+      "height": "160 cm",
+      "bmi": "22.7",
+      "bloodType": "A-",
+      "occupation": "Software engineer",
+      "avatarHue": 20
+    },
+    "history": {
+      "previousIllnesses": [
+        "Anxiety"
+      ],
+      "medications": [
+        "Combined oral contraceptive pill",
+        "Occasional ibuprofen"
+      ],
+      "allergies": [
+        "None known"
+      ],
+      "familyHistory": [
+        "Mother — migraine"
+      ],
+      "lifestyle": "Long screen hours; irregular sleep; high caffeine.",
+      "smoking": "Never",
+      "alcohol": "Social",
+      "surgeries": [
+        "None"
+      ]
+    },
+    "complaint": {
+      "symptoms": [
+        "Throbbing unilateral headache",
+        "Visual aura (zig-zag lines)",
+        "Photophobia",
+        "Nausea"
+      ],
+      "painScale": 7,
+      "duration": "3 months (episodic)",
+      "timeline": "About twice a month, each lasting several hours to a day",
+      "aggravating": "Bright light, screen use, stress, menstruation",
+      "relieving": "Dark quiet room, sleep, ibuprofen (sometimes)"
+    },
+    "vitals": {
+      "bp": "118/72",
+      "hr": "72",
+      "rr": "14",
+      "spo2": "99%",
+      "temp": "36.6°C"
+    },
+    "interview": [
+      {
+        "role": "ai",
+        "text": "Hi Priya, I'm Aura. Can you describe your headaches — where they are and what they feel like?",
+        "time": "14:51"
+      },
+      {
+        "role": "patient",
+        "text": "They are usually on one side, above my right eye, and they throb. It gets pretty intense.",
+        "time": "14:51"
+      },
+      {
+        "role": "ai",
+        "text": "Do you notice anything before the headache starts — visual changes, for example?",
+        "time": "14:52"
+      },
+      {
+        "role": "patient",
+        "text": "Yes! I see shimmering zig-zag lines for about 20 minutes, then the headache comes.",
+        "time": "14:52"
+      },
+      {
+        "role": "ai",
+        "text": "During the headache, are you bothered by light or sound, or feel nauseous?",
+        "time": "14:53"
+      },
+      {
+        "role": "patient",
+        "text": "Light is unbearable and I feel sick. I usually lie down in the dark.",
+        "time": "14:53"
+      },
+      {
+        "role": "ai",
+        "text": "Have you had any weakness, difficulty speaking, or is this the worst/most sudden headache of your life?",
+        "time": "14:54"
+      },
+      {
+        "role": "patient",
+        "text": "No weakness or speech trouble. It builds up gradually, it is not sudden.",
+        "time": "14:54"
+      },
+      {
+        "role": "ai",
+        "text": "Thank you, Priya. A couple more questions and I'll prepare a summary for the doctor.",
+        "time": "14:55"
+      }
+    ],
+    "summary": {
+      "chiefComplaint": "29-year-old female with 3 months of episodic, unilateral throbbing headaches preceded by visual aura, with photophobia and nausea.",
+      "hpi": "Recurrent (≈ twice monthly) unilateral throbbing headaches lasting hours, preceded by a 20-minute scintillating visual aura. Associated photophobia and nausea, relieved by rest in a dark room. No focal weakness, speech disturbance, or thunderclap onset. Triggers include screens, stress and menses.",
+      "relevantHistory": [
+        "Family history of migraine",
+        "On combined oral contraceptive",
+        "Anxiety"
+      ],
+      "medications": [
+        "Combined oral contraceptive",
+        "Occasional ibuprofen"
+      ],
+      "riskFactors": [
+        "Family history",
+        "Hormonal (menstrual) trigger"
+      ],
+      "redFlags": [
+        "None currently — no thunderclap, focal deficit, or systemic features"
+      ],
+      "timeline": [
+        {
+          "time": "3 months ago",
+          "event": "Episodic headaches begin"
+        },
+        {
+          "time": "Ongoing",
+          "event": "≈ 2 episodes/month with aura"
+        }
+      ],
+      "symptoms": [
+        "Unilateral throbbing headache",
+        "Visual aura",
+        "Photophobia",
+        "Nausea"
+      ],
+      "findings": [
+        "Pattern classic for migraine with aura",
+        "Counsel on COCP + aura (stroke risk)",
+        "No red flags for secondary headache"
+      ]
+    },
+    "exams": [
+      {
+        "id": "e1",
+        "name": "Neurological examination",
+        "reason": "Exclude focal deficit suggesting secondary cause.",
+        "importance": "Important",
+        "confidence": 85,
+        "status": "pending"
+      },
+      {
+        "id": "e2",
+        "name": "Fundoscopy",
+        "reason": "Exclude papilledema (raised intracranial pressure).",
+        "importance": "Important",
+        "confidence": 82,
+        "status": "pending"
+      },
+      {
+        "id": "e3",
+        "name": "Blood pressure",
+        "reason": "Baseline; screen for hypertensive contribution.",
+        "importance": "Routine",
+        "confidence": 80,
+        "status": "complete",
+        "finding": "118/72",
+        "normalRange": "<130/85",
+        "flag": "normal"
+      }
+    ],
+    "diagnoses": [
+      {
+        "id": "dx-migraine",
+        "name": "Migraine with Aura",
+        "confidence": 82,
+        "priority": "Low",
+        "category": "Neurological",
+        "tagline": "Classic migraine with visual aura",
+        "reasoning": "Episodic unilateral throbbing headaches with a preceding scintillating visual aura, photophobia and nausea, relieved by rest — meeting ICHD-3 criteria for migraine with aura. Positive family history. Absence of red flags makes a secondary cause unlikely.",
+        "supporting": [
+          "Unilateral throbbing quality",
+          "Scintillating visual aura (~20 min)",
+          "Photophobia + nausea",
+          "Family history",
+          "Relief in dark room"
+        ],
+        "contradicting": [
+          "Neuro exam pending",
+          "No headache diary yet"
+        ],
+        "missing": [
+          "Neurological examination",
+          "Headache diary",
+          "BP + fundoscopy"
+        ],
+        "recommendedTests": [
+          "Usually clinical — imaging only if red flags",
+          "Headache diary"
+        ],
+        "confidenceExplanation": "The presentation satisfies ICHD-3 aura criteria (aura +20, unilateral throbbing +14, photophobia/nausea +12, family history +8). No neuroimaging is required without red flags.",
+        "whyNot100": "A brief neurological examination has not yet been documented. Migraine is a clinical diagnosis, so confidence is high but a normal exam is needed to formally exclude mimics.",
+        "riskAssessment": "Low acute risk. Important safety point: migraine with aura plus a combined oral contraceptive raises ischemic-stroke risk — counsel and review contraception.",
+        "nextAction": "Complete a neurological exam, start a headache diary, advise trigger management, and review the combined pill given aura. Offer acute (triptan) and, if frequent, preventive therapy.",
+        "references": [
+          {
+            "type": "guideline",
+            "title": "ICHD-3 — International Classification of Headache Disorders",
+            "source": "Cephalalgia",
+            "year": 2018,
+            "snippet": "Defines migraine with aura by reversible visual/sensory symptoms preceding headache.",
+            "strength": "Strong"
+          },
+          {
+            "type": "guideline",
+            "title": "MEC — Combined hormonal contraception & migraine with aura",
+            "source": "WHO/UKMEC",
+            "year": 2016,
+            "snippet": "Migraine with aura is a contraindication (category 4) to combined hormonal contraception.",
+            "strength": "Strong"
+          }
+        ],
+        "similarCases": [
+          {
+            "title": "31 F, aura + COCP",
+            "outcome": "Switched to progesterone-only; migraines managed",
+            "similarity": 89,
+            "detail": "Contraception changed for stroke-risk reduction; triptan for acute attacks."
+          }
+        ],
+        "trend": [
+          {
+            "label": "Intake",
+            "value": 70
+          },
+          {
+            "label": "Interview",
+            "value": 82
+          },
+          {
+            "label": "Now",
+            "value": 82
+          }
+        ],
+        "discussion": [
+          {
+            "role": "doctor",
+            "text": "Any safety concern I should act on now?",
+            "time": "now"
+          },
+          {
+            "role": "ai",
+            "text": "Yes — the most important one is that migraine with aura combined with a combined oral contraceptive meaningfully increases ischemic-stroke risk (UKMEC category 4). I would counsel her and switch to a progesterone-only or non-hormonal method. Beyond that, a normal neurological exam is enough; no imaging is needed without red flags such as thunderclap onset or focal deficit.",
+            "time": "now"
+          }
+        ]
+      },
+      {
+        "id": "dx-tth",
+        "name": "Tension-type Headache",
+        "confidence": 20,
+        "priority": "Low",
+        "category": "Neurological",
+        "tagline": "Less likely given aura & unilateral throb",
+        "reasoning": "Tension headaches are common but are typically bilateral, band-like and non-throbbing without aura, nausea or photophobia — the opposite of this presentation.",
+        "supporting": [
+          "Stress trigger",
+          "Screen use"
+        ],
+        "contradicting": [
+          "Visual aura present",
+          "Unilateral throbbing",
+          "Photophobia + nausea"
+        ],
+        "missing": [
+          "Headache diary"
+        ],
+        "recommendedTests": [
+          "None"
+        ],
+        "confidenceExplanation": "The aura and associated features are not features of tension headache, keeping this low.",
+        "whyNot100": "Patients can have both headache types; a diary would clarify.",
+        "riskAssessment": "Low.",
+        "nextAction": "None specific.",
+        "references": [],
+        "similarCases": [],
+        "trend": [
+          {
+            "label": "Interview",
+            "value": 20
+          },
+          {
+            "label": "Now",
+            "value": 20
+          }
+        ],
+        "discussion": []
+      }
+    ],
+    "tests": [
+      {
+        "id": "t1",
+        "name": "Headache diary",
+        "category": "Monitoring",
+        "reason": "Characterize frequency, triggers and treatment response.",
+        "expectedFinding": "≈2 migrainous episodes/month",
+        "priority": "Medium",
+        "cost": "$",
+        "urgency": "Routine",
+        "diagnosticValue": 65,
+        "status": "recommended"
+      },
+      {
+        "id": "t2",
+        "name": "MRI brain",
+        "category": "Imaging",
+        "reason": "Only if red flags emerge; not currently indicated.",
+        "expectedFinding": "Normal",
+        "priority": "Low",
+        "cost": "$$$",
+        "urgency": "Routine",
+        "diagnosticValue": 40,
+        "status": "recommended"
+      }
+    ],
+    "timeline": [
+      {
+        "time": "14:50",
+        "date": "Jul 4",
+        "title": "Patient submitted symptoms",
+        "description": "Priya described 3 months of headaches with visual aura.",
+        "actor": "patient",
+        "stage": "intake"
+      },
+      {
+        "time": "14:55",
+        "date": "Jul 4",
+        "title": "AI interview in progress",
+        "description": "Adaptive interview gathering aura and red-flag details.",
+        "actor": "ai",
+        "stage": "interview"
+      }
+    ],
+    "notes": [],
+    "insights": [
+      {
+        "kind": "critical",
+        "title": "Contraception safety flag",
+        "text": "Migraine with aura + combined oral contraceptive raises stroke risk (UKMEC category 4). Aura recommends reviewing contraception."
+      },
+      {
+        "kind": "success",
+        "title": "No red flags detected",
+        "text": "No thunderclap onset, focal deficit, or systemic features — a secondary headache is unlikely."
+      }
+    ],
+    "nextSteps": [
+      "Complete AI interview",
+      "Neurological examination",
+      "Review combined contraceptive pill",
+      "Start headache diary"
+    ],
+    "recentUpdates": [
+      {
+        "time": "9 min ago",
+        "text": "AI interview ongoing",
+        "actor": "ai"
+      },
+      {
+        "time": "12 min ago",
+        "text": "Patient submitted intake",
+        "actor": "patient"
+      }
+    ],
+    "assistantThread": [
+      {
+        "role": "ai",
+        "text": "Priya's history fits migraine with aura. One safety point stands out: she's on a combined contraceptive, which raises stroke risk with aura. Ask me about that or the wider differential.",
+        "time": "now"
+      }
+    ],
+    "progress": [
+      {
+        "key": "intake",
+        "label": "Patient Intake",
+        "status": "done"
+      },
+      {
+        "key": "interview",
+        "label": "AI Interview",
+        "status": "active"
+      },
+      {
+        "key": "examination",
+        "label": "Physical Examination",
+        "status": "pending"
+      },
+      {
+        "key": "differential",
+        "label": "Differential Diagnosis",
+        "status": "pending"
+      },
+      {
+        "key": "tests",
+        "label": "Tests Ordered",
+        "status": "pending"
+      },
+      {
+        "key": "results",
+        "label": "Results Review",
+        "status": "pending"
+      },
+      {
+        "key": "diagnosis",
+        "label": "Final Diagnosis",
+        "status": "pending"
+      },
+      {
+        "key": "treatment",
+        "label": "Treatment",
+        "status": "pending"
+      },
+      {
+        "key": "followup",
+        "label": "Follow-up",
+        "status": "pending"
+      },
+      {
+        "key": "completion",
+        "label": "Completion",
+        "status": "pending"
+      }
+    ]
+  },
+  {
+    "id": "AUR-1039",
+    "status": "Completed",
+    "stage": "completion",
+    "priority": "Medium",
+    "createdAt": "Jun 28, 2026 · 09:40",
+    "updatedAt": "Jul 1, 2026",
+    "chiefComplaint": "Fatigue, excessive thirst & frequent urination — 6 weeks",
+    "primaryImpression": "Type 2 diabetes mellitus (new diagnosis)",
+    "patient": {
+      "name": "James Whitfield",
+      "age": 47,
+      "gender": "Male",
+      "weight": "96 kg",
+      "height": "176 cm",
+      "bmi": "31.0",
+      "bloodType": "AB+",
+      "occupation": "Accountant",
+      "avatarHue": 200
+    },
+    "history": {
+      "previousIllnesses": [
+        "Obesity",
+        "Dyslipidemia"
+      ],
+      "medications": [
+        "Atorvastatin 20 mg OD"
+      ],
+      "allergies": [
+        "None known"
+      ],
+      "familyHistory": [
+        "Father — type 2 diabetes",
+        "Mother — hypertension"
+      ],
+      "lifestyle": "Sedentary desk job; frequent takeaways; minimal exercise.",
+      "smoking": "Never",
+      "alcohol": "Moderate (10–12 units/week)",
+      "surgeries": [
+        "None"
+      ]
+    },
+    "complaint": {
+      "symptoms": [
+        "Fatigue",
+        "Polydipsia (excessive thirst)",
+        "Polyuria (frequent urination)",
+        "Blurred vision",
+        "Unintended weight loss"
+      ],
+      "painScale": 0,
+      "duration": "6 weeks",
+      "timeline": "Gradual onset over 6 weeks",
+      "aggravating": "Worse in the evenings; nocturia disrupting sleep",
+      "relieving": "Nothing specific"
+    },
+    "vitals": {
+      "bp": "138/86",
+      "hr": "80",
+      "rr": "16",
+      "spo2": "98%",
+      "temp": "36.7°C"
+    },
+    "interview": [
+      {
+        "role": "ai",
+        "text": "Hello James, I'm Aura. You mentioned feeling tired and thirsty — can you tell me more about the thirst?",
+        "time": "09:41"
+      },
+      {
+        "role": "patient",
+        "text": "I am drinking water constantly and still feel parched. I am up 3–4 times a night to pee.",
+        "time": "09:41"
+      },
+      {
+        "role": "ai",
+        "text": "Have you noticed any weight change or blurred vision?",
+        "time": "09:42"
+      },
+      {
+        "role": "patient",
+        "text": "I've lost about 4 kg without trying, and my vision goes blurry on and off.",
+        "time": "09:42"
+      },
+      {
+        "role": "ai",
+        "text": "Any family history of diabetes?",
+        "time": "09:43"
+      },
+      {
+        "role": "patient",
+        "text": "Yes, my father has type 2 diabetes.",
+        "time": "09:43"
+      },
+      {
+        "role": "ai",
+        "text": "Thank you, James. The combination of thirst, frequent urination, weight loss and fatigue suggests we should check your blood sugar. I will prepare a summary.",
+        "time": "09:44"
+      }
+    ],
+    "summary": {
+      "chiefComplaint": "47-year-old obese male with 6 weeks of fatigue, polydipsia, polyuria, blurred vision and unintended 4 kg weight loss.",
+      "hpi": "Classic osmotic symptoms of hyperglycemia developing over 6 weeks: polydipsia, polyuria with nocturia, fatigue, intermittent blurred vision and unintentional weight loss. Strong family history and central obesity. No ketotic symptoms (no vomiting, abdominal pain, or breathlessness).",
+      "relevantHistory": [
+        "Obesity (BMI 31)",
+        "Dyslipidemia",
+        "Father with type 2 diabetes"
+      ],
+      "medications": [
+        "Atorvastatin"
+      ],
+      "riskFactors": [
+        "Obesity",
+        "Family history",
+        "Sedentary lifestyle",
+        "Age > 45"
+      ],
+      "redFlags": [
+        "Unintended weight loss",
+        "Blurred vision (osmotic)"
+      ],
+      "timeline": [
+        {
+          "time": "6 weeks ago",
+          "event": "Fatigue and increasing thirst begin"
+        },
+        {
+          "time": "3 weeks ago",
+          "event": "Nocturia and blurred vision"
+        },
+        {
+          "time": "Presentation",
+          "event": "4 kg weight loss, persistent symptoms"
+        }
+      ],
+      "symptoms": [
+        "Fatigue",
+        "Polydipsia",
+        "Polyuria/nocturia",
+        "Blurred vision",
+        "Weight loss"
+      ],
+      "findings": [
+        "Osmotic symptom cluster suggests diabetes",
+        "Screen for ketosis/type 1",
+        "Assess complications (eyes, kidneys, feet)"
+      ]
+    },
+    "exams": [
+      {
+        "id": "e1",
+        "name": "Body mass index",
+        "reason": "Obesity supports type 2 diabetes.",
+        "importance": "Important",
+        "confidence": 92,
+        "status": "complete",
+        "finding": "BMI 31.0",
+        "normalRange": "18.5–24.9",
+        "flag": "abnormal"
+      },
+      {
+        "id": "e2",
+        "name": "Blood pressure",
+        "reason": "Screen for coexisting hypertension (metabolic syndrome).",
+        "importance": "Important",
+        "confidence": 88,
+        "status": "complete",
+        "finding": "138/86",
+        "normalRange": "<130/85",
+        "flag": "abnormal"
+      },
+      {
+        "id": "e3",
+        "name": "Foot examination",
+        "reason": "Baseline for neuropathy/vascular complications.",
+        "importance": "Important",
+        "confidence": 85,
+        "status": "complete",
+        "finding": "Intact sensation, pulses present",
+        "normalRange": "Normal",
+        "flag": "normal"
+      },
+      {
+        "id": "e4",
+        "name": "Fundoscopy",
+        "reason": "Screen for retinopathy.",
+        "importance": "Routine",
+        "confidence": 78,
+        "status": "complete",
+        "finding": "No retinopathy",
+        "normalRange": "Normal",
+        "flag": "normal"
+      },
+      {
+        "id": "e5",
+        "name": "Urine dipstick (ketones)",
+        "reason": "Exclude ketosis / type 1.",
+        "importance": "Critical",
+        "confidence": 90,
+        "status": "complete",
+        "finding": "No ketones",
+        "normalRange": "Negative",
+        "flag": "normal"
+      }
+    ],
+    "diagnoses": [
+      {
+        "id": "dx-t2dm",
+        "name": "Type 2 Diabetes Mellitus",
+        "confidence": 96,
+        "priority": "Medium",
+        "category": "Endocrine / metabolic",
+        "tagline": "New diagnosis confirmed on HbA1c & fasting glucose",
+        "reasoning": "Classic osmotic symptoms with obesity and a strong family history, confirmed biochemically by an HbA1c of 9.4% and fasting glucose of 12.1 mmol/L. Absence of ketones and a subacute course make type 2 far more likely than type 1.",
+        "supporting": [
+          "HbA1c 9.4% (≥ 6.5%)",
+          "Fasting glucose 12.1 mmol/L",
+          "Osmotic symptoms",
+          "Obesity + family history",
+          "No ketosis"
+        ],
+        "contradicting": [
+          "Weight loss can occasionally indicate type 1 — excluded by absent ketones and age"
+        ],
+        "missing": [],
+        "recommendedTests": [
+          "HbA1c",
+          "Fasting glucose",
+          "Lipid profile",
+          "Renal function + urine ACR"
+        ],
+        "confidenceExplanation": "Two independent diagnostic thresholds are met (HbA1c ≥ 6.5% and fasting glucose ≥ 7.0 mmol/L) alongside classic symptoms, yielding very high confidence.",
+        "whyNot100": "Biochemical confirmation is definitive; the small residual reflects always confirming type via clinical course and, if atypical, antibody/C-peptide testing.",
+        "riskAssessment": "Moderate long-term cardiovascular and microvascular risk; no acute metabolic emergency (no ketosis).",
+        "nextAction": "Start metformin, structured lifestyle/dietary support, statin optimization, and enroll in diabetes education with complication screening.",
+        "references": [
+          {
+            "type": "guideline",
+            "title": "ADA Standards of Care in Diabetes",
+            "source": "Diabetes Care",
+            "year": 2024,
+            "snippet": "Diagnosis via HbA1c ≥ 6.5%, fasting glucose ≥ 7.0 mmol/L, or random ≥ 11.1 with symptoms.",
+            "strength": "Strong"
+          },
+          {
+            "type": "guideline",
+            "title": "NICE NG28 — Type 2 diabetes in adults",
+            "source": "NICE",
+            "year": 2022,
+            "snippet": "Recommends metformin first-line with lifestyle intervention and cardiovascular risk management.",
+            "strength": "Strong"
+          }
+        ],
+        "similarCases": [
+          {
+            "title": "50 M, new T2DM",
+            "outcome": "HbA1c improved 9.1%→6.8% in 6 months",
+            "similarity": 92,
+            "detail": "Metformin + lifestyle; no complications at review."
+          }
+        ],
+        "trend": [
+          {
+            "label": "Intake",
+            "value": 74
+          },
+          {
+            "label": "Interview",
+            "value": 82
+          },
+          {
+            "label": "Exam",
+            "value": 88
+          },
+          {
+            "label": "Results",
+            "value": 96
+          }
+        ],
+        "discussion": [
+          {
+            "role": "doctor",
+            "text": "How confident are we this is type 2 and not type 1?",
+            "time": "Jul 1"
+          },
+          {
+            "role": "ai",
+            "text": "Very confident. He is 47, centrally obese, has a strong family history and — crucially — no ketones with a subacute course. Type 1 typically presents younger, leaner, with rapid onset and ketosis. If he fails to respond to oral therapy or the picture shifts, antibody (GAD) and C-peptide testing would clarify, but nothing here suggests that is necessary.",
+            "time": "Jul 1"
+          }
+        ]
+      }
+    ],
+    "tests": [
+      {
+        "id": "t1",
+        "name": "HbA1c",
+        "category": "Biochemistry",
+        "reason": "Confirm chronic hyperglycemia.",
+        "expectedFinding": "≥ 6.5%",
+        "priority": "High",
+        "cost": "$",
+        "urgency": "Routine",
+        "diagnosticValue": 95,
+        "status": "completed",
+        "result": "9.4%",
+        "resultFlag": "critical",
+        "resultDetail": "Well above diagnostic threshold; indicates significant hyperglycemia."
+      },
+      {
+        "id": "t2",
+        "name": "Fasting plasma glucose",
+        "category": "Biochemistry",
+        "reason": "Second confirmatory measure.",
+        "expectedFinding": "≥ 7.0 mmol/L",
+        "priority": "High",
+        "cost": "$",
+        "urgency": "Routine",
+        "diagnosticValue": 88,
+        "status": "completed",
+        "result": "12.1 mmol/L",
+        "resultFlag": "critical",
+        "resultDetail": "Diagnostic of diabetes."
+      },
+      {
+        "id": "t3",
+        "name": "Lipid profile",
+        "category": "Biochemistry",
+        "reason": "Cardiovascular risk assessment.",
+        "expectedFinding": "Dyslipidemia",
+        "priority": "Medium",
+        "cost": "$",
+        "urgency": "Routine",
+        "diagnosticValue": 60,
+        "status": "completed",
+        "result": "LDL 3.8 mmol/L",
+        "resultFlag": "abnormal",
+        "resultDetail": "Statin dose to be optimized."
+      },
+      {
+        "id": "t4",
+        "name": "Renal function + urine ACR",
+        "category": "Biochemistry",
+        "reason": "Baseline for nephropathy.",
+        "expectedFinding": "Normal",
+        "priority": "Medium",
+        "cost": "$",
+        "urgency": "Routine",
+        "diagnosticValue": 62,
+        "status": "completed",
+        "result": "eGFR 88, ACR normal",
+        "resultFlag": "normal",
+        "resultDetail": "No nephropathy at baseline."
+      }
+    ],
+    "timeline": [
+      {
+        "time": "09:40",
+        "date": "Jun 28",
+        "title": "Patient submitted symptoms",
+        "description": "James described 6 weeks of thirst, fatigue and weight loss.",
+        "actor": "patient",
+        "stage": "intake"
+      },
+      {
+        "time": "09:44",
+        "date": "Jun 28",
+        "title": "AI interview completed",
+        "description": "Osmotic symptom cluster identified.",
+        "actor": "ai",
+        "stage": "interview"
+      },
+      {
+        "time": "10:15",
+        "date": "Jun 28",
+        "title": "Examination completed",
+        "description": "BMI 31, no retinopathy, no ketones.",
+        "actor": "doctor",
+        "stage": "examination"
+      },
+      {
+        "time": "14:00",
+        "date": "Jun 29",
+        "title": "Results received",
+        "description": "HbA1c 9.4%, fasting glucose 12.1 — diabetes confirmed.",
+        "actor": "system",
+        "stage": "results"
+      },
+      {
+        "time": "11:00",
+        "date": "Jul 1",
+        "title": "Diagnosis finalized",
+        "description": "Type 2 diabetes accepted by Dr. Rao; management started.",
+        "actor": "doctor",
+        "stage": "diagnosis"
+      },
+      {
+        "time": "11:30",
+        "date": "Jul 1",
+        "title": "Case completed",
+        "description": "Treatment plan issued, education referral made, case archived.",
+        "actor": "system",
+        "stage": "completion"
+      }
+    ],
+    "finalDiagnosis": {
+      "name": "Type 2 Diabetes Mellitus (new diagnosis)",
+      "confidence": 96,
+      "status": "accepted",
+      "reasoning": "Diagnosis confirmed by two independent biochemical criteria (HbA1c 9.4%, fasting glucose 12.1 mmol/L) with classic osmotic symptoms, obesity and family history. Ketones negative — no evidence of type 1 or DKA.",
+      "evidenceSummary": [
+        "HbA1c 9.4%",
+        "Fasting glucose 12.1 mmol/L",
+        "Classic osmotic symptoms + 4 kg weight loss",
+        "Obesity (BMI 31), family history",
+        "No ketosis"
+      ],
+      "ruledOut": [
+        {
+          "name": "Type 1 Diabetes",
+          "reason": "Age, obesity, subacute course, and absent ketones argue against it."
+        },
+        {
+          "name": "Diabetes insipidus",
+          "reason": "Confirmed hyperglycemia explains polyuria; osmotic, not central/nephrogenic."
+        }
+      ],
+      "treatment": [
+        "Metformin 500 mg OD titrating to 1000 mg BID",
+        "Structured lifestyle & dietary program",
+        "Optimize atorvastatin for cardiovascular risk",
+        "Blood-pressure monitoring and management"
+      ],
+      "monitoring": [
+        "HbA1c at 3 months",
+        "Annual retinopathy screening",
+        "Annual foot & renal (ACR) checks",
+        "Home glucose education"
+      ],
+      "complications": [
+        "Retinopathy",
+        "Nephropathy",
+        "Neuropathy",
+        "Cardiovascular disease"
+      ],
+      "followUp": [
+        "Diabetes education program referral",
+        "Dietitian referral",
+        "Review in 3 months with repeat HbA1c"
+      ]
+    },
+    "notes": [
+      {
+        "time": "Jun 28",
+        "author": "Dr. Rao",
+        "text": "Classic new type 2. Bloods requested; started lifestyle counseling immediately."
+      },
+      {
+        "time": "Jul 1",
+        "author": "Dr. Rao",
+        "text": "HbA1c 9.4% confirms diagnosis. Metformin started, education referral placed. Patient engaged and motivated."
+      }
+    ],
+    "insights": [
+      {
+        "kind": "success",
+        "title": "Diagnosis confirmed",
+        "text": "Two independent criteria met — a confident new diagnosis of type 2 diabetes."
+      },
+      {
+        "kind": "suggestion",
+        "title": "Complication screening booked",
+        "text": "Baseline retinal, renal and foot checks completed; annual recall set."
+      }
+    ],
+    "nextSteps": [
+      "Case completed",
+      "Metformin + lifestyle initiated",
+      "3-month HbA1c review scheduled"
+    ],
+    "recentUpdates": [
+      {
+        "time": "Jul 1",
+        "text": "Case completed and archived",
+        "actor": "system"
+      },
+      {
+        "time": "Jul 1",
+        "text": "Diagnosis accepted, treatment started",
+        "actor": "doctor"
+      }
+    ],
+    "assistantThread": [
+      {
+        "role": "ai",
+        "text": "This case is complete. James was diagnosed with type 2 diabetes and started on metformin with lifestyle support. You can review the full reasoning, evidence and outcome — everything is read-only now.",
+        "time": "Jul 1"
+      }
+    ],
+    "outcome": "New diagnosis of type 2 diabetes. Started on metformin and lifestyle program; enrolled in diabetes education with baseline complication screening completed. HbA1c review scheduled at 3 months.",
+    "lessonsLearned": [
+      "Osmotic symptom cluster (thirst, polyuria, weight loss) reliably prompted early glucose testing.",
+      "Checking ketones early efficiently excluded type 1 / DKA.",
+      "Baseline complication screening at diagnosis set up structured long-term follow-up."
+    ],
+    "associatedConditions": [
+      "Obesity",
+      "Dyslipidemia",
+      "Hypertension (borderline)",
+      "Metabolic syndrome"
+    ],
+    "progress": [
+      {
+        "key": "intake",
+        "label": "Patient Intake",
+        "status": "done"
+      },
+      {
+        "key": "interview",
+        "label": "AI Interview",
+        "status": "done"
+      },
+      {
+        "key": "examination",
+        "label": "Physical Examination",
+        "status": "done"
+      },
+      {
+        "key": "differential",
+        "label": "Differential Diagnosis",
+        "status": "done"
+      },
+      {
+        "key": "tests",
+        "label": "Tests Ordered",
+        "status": "done"
+      },
+      {
+        "key": "results",
+        "label": "Results Review",
+        "status": "done"
+      },
+      {
+        "key": "diagnosis",
+        "label": "Final Diagnosis",
+        "status": "done"
+      },
+      {
+        "key": "treatment",
+        "label": "Treatment",
+        "status": "done"
+      },
+      {
+        "key": "followup",
+        "label": "Follow-up",
+        "status": "done"
+      },
+      {
+        "key": "completion",
+        "label": "Completion",
+        "status": "done"
+      }
+    ]
+  },
+  {
+    "id": "AUR-1035",
+    "status": "Completed",
+    "stage": "completion",
+    "priority": "Medium",
+    "createdAt": "Jun 25, 2026 · 22:10",
+    "updatedAt": "Jun 27, 2026",
+    "chiefComplaint": "Severe colicky left flank pain radiating to groin — 6 hours",
+    "primaryImpression": "Left ureteric (kidney) stone",
+    "patient": {
+      "name": "Ahmed Farouk",
+      "age": 38,
+      "gender": "Male",
+      "weight": "88 kg",
+      "height": "181 cm",
+      "bmi": "26.9",
+      "bloodType": "O+",
+      "occupation": "Chef",
+      "avatarHue": 40
+    },
+    "history": {
+      "previousIllnesses": [
+        "Previous kidney stone (2021)",
+        "Gout"
+      ],
+      "medications": [
+        "Allopurinol 100 mg OD"
+      ],
+      "allergies": [
+        "None known"
+      ],
+      "familyHistory": [
+        "Brother — kidney stones"
+      ],
+      "lifestyle": "Hot kitchen environment; low fluid intake; high-salt diet.",
+      "smoking": "Never",
+      "alcohol": "Occasional",
+      "surgeries": [
+        "None"
+      ]
+    },
+    "complaint": {
+      "symptoms": [
+        "Severe colicky left flank pain",
+        "Radiation to groin",
+        "Nausea & vomiting",
+        "Blood in urine",
+        "Restlessness"
+      ],
+      "painScale": 9,
+      "duration": "6 hours",
+      "timeline": "Sudden onset overnight, coming in waves",
+      "aggravating": "Nothing relieves it fully; comes in waves",
+      "relieving": "Constantly moving/pacing; partial relief with analgesia"
+    },
+    "vitals": {
+      "bp": "148/92",
+      "hr": "98",
+      "rr": "18",
+      "spo2": "99%",
+      "temp": "37.1°C"
+    },
+    "interview": [
+      {
+        "role": "ai",
+        "text": "Hello Ahmed, I'm Aura. Can you describe the pain — where it is and how it behaves?",
+        "time": "22:11"
+      },
+      {
+        "role": "patient",
+        "text": "It is on my left side, in the back, and shoots down to my groin. It comes in horrible waves.",
+        "time": "22:11"
+      },
+      {
+        "role": "ai",
+        "text": "Can you stay still, or do you feel the need to move around?",
+        "time": "22:12"
+      },
+      {
+        "role": "patient",
+        "text": "I can't sit still at all, I keep pacing. Nothing makes it comfortable.",
+        "time": "22:12"
+      },
+      {
+        "role": "ai",
+        "text": "Have you noticed any blood in your urine, or burning when you pass urine?",
+        "time": "22:13"
+      },
+      {
+        "role": "patient",
+        "text": "My urine looked pink earlier. No real burning.",
+        "time": "22:13"
+      },
+      {
+        "role": "ai",
+        "text": "Have you had a stone before?",
+        "time": "22:14"
+      },
+      {
+        "role": "patient",
+        "text": "Yes, back in 2021, and this feels exactly the same.",
+        "time": "22:14"
+      },
+      {
+        "role": "ai",
+        "text": "Thank you, Ahmed. Colicky loin-to-groin pain with hematuria and a prior stone strongly suggests another stone. I will prepare a summary and recommend imaging.",
+        "time": "22:15"
+      }
+    ],
+    "summary": {
+      "chiefComplaint": "38-year-old male with 6 hours of severe colicky left loin-to-groin pain, hematuria, nausea and restlessness.",
+      "hpi": "Sudden severe unilateral colicky flank pain radiating to the groin, coming in waves, with visible hematuria and vomiting. Unable to find a comfortable position (classic for renal colic). Prior stone in 2021 with identical symptoms. Risk factors include low fluid intake, hot working environment and gout.",
+      "relevantHistory": [
+        "Previous kidney stone (2021)",
+        "Gout on allopurinol",
+        "Family history of stones"
+      ],
+      "medications": [
+        "Allopurinol"
+      ],
+      "riskFactors": [
+        "Dehydration (hot kitchen)",
+        "Prior stone",
+        "Family history",
+        "Gout (uric acid)"
+      ],
+      "redFlags": [
+        "Exclude fever/obstruction (infected obstructed system is an emergency)"
+      ],
+      "timeline": [
+        {
+          "time": "~04:00",
+          "event": "Sudden severe left flank pain wakes patient"
+        },
+        {
+          "time": "Over 6h",
+          "event": "Waves of colic, hematuria, vomiting"
+        },
+        {
+          "time": "Presentation",
+          "event": "Restless, pain 9/10"
+        }
+      ],
+      "symptoms": [
+        "Colicky flank pain",
+        "Groin radiation",
+        "Hematuria",
+        "Nausea/vomiting",
+        "Restlessness"
+      ],
+      "findings": [
+        "Renal colic likely from ureteric stone",
+        "Exclude infection/obstruction",
+        "Confirm with CT KUB"
+      ]
+    },
+    "exams": [
+      {
+        "id": "e1",
+        "name": "Abdominal & flank examination",
+        "reason": "Assess tenderness; exclude peritonism/AAA.",
+        "importance": "Important",
+        "confidence": 88,
+        "status": "complete",
+        "finding": "Left renal-angle tenderness, soft abdomen",
+        "normalRange": "Non-tender",
+        "flag": "abnormal"
+      },
+      {
+        "id": "e2",
+        "name": "Temperature",
+        "reason": "Exclude infected obstructed system.",
+        "importance": "Critical",
+        "confidence": 92,
+        "status": "complete",
+        "finding": "37.1°C",
+        "normalRange": "36.1–37.2°C",
+        "flag": "normal"
+      },
+      {
+        "id": "e3",
+        "name": "Urine dipstick",
+        "reason": "Detect hematuria and infection.",
+        "importance": "Critical",
+        "confidence": 90,
+        "status": "complete",
+        "finding": "Blood +++, no nitrites/leukocytes",
+        "normalRange": "Negative",
+        "flag": "abnormal"
+      },
+      {
+        "id": "e4",
+        "name": "Blood pressure",
+        "reason": "Pain-related hypertension; baseline.",
+        "importance": "Routine",
+        "confidence": 82,
+        "status": "complete",
+        "finding": "148/92",
+        "normalRange": "<130/85",
+        "flag": "abnormal"
+      }
+    ],
+    "diagnoses": [
+      {
+        "id": "dx-stone",
+        "name": "Left Ureteric Stone (Renal Colic)",
+        "confidence": 93,
+        "priority": "Medium",
+        "category": "Urological",
+        "tagline": "5 mm stone at left vesicoureteric junction on CT KUB",
+        "reasoning": "Textbook renal colic — sudden severe unilateral loin-to-groin pain with restlessness and visible hematuria in a patient with a prior identical stone. CT KUB confirmed a 5 mm stone at the left VUJ with mild proximal hydronephrosis and no infection.",
+        "supporting": [
+          "Colicky loin-to-groin pain",
+          "Restlessness (cannot lie still)",
+          "Visible hematuria (dipstick +++)",
+          "Prior stone with identical symptoms",
+          "CT: 5 mm VUJ stone"
+        ],
+        "contradicting": [
+          "Must always exclude AAA in older patients (here low risk, age 38)"
+        ],
+        "missing": [],
+        "recommendedTests": [
+          "CT KUB",
+          "Urinalysis",
+          "Renal function",
+          "FBC/CRP (infection)"
+        ],
+        "confidenceExplanation": "CT KUB is the gold standard and directly visualized the stone, so confidence is very high. Clinical features and hematuria were already strongly supportive pre-imaging.",
+        "whyNot100": "Imaging is essentially confirmatory; the small residual accounts for always ensuring no coexisting infection or obstruction requiring urgent drainage.",
+        "riskAssessment": "A 5 mm stone has a good chance of spontaneous passage. Key safety issue — exclude infection (none here); an infected obstructed kidney would be a urological emergency.",
+        "nextAction": "Analgesia (NSAID first-line), antiemetic, hydration and medical expulsive therapy (alpha-blocker). Stone under 6 mm — trial of passage with urology follow-up and stone-prevention advice.",
+        "references": [
+          {
+            "type": "guideline",
+            "title": "EAU Guidelines on Urolithiasis",
+            "source": "European Association of Urology",
+            "year": 2023,
+            "snippet": "CT KUB is first-line imaging; stones < 6 mm are candidates for conservative management with MET.",
+            "strength": "Strong"
+          },
+          {
+            "type": "paper",
+            "title": "NSAIDs vs opioids for renal colic",
+            "source": "BMJ",
+            "year": 2017,
+            "snippet": "NSAIDs provide effective analgesia with fewer side effects than opioids in acute renal colic.",
+            "strength": "Moderate"
+          }
+        ],
+        "similarCases": [
+          {
+            "title": "35 M, 4 mm VUJ stone",
+            "outcome": "Passed spontaneously in 8 days",
+            "similarity": 90,
+            "detail": "Managed with NSAIDs + tamsulosin; no intervention needed."
+          }
+        ],
+        "trend": [
+          {
+            "label": "Intake",
+            "value": 78
+          },
+          {
+            "label": "Interview",
+            "value": 84
+          },
+          {
+            "label": "Exam",
+            "value": 88
+          },
+          {
+            "label": "Results",
+            "value": 93
+          }
+        ],
+        "discussion": [
+          {
+            "role": "doctor",
+            "text": "Does a 5 mm stone need intervention?",
+            "time": "Jun 26"
+          },
+          {
+            "role": "ai",
+            "text": "Usually not first-line. Stones under 6 mm have roughly a 60–70% chance of passing spontaneously, so the guideline-preferred approach is medical expulsive therapy with an alpha-blocker, good analgesia and hydration, plus a safety net. Intervention (e.g. ureteroscopy or lithotripsy) is reserved for failure to pass, uncontrolled pain, or signs of infection/obstruction — none of which are present here.",
+            "time": "Jun 26"
+          }
+        ]
+      }
+    ],
+    "tests": [
+      {
+        "id": "t1",
+        "name": "CT KUB (non-contrast)",
+        "category": "Imaging",
+        "reason": "Gold-standard confirmation and localization of stone.",
+        "expectedFinding": "Ureteric calculus",
+        "priority": "High",
+        "cost": "$$",
+        "urgency": "Urgent",
+        "diagnosticValue": 96,
+        "status": "completed",
+        "result": "5 mm stone at left VUJ, mild hydronephrosis",
+        "resultFlag": "abnormal",
+        "resultDetail": "No signs of infection; stone likely to pass with conservative management."
+      },
+      {
+        "id": "t2",
+        "name": "Urinalysis",
+        "category": "Point-of-care",
+        "reason": "Confirm hematuria; exclude infection.",
+        "expectedFinding": "Hematuria, no infection",
+        "priority": "High",
+        "cost": "$",
+        "urgency": "Immediate",
+        "diagnosticValue": 70,
+        "status": "completed",
+        "result": "Blood +++, no nitrites",
+        "resultFlag": "abnormal",
+        "resultDetail": "Consistent with stone; no UTI."
+      },
+      {
+        "id": "t3",
+        "name": "Renal function + electrolytes",
+        "category": "Biochemistry",
+        "reason": "Assess renal function and obstruction impact.",
+        "expectedFinding": "Normal",
+        "priority": "Medium",
+        "cost": "$",
+        "urgency": "Same day",
+        "diagnosticValue": 60,
+        "status": "completed",
+        "result": "eGFR 92, normal",
+        "resultFlag": "normal",
+        "resultDetail": "No renal impairment."
+      },
+      {
+        "id": "t4",
+        "name": "FBC + CRP",
+        "category": "Hematology",
+        "reason": "Screen for infection with obstruction.",
+        "expectedFinding": "Normal",
+        "priority": "Medium",
+        "cost": "$",
+        "urgency": "Same day",
+        "diagnosticValue": 55,
+        "status": "completed",
+        "result": "WBC normal, CRP 6",
+        "resultFlag": "normal",
+        "resultDetail": "No evidence of infected obstructed system."
+      }
+    ],
+    "timeline": [
+      {
+        "time": "22:10",
+        "date": "Jun 25",
+        "title": "Patient submitted symptoms",
+        "description": "Ahmed presented with severe left flank pain overnight.",
+        "actor": "patient",
+        "stage": "intake"
+      },
+      {
+        "time": "22:15",
+        "date": "Jun 25",
+        "title": "AI interview completed",
+        "description": "Renal colic pattern with prior stone identified.",
+        "actor": "ai",
+        "stage": "interview"
+      },
+      {
+        "time": "22:40",
+        "date": "Jun 25",
+        "title": "Examination completed",
+        "description": "Left renal-angle tenderness, hematuria on dipstick, afebrile.",
+        "actor": "doctor",
+        "stage": "examination"
+      },
+      {
+        "time": "00:30",
+        "date": "Jun 26",
+        "title": "CT KUB completed",
+        "description": "5 mm stone at left VUJ with mild hydronephrosis, no infection.",
+        "actor": "system",
+        "stage": "results"
+      },
+      {
+        "time": "01:00",
+        "date": "Jun 26",
+        "title": "Diagnosis finalized",
+        "description": "Ureteric stone confirmed; conservative management chosen.",
+        "actor": "doctor",
+        "stage": "diagnosis"
+      },
+      {
+        "time": "10:00",
+        "date": "Jun 27",
+        "title": "Case completed",
+        "description": "Stone passed; discharged with prevention advice and urology follow-up.",
+        "actor": "system",
+        "stage": "completion"
+      }
+    ],
+    "finalDiagnosis": {
+      "name": "Left Ureteric Stone (5 mm, VUJ) — Renal Colic",
+      "confidence": 93,
+      "status": "accepted",
+      "reasoning": "CT KUB confirmed a 5 mm calculus at the left vesicoureteric junction with mild proximal hydronephrosis and no infection, matching the classic clinical picture of renal colic with hematuria and a prior identical episode.",
+      "evidenceSummary": [
+        "CT KUB: 5 mm left VUJ stone + mild hydronephrosis",
+        "Visible hematuria (dipstick +++)",
+        "Colicky loin-to-groin pain with restlessness",
+        "Prior stone (2021)",
+        "Afebrile, no infection markers"
+      ],
+      "ruledOut": [
+        {
+          "name": "Abdominal aortic aneurysm",
+          "reason": "Young patient, classic colic and CT confirming stone; aorta normal."
+        },
+        {
+          "name": "Pyelonephritis",
+          "reason": "Afebrile, normal WBC/CRP, no nitrites — no infection."
+        }
+      ],
+      "treatment": [
+        "NSAID analgesia (diclofenac) + antiemetic",
+        "Medical expulsive therapy — tamsulosin 400 µg OD",
+        "Increase fluid intake",
+        "Sieve urine to catch the stone for analysis"
+      ],
+      "monitoring": [
+        "Return if fever, rigors, or uncontrolled pain (infected obstruction)",
+        "Repeat imaging if not passed in 2–4 weeks"
+      ],
+      "complications": [
+        "Obstruction",
+        "Infection (emergency if febrile)",
+        "Recurrence"
+      ],
+      "followUp": [
+        "Urology follow-up",
+        "Stone metabolic screen given recurrence",
+        "Hydration and dietary (low-salt) advice"
+      ]
+    },
+    "notes": [
+      {
+        "time": "Jun 25",
+        "author": "Dr. Silva",
+        "text": "Classic renal colic, afebrile, hematuria +++. CT KUB requested. Good analgesia given."
+      },
+      {
+        "time": "Jun 26",
+        "author": "Dr. Silva",
+        "text": "5 mm VUJ stone, no infection. For conservative management with tamsulosin. Safety-netted for fever."
+      }
+    ],
+    "insights": [
+      {
+        "kind": "success",
+        "title": "Infection excluded",
+        "text": "Afebrile with normal inflammatory markers — no infected obstructed system, so conservative management is safe."
+      },
+      {
+        "kind": "suggestion",
+        "title": "Recurrence prevention",
+        "text": "Second stone with a family history — Aura recommends a metabolic stone screen and hydration/dietary advice."
+      }
+    ],
+    "nextSteps": [
+      "Case completed",
+      "Conservative management with tamsulosin",
+      "Metabolic screen & prevention advice arranged"
+    ],
+    "recentUpdates": [
+      {
+        "time": "Jun 27",
+        "text": "Stone passed; case completed",
+        "actor": "system"
+      },
+      {
+        "time": "Jun 26",
+        "text": "CT confirmed 5 mm VUJ stone",
+        "actor": "system"
+      }
+    ],
+    "assistantThread": [
+      {
+        "role": "ai",
+        "text": "This case is complete. Ahmed's 5 mm ureteric stone was managed conservatively and passed. The full reasoning, imaging and prevention plan are available to review in read-only mode.",
+        "time": "Jun 27"
+      }
+    ],
+    "outcome": "Confirmed 5 mm left ureteric stone managed conservatively with analgesia and medical expulsive therapy. Stone passed spontaneously within 48 hours. Discharged with a recurrence-prevention plan and urology follow-up.",
+    "lessonsLearned": [
+      "Restlessness with colicky loin-to-groin pain plus hematuria is highly specific for renal colic.",
+      "Excluding infection early (temperature, inflammatory markers) is the critical safety step.",
+      "A recurrent stone with family history warrants a metabolic screen to guide prevention."
+    ],
+    "associatedConditions": [
+      "Gout",
+      "Dehydration",
+      "Recurrent nephrolithiasis"
+    ],
+    "progress": [
+      {
+        "key": "intake",
+        "label": "Patient Intake",
+        "status": "done"
+      },
+      {
+        "key": "interview",
+        "label": "AI Interview",
+        "status": "done"
+      },
+      {
+        "key": "examination",
+        "label": "Physical Examination",
+        "status": "done"
+      },
+      {
+        "key": "differential",
+        "label": "Differential Diagnosis",
+        "status": "done"
+      },
+      {
+        "key": "tests",
+        "label": "Tests Ordered",
+        "status": "done"
+      },
+      {
+        "key": "results",
+        "label": "Results Review",
+        "status": "done"
+      },
+      {
+        "key": "diagnosis",
+        "label": "Final Diagnosis",
+        "status": "done"
+      },
+      {
+        "key": "treatment",
+        "label": "Treatment",
+        "status": "done"
+      },
+      {
+        "key": "followup",
+        "label": "Follow-up",
+        "status": "done"
+      },
+      {
+        "key": "completion",
+        "label": "Completion",
+        "status": "done"
+      }
+    ]
+  }
+]
