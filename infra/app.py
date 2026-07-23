@@ -2,8 +2,8 @@
 """CDK app entry point for the SEHATI-AI backend.
 
 Deploys the full AWS-native serverless stack described in the design document:
-AppSync (GraphQL + subscriptions) + Lambda + DynamoDB + Cognito + S3/KMS, in
-eu-central-1 (Frankfurt) by default. See docs/AWS_DEPLOYMENT.md.
+API Gateway (REST) + Lambda + DynamoDB + Cognito + S3/KMS, in eu-central-1
+(Frankfurt) by default. See docs/AWS_DEPLOYMENT.md.
 """
 
 import os
@@ -26,7 +26,7 @@ SehatiStack(
     env=env,
     # Toggle the AI provider at deploy time: "stub" (default) or "bedrock".
     ai_provider=app.node.try_get_context("ai_provider") or os.environ.get("AI_PROVIDER", "stub"),
-    description="SEHATI-AI clinical decision-support backend (AppSync + Lambda + DynamoDB + Cognito)",
+    description="SEHATI-AI clinical decision-support backend (API Gateway + Lambda + DynamoDB + Cognito)",
 )
 
 app.synth()

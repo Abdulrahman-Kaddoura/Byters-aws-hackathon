@@ -8,7 +8,7 @@ deviates, and what is intentionally left to other teams / future work.
 This repository's backend owns: the **API**, the **clinical workflow + state
 machine**, the **data model + persistence**, **security/authorization**, the
 **audit trail**, and the **feedback flywheel**. It exposes a clean seam for the
-**AI team** (model/prompts/RAG) and a GraphQL contract for the **frontend team**.
+**AI team** (model/prompts/RAG) and a REST contract for the **frontend team**.
 CDN/CloudFront is out of scope for now.
 
 ## 2. System design (design doc §5)
@@ -16,12 +16,12 @@ CDN/CloudFront is out of scope for now.
 ```
 Tablet / Web (frontend team)
   → Amazon Cognito .......... AuthN + groups (patient/physician/admin/compliance)
-  → AWS AppSync ............. GraphQL API + subscriptions (Direct Lambda Resolvers)
+  → Amazon API Gateway ...... REST API (Cognito authorizer, Lambda proxy integration)
   → AWS Lambda (Python) ..... orchestration; the authorization boundary
         ├─ AIService seam ... stub (default) | Amazon Bedrock (Claude) + Guardrails + KB
         ├─ Amazon DynamoDB .. cases · audit · feedback  (KMS-encrypted, on-demand)
         └─ Amazon S3 + KMS .. documents/audio/images · immutable WORM audit (Object Lock)
-  Observability ............ CloudWatch Logs + AppSync field logs + X-ray
+  Observability ............ CloudWatch Logs + API Gateway access logs + X-ray
 ```
 
 Region: **eu-central-1 (Frankfurt)**, per the design doc's region decision
@@ -44,8 +44,8 @@ jurisdiction).
 | 12. Similar-case cohort signal | Diagnosis `similarCases` field; production path = pgvector (§8) |
 
 Non-functional (design doc §3.2): PHI encrypted at rest (KMS CMK) + in transit;
-record-level access control; immutable audit; streamed/low-latency interactive
-responses (AppSync + Lambda); scale-to-zero idle cost; doctor-in-the-loop.
+record-level access control; immutable audit; low-latency interactive responses
+(API Gateway + Lambda); scale-to-zero idle cost; doctor-in-the-loop.
 
 ## 4. Data workflows + state machine (design doc §6–§7)
 
@@ -145,8 +145,10 @@ cohort/similar-case retrieval (design doc §10.4: Comprehend Medical de-identifi
   ingest the **radiologist's report text** — no LLM image diagnosis, by design.
 - **Aurora + pgvector** cohort search, and **HealthLake/FHIR** for interop
   (design doc §14) — production drop-ins.
-- **Token-streaming** AI replies over AppSync subscriptions (mutation-published
-  chunks); today replies are complete grounded messages.
+- **Real-time push / token-streaming** — AppSync subscriptions were dropped along
+  with GraphQL; a WebSocket API (API Gateway) is the documented path if
+  multi-viewer live sync or token-streamed replies are needed later. Today
+  replies are complete grounded messages and clients poll `GET /cases/{caseId}`.
 
 ## 9. Regulatory posture (design doc §14)
 

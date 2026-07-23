@@ -22,8 +22,9 @@ Task Set 8 (update) and occasionally Task Set 9 (teardown).
 | **10** | Tear it down | when finished |
 
 **What you're building:** one CloudFormation stack called `SehatiBackend` in the
-**eu-central-1 (Frankfurt)** region, containing AppSync (the API), Lambda (the
-logic), DynamoDB (3 tables), Cognito (logins), S3 + KMS (files, audit, encryption).
+**eu-central-1 (Frankfurt)** region, containing API Gateway (the REST API),
+Lambda (the logic), DynamoDB (3 tables), Cognito (logins), S3 + KMS (files,
+audit, encryption).
 
 **Cost:** ~$150–500/month at pilot scale *with real AI on*, dominated by AI tokens;
 **near-zero when idle**. With the default stub AI there is **no model cost at all**.
@@ -117,14 +118,14 @@ aws cloudformation describe-stacks --stack-name SehatiBackend \
 
 | Output | What it's for |
 |--------|---------------|
-| `GraphQLApiUrl` | The API address the app calls. |
+| `ApiUrl` | The API address the app calls (ends in `/prod/`). |
 | `UserPoolId` | The Cognito user directory id (for creating users). |
 | `UserPoolClientId` | The app's login client id (for signing in). |
 | `Region` | `eu-central-1`. |
 | `CasesTableName` | The cases table name (used by the seed step). |
 | `AIProvider` | `stub` or `bedrock` (which AI is active). |
 
-**Checkpoint:** you have `GraphQLApiUrl`, `UserPoolId`, and `UserPoolClientId` saved.
+**Checkpoint:** you have `ApiUrl`, `UserPoolId`, and `UserPoolClientId` saved.
 
 ---
 
@@ -193,19 +194,6 @@ python scripts/seed_cases.py
 
 **Goal:** prove the API answers and that role-based access works.
 
-### Easiest — the AppSync console
-1. AWS console → **AppSync** → open **`sehati-api`** → **Queries**.
-2. Click **Login with User Pools**, paste your `UserPoolClientId`, sign in as
-   `dr.karim` / `Passw0rd!Demo`.
-3. Run:
-   ```graphql
-   query { listCases }
-   ```
-   You should get the seeded cases back.
-4. Now sign out, sign in as **`layla`** (patient), run the same query — you should
-   see **only her own** cases. That proves the isolation works.
-
-### Or — from the command line
 ```bash
 # 1) get a login token for the physician
 TOKEN=$(aws cognito-idp initiate-auth --auth-flow USER_PASSWORD_AUTH \
@@ -213,14 +201,15 @@ TOKEN=$(aws cognito-idp initiate-auth --auth-flow USER_PASSWORD_AUTH \
   --auth-parameters USERNAME=dr.karim,PASSWORD='Passw0rd!Demo' \
   --query "AuthenticationResult.IdToken" --output text)
 
-# 2) call the API
-curl -s -X POST <GraphQLApiUrl> \
-  -H "Authorization: $TOKEN" -H "Content-Type: application/json" \
-  -d '{"query":"query { listCases }"}'
+# 2) call the API — note: the raw ID token, no "Bearer " prefix
+curl -s "<ApiUrl>cases" -H "Authorization: $TOKEN"
 ```
 
-**Checkpoint:** `listCases` returns case data for the physician; a patient sees only
-their own. See [`API.md`](./API.md) for more calls to try.
+Now sign in as **`layla`** (patient) the same way and call `GET /cases` again —
+she should see **only her own** cases. That proves the isolation works.
+
+**Checkpoint:** `GET /cases` returns case data for the physician; a patient sees
+only their own. See [`API.md`](./API.md) for every endpoint.
 
 ---
 
@@ -246,8 +235,8 @@ stub is fine for your demo.
 If Bedrock is unavailable or a model isn't enabled, the backend **automatically
 falls back to the stub** so nothing breaks.
 
-**Checkpoint:** the `AIProvider` output (Task Set 4) now reads `bedrock`, and an
-`assistantChat` call returns a model-generated answer.
+**Checkpoint:** the `AIProvider` output (Task Set 4) now reads `bedrock`, and a
+`POST /cases/{caseId}/assistant` call returns a model-generated answer.
 
 ---
 
@@ -295,16 +284,16 @@ first.)
 Give the frontend team these four values from Task Set 4:
 
 ```
-AppSync GraphQL URL   = <GraphQLApiUrl>
+API base URL          = <ApiUrl>
 AWS region            = eu-central-1
 Cognito User Pool Id  = <UserPoolId>
 Cognito App Client Id = <UserPoolClientId>
 ```
 
-They log the user in with Cognito and send the resulting **ID token** in the
-`Authorization` header to the GraphQL URL. All endpoints and shapes are in
-[`API.md`](./API.md); every case they receive matches the frontend's existing
-`PatientCase` type.
+They log the user in with Cognito and send the resulting **ID token** (raw, no
+`Bearer ` prefix) in the `Authorization` header on every request to the API base
+URL. All endpoints and shapes are in [`API.md`](./API.md); every case they
+receive matches the frontend's existing `PatientCase` type.
 
 ---
 

@@ -72,24 +72,6 @@ def reject_recommendation(ctx: AuthContext, args: dict[str, Any]) -> dict[str, A
     return {"case": case, "accepted": False}
 
 
-def publish_case_update(ctx: AuthContext, args: dict[str, Any]) -> Any:
-    """Fan-out trigger: verify access, then echo the case to subscribers.
-
-    The frontend calls this after a mutation so other subscribers of
-    ``onCaseUpdated`` receive the new state. Access is still checked in the data
-    layer before anything is broadcast.
-    """
-    ctx.require_clinical_staff()
-    cases_repo.get_case(_require(args, "caseId"), ctx)  # authorization gate
-    return args.get("case")
-
-
-def publish_message(ctx: AuthContext, args: dict[str, Any]) -> Any:
-    """Fan-out trigger for a new chat message on a case."""
-    cases_repo.get_case(_require(args, "caseId"), ctx)  # authorization gate
-    return args.get("message")
-
-
 def _require(args: dict[str, Any], key: str) -> Any:
     val = args.get(key)
     if val in (None, ""):

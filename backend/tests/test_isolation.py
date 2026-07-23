@@ -44,10 +44,10 @@ def test_audit_trail_requires_compliance_or_admin(aws, patient, physician, compl
 
 
 def test_unauthenticated_identity_rejected():
-    from sehati.context import from_appsync_identity
+    from sehati.context import from_apigw_claims
 
     with pytest.raises(UnauthorizedError):
-        from_appsync_identity(None)
+        from_apigw_claims(None)
 
 
 def test_patient_cannot_request_recommendations(aws, patient, sample_intake):

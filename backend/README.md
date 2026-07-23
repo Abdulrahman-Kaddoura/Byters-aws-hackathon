@@ -3,7 +3,7 @@
 A doctor-in-the-loop **clinical decision-support (CDS)** backend, built AWS-native
 per the SEHATI-AI design document. It owns the case data, the clinical workflow,
 the API, security and the audit trail. The **AI team** plugs its model/prompt/RAG
-work into a single seam (`sehati/ai/`); the **frontend team** consumes a GraphQL
+work into a single seam (`sehati/ai/`); the **frontend team** consumes a REST
 API. This service works fully **today** with a built-in stub AI — no model, no
 network, no cost.
 
@@ -17,8 +17,8 @@ network, no cost.
 
 ```
 Cognito (auth, groups)
-   → AppSync (GraphQL + subscriptions)
-      → Lambda orchestrator (this Python package, Direct Lambda Resolvers)
+   → API Gateway (REST, Cognito authorizer)
+      → Lambda orchestrator (this Python package, Lambda proxy integration)
          → AIService seam  (stub | Amazon Bedrock + Guardrails + Knowledge Bases)
          → DynamoDB        (cases · audit · feedback)
          → S3 + KMS        (documents · immutable WORM audit)
@@ -35,8 +35,8 @@ Cognito (auth, groups)
 
 ```
 sehati/
-  handler.py          # Lambda entry — parses the AppSync event, shapes errors
-  router.py           # GraphQL field name -> resolver function
+  handler.py          # Lambda entry — routes API Gateway events, shapes errors
+  router.py           # API route field name -> resolver function
   context.py          # AuthContext built from the *signed* Cognito identity
   models.py           # Domain model, mirror of ../src/types.ts + factories
   state_machine.py    # Case lifecycle transitions (design doc §7)
@@ -115,8 +115,9 @@ retrieval. Flip it on with `AI_PROVIDER=bedrock`.
 ## Security model (design doc §10)
 
 - **AuthN:** Cognito user pool (MFA-capable). **AuthZ:** Cognito groups
-  (`patient`/`physician`/`admin`/`compliance`) → AppSync `@aws_auth` + data-layer
-  ownership checks in `db/cases_repo.py`.
+  (`patient`/`physician`/`admin`/`compliance`) → API Gateway's Cognito authorizer
+  (verifies the token) + data-layer ownership/role checks in `db/cases_repo.py`
+  and the resolvers (`ctx.require_*`).
 - **Patient-facing interview path has no data-access tools** — it can only ever
   see the current case.
 - **Rejections require a reason** (anti-rubber-stamp / anti-automation-bias).

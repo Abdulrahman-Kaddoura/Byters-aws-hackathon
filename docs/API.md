@@ -1,31 +1,30 @@
 # SEHATI-AI — API Reference (What Each Endpoint Wants & Sends)
 
 This is the complete list of endpoints. For **each one** you get: its **purpose**,
-**who may call it**, what it **wants** (inputs), what it **sends back** (outputs),
-and a short **example**. Entities like *Case*, *Diagnosis*, *Test* are defined in
-[`DATA_MODEL.md`](./DATA_MODEL.md); the order you call them in is in
-[`WORKFLOW.md`](./WORKFLOW.md).
+**who may call it**, its **HTTP method + path**, what it **wants** (inputs), what it
+**sends back** (outputs), and a short **example**. Entities like *Case*, *Diagnosis*,
+*Test* are defined in [`DATA_MODEL.md`](./DATA_MODEL.md); the order you call them in
+is in [`WORKFLOW.md`](./WORKFLOW.md).
 
 ---
 
 ## How the API works (read this first)
 
-- **One endpoint URL**, a **GraphQL** API on AWS AppSync. You send a *query* (to
-  read) or a *mutation* (to change something).
+- **Amazon API Gateway (REST)**, one Lambda behind it. Every request is a plain
+  HTTPS call: path parameters for ids, a JSON body for input, JSON back.
 - **Every request must be logged in.** Send the user's Cognito **ID token** in the
-  `Authorization` header. That token tells the backend *who* the user is and *which
-  role* they have — you never pass identity in the body.
-- **JSON in, JSON out.** Because a Case is a large nested object, it travels as a
-  JSON string (GraphQL type `AWSJSON`). So:
-  - When an input is marked `AWSJSON` (e.g. `submitIntake`'s `input`), send a
-    **JSON string**.
-  - When a field like `case`, `diagnoses`, `summary` comes back, it's a **JSON
-    string** — call `JSON.parse()` on it.
+  `Authorization` header — **the raw token, no `Bearer ` prefix** (API Gateway's
+  Cognito authorizer parses the header value as the JWT itself). That token tells
+  the backend *who* the user is and *which role* they have — you never pass
+  identity in the path or body.
+- **Plain JSON in, plain JSON out.** Unlike a GraphQL `AWSJSON` string, request
+  bodies and responses here are ordinary JSON — no double-encoding, no
+  `JSON.parse()` on the result.
 - **Same call, different data per role.** The backend filters results by who you
-  are. A patient calling `listCases` sees only their own cases.
+  are. A patient calling `GET /cases` sees only their own cases.
 
 **Two shapes of response:**
-1. Some endpoints return the **whole Case** directly (a JSON string).
+1. Some endpoints return the **whole Case** directly (a JSON object).
 2. Others return a small **wrapper object** with named parts, e.g.
    `{ case, aiMessage, complete }`. The `case` part is always the full, updated Case.
 
@@ -35,79 +34,59 @@ and a short **example**. Entities like *Case*, *Diagnosis*, *Test* are defined i
 
 | | patient | physician | admin | compliance |
 |---|:-:|:-:|:-:|:-:|
-| read cases (`listCases`, `getCase`) | own only | ✓ | ✓ | ✓ |
-| `submitIntake` | ✓ (self) | ✓ | ✓ | — |
-| interview (`postInterviewMessage`, `generateSummary`) | ✓ | ✓ | ✓ | — |
+| read cases (`GET /cases`, `GET /cases/{caseId}`) | own only | ✓ | ✓ | ✓ |
+| create a case (`POST /cases`) | ✓ (self) | ✓ | ✓ | — |
+| interview (`.../interview/messages`, `.../interview/summary`) | ✓ | ✓ | ✓ | — |
 | exams, differential, tests, chat, propose dx | — | ✓ | ✓ | ✓ |
-| `acceptFinalDiagnosis` (sign-off) | — | ✓ | ✓ | — |
-| `caseAudit` (read audit trail) | — | — | ✓ | ✓ |
+| accept final diagnosis (sign-off) | — | ✓ | ✓ | — |
+| audit trail (`GET /cases/{caseId}/audit`) | — | — | ✓ | ✓ |
 
-If a user calls something they're not allowed to, they get a `Forbidden` error
-(see [Errors](#errors) at the bottom).
+If a user calls something they're not allowed to, they get a `403 Forbidden`
+error (see [Errors](#errors) at the bottom).
 
 ---
 
-# QUERIES (read data)
+# ENDPOINTS
 
-## `listCases` — list the cases you're allowed to see
+## `GET /cases` — list the cases you're allowed to see
 - **Purpose:** Get the case list for a dashboard.
 - **Who:** anyone logged in (patients get only their own).
-- **Wants:**
-  | Argument | Type | Required | Description |
+- **Wants (query string):**
+  | Param | Type | Required | Description |
   |----------|------|:--:|-------------|
   | `status` | text | no | Filter to one status, e.g. `"Awaiting Tests"`. |
   | `mine` | boolean | no | For a physician: only cases assigned to me. |
-- **Sends back:** a JSON string that is a **list of Cases** (each the full Case).
+- **Sends back:** a JSON array of **Cases** (each the full Case).
 - **Example:**
-  ```graphql
-  query { listCases(status: "Awaiting Tests") }
+  ```bash
+  curl -H "Authorization: $TOKEN" "$API_URL/cases?status=Awaiting%20Tests"
   ```
-  → `"[ {\"id\":\"AUR-1043\", ...}, {\"id\":\"AUR-1042\", ...} ]"`
 
-## `getCase` — get one full case
+## `GET /cases/{caseId}` — get one full case
 - **Purpose:** Open a case and show everything about it.
-- **Who:** anyone logged in (patients only their own; otherwise `Forbidden`).
-- **Wants:**
-  | Argument | Type | Required | Description |
-  |----------|------|:--:|-------------|
-  | `id` | text | **yes** | The case id, e.g. `"AUR-1042"`. |
-- **Sends back:** a JSON string that is the full **Case**.
+- **Who:** anyone logged in (patients only their own; otherwise `403 Forbidden`).
+- **Sends back:** the full **Case** object.
 - **Example:**
-  ```graphql
-  query { getCase(id: "AUR-1042") }
+  ```bash
+  curl -H "Authorization: $TOKEN" "$API_URL/cases/AUR-1042"
   ```
 
-## `caseAudit` — read the permanent audit trail of a case
+## `GET /cases/{caseId}/audit` — read the permanent audit trail of a case
 - **Purpose:** Compliance review — see every action taken on a case.
 - **Who:** **compliance** or **admin** only.
-- **Wants:**
-  | Argument | Type | Required | Description |
-  |----------|------|:--:|-------------|
-  | `id` | text | **yes** | The case id. |
-- **Sends back:** a JSON string that is a **list of audit entries**, each with
-  `action`, `actor`, `ts`, and (where relevant) `modelVersion`, `retrievedContext`,
-  `output`.
+- **Sends back:** a JSON array of **audit entries**, each with `action`, `actor`,
+  `ts`, and (where relevant) `modelVersion`, `retrievedContext`, `output`.
 - **Example:**
-  ```graphql
-  query { caseAudit(id: "AUR-1042") }
+  ```bash
+  curl -H "Authorization: $TOKEN" "$API_URL/cases/AUR-1042/audit"
   ```
 
 ---
 
-# MUTATIONS (change data)
-
-> In every response below, the returned `case` is the **full, updated Case**
-> (JSON string). Only the *extra* parts are described per endpoint.
-
-## `submitIntake` — create a new case from intake
+## `POST /cases` — create a new case from intake
 - **Purpose:** Start a case. Auto-advances to the AI interview.
 - **Who:** patient (creates their own), physician, or admin.
-- **Wants:**
-  | Argument | Type | Required | Description |
-  |----------|------|:--:|-------------|
-  | `input` | `AWSJSON` | **yes** | A JSON string with the intake payload (below). |
-
-  **`input` fields:**
+- **Wants (JSON body — the intake payload directly):**
   | Field | Required | Description |
   |-------|:--:|-------------|
   | `patient` | **yes** | Object with at least `name` (plus `age`, `gender`, …). |
@@ -119,290 +98,222 @@ If a user calls something they're not allowed to, they get a `Forbidden` error
 - **Sends back:** the full new **Case** (state = `AIInterview`, with the AI's first
   greeting already in `interview`).
 - **Example:**
-  ```graphql
-  mutation {
-    submitIntake(input: "{\"patient\":{\"name\":\"Layla\",\"age\":54,\"gender\":\"Female\"},\"chiefComplaint\":\"Headache 3 days with fever\",\"complaint\":{\"symptoms\":[\"Headache\",\"Fever\"],\"painScale\":6,\"duration\":\"3 days\"}}")
-  }
+  ```bash
+  curl -X POST "$API_URL/cases" -H "Authorization: $TOKEN" -H "Content-Type: application/json" \
+    -d '{"patient":{"name":"Layla","age":54,"gender":"Female"},"chiefComplaint":"Headache 3 days with fever","complaint":{"symptoms":["Headache","Fever"],"painScale":6,"duration":"3 days"}}'
   ```
 
-## `postInterviewMessage` — send a patient answer, get the next question
+## `PUT /cases/{caseId}` — move the case to another state manually
+- **Purpose:** Explicit lifecycle control (e.g. force a re-evaluation from
+  `Diagnosis` back to `ResultsDiscussion`). Illegal jumps are rejected.
+- **Who:** physician, admin, or compliance.
+- **Wants (JSON body):**
+  | Field | Required | Description |
+  |-------|:--:|-------------|
+  | `state` | **yes** | Target state, e.g. `"ResultsDiscussion"`. |
+  | `note` | no | Reason for the move. |
+- **Sends back:** the full **Case**.
+
+## `POST /cases/{caseId}/notes` — add a doctor's note
+- **Purpose:** Attach a free-text note to the case.
+- **Who:** physician, admin, or compliance.
+- **Wants (JSON body):** `text` (**required**).
+- **Sends back:** the full **Case** (note added to `notes`).
+
+---
+
+## `POST /cases/{caseId}/interview/messages` — send a patient answer, get the next question
 - **Purpose:** Run the adaptive interview, one turn at a time.
 - **Who:** patient, physician, or admin.
-- **Wants:**
-  | Argument | Type | Required | Description |
-  |----------|------|:--:|-------------|
-  | `caseId` | text | **yes** | The case id. |
-  | `text` | text | **yes** | The patient's answer. |
+- **Wants (JSON body):** `text` (**required**) — the patient's answer.
 - **Sends back:** `{ case, aiMessage, complete }`
   | Part | Meaning |
   |------|---------|
   | `case` | Updated case (the turn is appended to `interview`). |
   | `aiMessage` | The AI's next question (a *ChatMessage*), or `null` if finished. |
-  | `complete` | `true` when the interview is done → next call `generateSummary`. |
+  | `complete` | `true` when the interview is done → next call `.../interview/summary`. |
 - **Example:**
-  ```graphql
-  mutation {
-    postInterviewMessage(caseId: "AUR-1042", text: "It started 3 days ago and is worsening.") {
-      aiMessage complete
-    }
-  }
+  ```bash
+  curl -X POST "$API_URL/cases/AUR-1042/interview/messages" -H "Authorization: $TOKEN" \
+    -H "Content-Type: application/json" -d '{"text":"It started 3 days ago and is worsening."}'
   ```
 
-## `generateSummary` — build the structured summary
+## `POST /cases/{caseId}/interview/summary` — build the structured summary
 - **Purpose:** Turn the interview into a doctor-ready summary. Advances to
   `DoctorReview`.
 - **Who:** patient, physician, or admin.
-- **Wants:** `caseId` (text, **required**).
 - **Sends back:** `{ case, summary }` — `summary` is the *StructuredSummary*.
-- **Example:**
-  ```graphql
-  mutation { generateSummary(caseId: "AUR-1042") { summary } }
-  ```
 
-## `recommendExams` — get suggested physical exams
+---
+
+## `POST /cases/{caseId}/exams` — get suggested physical exams
 - **Purpose:** Ask the AI which examinations matter for this case.
 - **Who:** physician, admin, or compliance.
-- **Wants:** `caseId` (text, **required**).
 - **Sends back:** `{ case, exams }` — `exams` is a list of *ExamRecommendation*
   (status `pending`).
-- **Example:**
-  ```graphql
-  mutation { recommendExams(caseId: "AUR-1042") { exams } }
-  ```
 
-## `recordExamFinding` — enter what the doctor found
+## `PUT /cases/{caseId}/exams/{examId}` — enter what the doctor found
 - **Purpose:** Save the result of one examination.
 - **Who:** physician, admin, or compliance.
-- **Wants:**
-  | Argument | Type | Required | Description |
-  |----------|------|:--:|-------------|
-  | `caseId` | text | **yes** | The case id. |
-  | `examId` | text | **yes** | Which exam (its `id`, e.g. `"e1"`). |
-  | `finding` | text | no | What was found. |
-  | `normalRange` | text | no | The normal range. |
-  | `flag` | text | no | `normal` / `abnormal` / `critical`. |
-  | `note` | text | no | Extra note. |
-  | `status` | text | no | Defaults to `complete`. |
+- **Wants (JSON body):**
+  | Field | Required | Description |
+  |-------|:--:|-------------|
+  | `finding` | no | What was found. |
+  | `normalRange` | no | The normal range. |
+  | `flag` | no | `normal` / `abnormal` / `critical`. |
+  | `note` | no | Extra note. |
+  | `status` | no | Defaults to `complete`. |
 - **Sends back:** `{ case, exam }` — the updated exam.
 - **Example:**
-  ```graphql
-  mutation {
-    recordExamFinding(caseId: "AUR-1042", examId: "e1", finding: "Neck stiffness present", flag: "abnormal") { exam }
-  }
+  ```bash
+  curl -X PUT "$API_URL/cases/AUR-1042/exams/e1" -H "Authorization: $TOKEN" \
+    -H "Content-Type: application/json" -d '{"finding":"Neck stiffness present","flag":"abnormal"}'
   ```
 
-## `requestRecommendations` — generate the differential + tests
+---
+
+## `POST /cases/{caseId}/diagnoses` — generate the differential + tests
 - **Purpose:** Get the ranked list of possible diagnoses (with reasoning &
   citations) and suggested tests.
 - **Who:** physician, admin, or compliance.
-- **Wants:** `caseId` (text, **required**).
 - **Sends back:** `{ case, diagnoses, tests }`
   | Part | Meaning |
   |------|---------|
   | `diagnoses` | Ranked list of *Diagnosis* (each with `reasoning`, `supporting`, `references`, `confidence`, …). |
   | `tests` | List of *TestRecommendation* to consider ordering. |
-- **Example:**
-  ```graphql
-  mutation { requestRecommendations(caseId: "AUR-1042") { diagnoses tests } }
-  ```
 
-## `askDiagnosis` — ask the AI about a diagnosis (explainability)
+## `POST /cases/{caseId}/diagnoses/ask` — ask the AI about a diagnosis (explainability)
 - **Purpose:** Challenge/interrogate the reasoning ("Why this? Why not that?").
 - **Who:** physician, admin, or compliance.
-- **Wants:**
-  | Argument | Type | Required | Description |
-  |----------|------|:--:|-------------|
-  | `caseId` | text | **yes** | The case id. |
-  | `question` | text | **yes** | The doctor's question. |
-  | `diagnosisId` | text | no | Scope to one diagnosis; if given, the Q&A is saved in that diagnosis's `discussion`. |
+- **Wants (JSON body):**
+  | Field | Required | Description |
+  |-------|:--:|-------------|
+  | `question` | **yes** | The doctor's question. |
+  | `diagnosisId` | no | Scope to one diagnosis; if given, the Q&A is saved in that diagnosis's `discussion`. |
 - **Sends back:** `{ case, aiMessage }` — the AI's answer (a *ChatMessage*).
-- **Example:**
-  ```graphql
-  mutation {
-    askDiagnosis(caseId: "AUR-1042", diagnosisId: "dx-cap", question: "What would increase your confidence?") { aiMessage }
-  }
-  ```
 
-## `orderTest` — order a recommended test
-- **Purpose:** Mark a test as ordered. The **first** order moves the case to
-  `InProgress` (Awaiting Tests).
-- **Who:** physician, admin, or compliance.
-- **Wants:** `caseId` (**required**), `testId` (**required**, e.g. `"t1"`).
-- **Sends back:** `{ case, test }` — the test now has status `ordered`.
-- **Example:**
-  ```graphql
-  mutation { orderTest(caseId: "AUR-1042", testId: "t1") { test } }
-  ```
-
-## `recordTestResult` — enter a test result
-- **Purpose:** Record a result (a radiologist's report is entered here as text).
-- **Who:** physician, admin, or compliance.
-- **Wants:**
-  | Argument | Type | Required | Description |
-  |----------|------|:--:|-------------|
-  | `caseId` | text | **yes** | The case id. |
-  | `testId` | text | **yes** | Which test. |
-  | `result` | text | **yes** | The result value. |
-  | `resultFlag` | text | no | `normal` / `abnormal` / `critical`. |
-  | `resultDetail` | text | no | Extra detail. |
-- **Sends back:** `{ case, test }` — the test now `completed` with the result.
-- **Example:**
-  ```graphql
-  mutation {
-    recordTestResult(caseId: "AUR-1042", testId: "t1", result: "RLL infiltrate", resultFlag: "abnormal") { test }
-  }
-  ```
-
-## `rerankAfterResults` — re-reason once results are in
+## `POST /cases/{caseId}/diagnoses/rerank` — re-reason once results are in
 - **Purpose:** Have the AI update the differential with the new results. Moves the
   case to `ResultsDiscussion`.
 - **Who:** physician, admin, or compliance.
-- **Wants:** `caseId` (text, **required**).
 - **Sends back:** `{ case, diagnoses }` — the updated, re-ranked list.
-- **Example:**
-  ```graphql
-  mutation { rerankAfterResults(caseId: "AUR-1042") { diagnoses } }
-  ```
 
-## `proposeFinalDiagnosis` — propose the conclusion
+---
+
+## `POST /cases/{caseId}/final-diagnosis` — propose the conclusion
 - **Purpose:** Ask the AI to propose a final diagnosis with a plan. Moves the case
   to `Diagnosis`.
 - **Who:** physician, admin, or compliance.
-- **Wants:** `caseId` (text, **required**).
 - **Sends back:** `{ case, finalDiagnosis }` — a *FinalDiagnosis* (status `proposed`).
-- **Example:**
-  ```graphql
-  mutation { proposeFinalDiagnosis(caseId: "AUR-1042") { finalDiagnosis } }
-  ```
 
-## `acceptFinalDiagnosis` — doctor signs off (closes the case)
+## `PUT /cases/{caseId}/final-diagnosis` — doctor signs off (closes the case)
 - **Purpose:** Physician accepts the final diagnosis. Moves the case to `Closed`.
 - **Who:** **physician or admin only.**
-- **Wants:**
-  | Argument | Type | Required | Description |
-  |----------|------|:--:|-------------|
-  | `caseId` | text | **yes** | The case id. |
-  | `note` | text | no | A sign-off note. |
+- **Wants (JSON body):** `note` (no, optional sign-off note).
 - **Sends back:** `{ case, finalDiagnosis }` — `finalDiagnosis.status` is now
   `accepted`; the case is `Closed`.
 - **Example:**
-  ```graphql
-  mutation { acceptFinalDiagnosis(caseId: "AUR-1042", note: "Agree, treating as bacterial.") { finalDiagnosis } }
-  ```
-
-## `setCaseState` — move the case to another state manually
-- **Purpose:** Explicit lifecycle control (e.g. force a re-evaluation from
-  `Diagnosis` back to `ResultsDiscussion`). Illegal jumps are rejected.
-- **Who:** physician, admin, or compliance.
-- **Wants:**
-  | Argument | Type | Required | Description |
-  |----------|------|:--:|-------------|
-  | `caseId` | text | **yes** | The case id. |
-  | `state` | text | **yes** | Target state, e.g. `"ResultsDiscussion"`. |
-  | `note` | text | no | Reason for the move. |
-- **Sends back:** the full **Case**.
-- **Example:**
-  ```graphql
-  mutation { setCaseState(caseId: "AUR-1042", state: "ResultsDiscussion", note: "Re-evaluate.") }
-  ```
-
-## `addNote` — add a doctor's note
-- **Purpose:** Attach a free-text note to the case.
-- **Who:** physician, admin, or compliance.
-- **Wants:** `caseId` (**required**), `text` (**required**).
-- **Sends back:** the full **Case** (note added to `notes`).
-
-## `assistantChat` — case-level assistant chat
-- **Purpose:** Open-ended chat with the AI about the whole case (the assistant panel).
-- **Who:** physician, admin, or compliance.
-- **Wants:** `caseId` (**required**), `text` (**required**).
-- **Sends back:** `{ case, aiMessage }` — the AI's reply (saved to `assistantThread`).
-
-## `acceptRecommendation` — record acceptance (feedback)
-- **Purpose:** Log that the doctor accepted a suggestion (test, diagnosis…). Feeds
-  the feedback flywheel + audit.
-- **Who:** physician, admin, or compliance.
-- **Wants:**
-  | Argument | Type | Required | Description |
-  |----------|------|:--:|-------------|
-  | `caseId` | text | **yes** | The case id. |
-  | `targetId` | text | **yes** | Id of the thing accepted (e.g. a test `t1` or diagnosis `dx-cap`). |
-  | `targetType` | text | no | `recommendation` (default), `test`, `diagnosis`, or `final_diagnosis`. |
-  | `reason` | text | no | Optional reason. |
-- **Sends back:** `{ case, accepted: true }`.
-
-## `rejectRecommendation` — record rejection (reason required)
-- **Purpose:** Log that the doctor rejected a suggestion. **A reason is mandatory**
-  (anti-rubber-stamp).
-- **Who:** physician, admin, or compliance.
-- **Wants:**
-  | Argument | Type | Required | Description |
-  |----------|------|:--:|-------------|
-  | `caseId` | text | **yes** | The case id. |
-  | `targetId` | text | **yes** | Id of the thing rejected. |
-  | `targetType` | text | no | Same options as above. |
-  | `reason` | text | **yes** | Why it was rejected. Missing → `ValidationError`. |
-- **Sends back:** `{ case, accepted: false }`.
-- **Example:**
-  ```graphql
-  mutation {
-    rejectRecommendation(caseId: "AUR-1042", targetId: "dx-pe", reason: "Low Wells score; prefer to wait.") { accepted }
-  }
+  ```bash
+  curl -X PUT "$API_URL/cases/AUR-1042/final-diagnosis" -H "Authorization: $TOKEN" \
+    -H "Content-Type: application/json" -d '{"note":"Agree, treating as bacterial."}'
   ```
 
 ---
 
-# SUBSCRIPTIONS (real-time updates)
+## `POST /cases/{caseId}/tests/{testId}/order` — order a recommended test
+- **Purpose:** Mark a test as ordered. The **first** order moves the case to
+  `InProgress` (Awaiting Tests).
+- **Who:** physician, admin, or compliance.
+- **Sends back:** `{ case, test }` — the test now has status `ordered`.
 
-Use these to keep multiple viewers of a case in sync, or to stream chat.
-
-## `onCaseUpdated` / `onNewMessage`
-- **Purpose:** Receive a push whenever a case changes / a new message is posted.
-- **Wants:** `caseId` (**required**).
-- **How it fires:** these are triggered when a matching **publish** mutation runs.
-  After you make a change locally, call the publish mutation to fan it out:
-
-  | Subscription | Fired by | Publish wants |
-  |--------------|----------|---------------|
-  | `onCaseUpdated(caseId)` | `publishCaseUpdate(caseId, case)` | `case` = the updated Case JSON |
-  | `onNewMessage(caseId)` | `publishMessage(caseId, message)` | `message` = the new *ChatMessage* JSON |
-
+## `PUT /cases/{caseId}/tests/{testId}/result` — enter a test result
+- **Purpose:** Record a result (a radiologist's report is entered here as text).
+- **Who:** physician, admin, or compliance.
+- **Wants (JSON body):**
+  | Field | Required | Description |
+  |-------|:--:|-------------|
+  | `result` | **yes** | The result value. |
+  | `resultFlag` | no | `normal` / `abnormal` / `critical`. |
+  | `resultDetail` | no | Extra detail. |
+- **Sends back:** `{ case, test }` — the test now `completed` with the result.
 - **Example:**
-  ```graphql
-  subscription { onNewMessage(caseId: "AUR-1042") }
+  ```bash
+  curl -X PUT "$API_URL/cases/AUR-1042/tests/t1/result" -H "Authorization: $TOKEN" \
+    -H "Content-Type: application/json" -d '{"result":"RLL infiltrate","resultFlag":"abnormal"}'
   ```
 
-> Today AI replies come back as **complete messages**. Token-by-token streaming is a
-> documented future extension ([`ARCHITECTURE.md`](./ARCHITECTURE.md) §8).
+---
+
+## `POST /cases/{caseId}/assistant` — case-level assistant chat
+- **Purpose:** Open-ended chat with the AI about the whole case (the assistant panel).
+- **Who:** physician, admin, or compliance.
+- **Wants (JSON body):** `text` (**required**).
+- **Sends back:** `{ case, aiMessage }` — the AI's reply (saved to `assistantThread`).
+
+## `POST /cases/{caseId}/recommendations/{targetId}/accept` — record acceptance (feedback)
+- **Purpose:** Log that the doctor accepted a suggestion (test, diagnosis…). Feeds
+  the feedback flywheel + audit.
+- **Who:** physician, admin, or compliance.
+- **Wants (JSON body):**
+  | Field | Required | Description |
+  |-------|:--:|-------------|
+  | `targetType` | no | `recommendation` (default), `test`, `diagnosis`, or `final_diagnosis`. |
+  | `reason` | no | Optional reason. |
+- **Sends back:** `{ case, accepted: true }`.
+
+## `POST /cases/{caseId}/recommendations/{targetId}/reject` — record rejection (reason required)
+- **Purpose:** Log that the doctor rejected a suggestion. **A reason is mandatory**
+  (anti-rubber-stamp).
+- **Who:** physician, admin, or compliance.
+- **Wants (JSON body):**
+  | Field | Required | Description |
+  |-------|:--:|-------------|
+  | `targetType` | no | Same options as above. |
+  | `reason` | **yes** | Why it was rejected. Missing → `400 ValidationError`. |
+- **Sends back:** `{ case, accepted: false }`.
+- **Example:**
+  ```bash
+  curl -X POST "$API_URL/cases/AUR-1042/recommendations/dx-pe/reject" -H "Authorization: $TOKEN" \
+    -H "Content-Type: application/json" -d '{"reason":"Low Wells score; prefer to wait."}'
+  ```
 
 ---
 
 # Errors
 
-Errors come back with a typed `errorType` and a safe `message` (never patient data):
+Errors come back as an HTTP status code plus a JSON body with a typed
+`errorType` and a safe `message` (never patient data):
 
-| `errorType` | When it happens | What to do |
-|-------------|-----------------|-----------|
-| `Unauthorized` | No/expired login token. | Re-authenticate; resend the ID token. |
-| `Forbidden` | Not allowed (e.g. a patient opening another patient's case, or a role calling a restricted endpoint). | Expected for the wrong role — don't retry. |
-| `NotFound` | The `caseId` / `examId` / `testId` / `diagnosisId` doesn't exist. | Check the id. |
-| `ValidationError` | A required argument is missing or invalid (e.g. rejecting without a reason). | Fix the inputs. |
-| `StateTransitionError` | An illegal lifecycle move was requested. | Follow the allowed transitions ([`WORKFLOW.md`](./WORKFLOW.md) §1). |
+| HTTP | `errorType` | When it happens | What to do |
+|-----|-------------|-----------------|-----------|
+| 401 | `Unauthorized` | No/expired login token. | Re-authenticate; resend the ID token. |
+| 403 | `Forbidden` | Not allowed (e.g. a patient opening another patient's case, or a role calling a restricted endpoint). | Expected for the wrong role — don't retry. |
+| 404 | `NotFound` | The `caseId` / `examId` / `testId` / `diagnosisId` doesn't exist, or the route itself doesn't exist. | Check the id / path. |
+| 400 | `ValidationError` | A required field is missing or invalid (e.g. rejecting without a reason). | Fix the inputs. |
+| 409 | `StateTransitionError` | An illegal lifecycle move was requested. | Follow the allowed transitions ([`WORKFLOW.md`](./WORKFLOW.md) §1). |
+| 500 | `InternalError` | Unexpected server error. | Retry; check CloudWatch logs if it persists. |
 
 ---
 
 # The minimal happy path (copy/paste order)
 
 ```
-submitIntake
-  → postInterviewMessage (repeat until complete=true)
-  → generateSummary
-  → recommendExams → recordExamFinding
-  → requestRecommendations → askDiagnosis
-  → orderTest → recordTestResult → rerankAfterResults
-  → proposeFinalDiagnosis → acceptFinalDiagnosis
+POST /cases
+  → POST /cases/{caseId}/interview/messages (repeat until complete=true)
+  → POST /cases/{caseId}/interview/summary
+  → POST /cases/{caseId}/exams → PUT /cases/{caseId}/exams/{examId}
+  → POST /cases/{caseId}/diagnoses → POST /cases/{caseId}/diagnoses/ask
+  → POST /cases/{caseId}/tests/{testId}/order → PUT /cases/{caseId}/tests/{testId}/result
+    → POST /cases/{caseId}/diagnoses/rerank
+  → POST /cases/{caseId}/final-diagnosis → PUT /cases/{caseId}/final-diagnosis
 ```
 
 Everything a doctor screen needs is in these calls; everything a patient screen
-needs is `submitIntake` + `postInterviewMessage` (+ `getCase`/`listCases` for their
-own case).
+needs is `POST /cases` + `POST /cases/{caseId}/interview/messages` (+
+`GET /cases/{caseId}` / `GET /cases` for their own case).
+
+> **No real-time channel today.** The previous AppSync-based design had
+> `onCaseUpdated`/`onNewMessage` subscriptions; a plain REST API has no
+> equivalent. Multi-viewer sync is short-polling `GET /cases/{caseId}` for now —
+> a WebSocket API (API Gateway) is the documented next step if live push is
+> needed later.

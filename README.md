@@ -100,7 +100,7 @@ the chat feels interactive during a demo without any model behind it.
 
 A real, working backend now lives alongside this prototype. It implements the
 SEHATI-AI clinical decision-support design as an AWS-native serverless stack —
-**AppSync (GraphQL) + Lambda (Python) + DynamoDB + Cognito**, with a pluggable
+**API Gateway (REST) + Lambda (Python) + DynamoDB + Cognito**, with a pluggable
 AI seam (a built-in stub today, Amazon Bedrock ready) — and serves the same
 `PatientCase` shape this frontend already uses.
 
@@ -109,7 +109,7 @@ AI seam (a built-in stub today, Amazon Bedrock ready) — and serves the same
 | [`backend/`](backend/) | The Python backend: workflow, API resolvers, data layer, AI seam, tests. Fully runnable locally with no AWS account (`python backend/scripts/local_invoke.py`). |
 | [`infra/`](infra/) | AWS CDK app (Python) that provisions the whole stack. |
 | [`docs/AWS_DEPLOYMENT.md`](docs/AWS_DEPLOYMENT.md) | Step-by-step runbook to host it on AWS. |
-| [`docs/API.md`](docs/API.md) | GraphQL API reference for wiring up this frontend. |
+| [`docs/API.md`](docs/API.md) | REST API reference for wiring up this frontend. |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | How it maps to the design document. |
 
 > The backend is a decision-support aid for a licensed physician, not a medical
