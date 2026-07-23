@@ -13,6 +13,7 @@ in this order:
 | 5 | [`AWS_DEPLOYMENT.md`](./AWS_DEPLOYMENT.md) | How to put it on AWS, as separate **task sets** you do one at a time. |
 | 6 | [`ARCHITECTURE.md`](./ARCHITECTURE.md) | Deeper mapping to the original design document + design decisions. |
 | 7 | [`AWS_CURRENT_STATE.md`](./AWS_CURRENT_STATE.md) | What already exists by hand in the shared AWS account (the AI team's pipeline) — a point-in-time audit, since none of it is code. |
+| 8 | [`PROJECT_STATUS.md`](./PROJECT_STATUS.md) | Plain-language summary: what changed in this branch, what the AI team already built, and where things stand right now. |
 
 There is also a [`../backend/README.md`](../backend/README.md) (how to run it on
 your laptop) and [`../infra/README.md`](../infra/README.md) (the deployment code).
