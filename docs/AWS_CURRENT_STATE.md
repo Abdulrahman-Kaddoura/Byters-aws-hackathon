@@ -18,13 +18,12 @@ deliberate decision is made to integrate. See §5 below.
 - Account: `782968044136`.
 - **The AI team's resources all live in `us-east-1`** (every Lambda ARN, the API
   Gateway, the Bedrock Agent and both Knowledge Bases).
-- **`SehatiBackend`** (this repo's CDK stack) defaults to **`eu-central-1`**, per
-  the design doc's region decision (EU model catalog + EU data-protection
-  jurisdiction, design doc §5).
-- These are two different regions in the same account. This needs a deliberate
-  decision before any integration — not something to inherit by accident.
-  Cross-region calls add latency, and for a healthcare product the region also
-  carries the design doc's data-residency reasoning.
+- **`SehatiBackend`** (this repo's CDK stack) was updated (2026-07-23) to also
+  default to **`us-east-1`**, overriding the design doc's original EU-region
+  recommendation, specifically to match the AI team and avoid cross-region
+  friction for a hackathon build. If a real data-residency requirement is
+  confirmed later, revisit this deliberately rather than leaving it as-is by
+  default.
 
 ## 1. API Gateway
 

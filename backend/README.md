@@ -73,7 +73,7 @@ reading the immutable audit trail.
 
 ```bash
 docker run -p 8000:8000 amazon/dynamodb-local
-export DYNAMODB_ENDPOINT=http://localhost:8000 AWS_REGION=eu-central-1
+export DYNAMODB_ENDPOINT=http://localhost:8000 AWS_REGION=us-east-1
 export AWS_ACCESS_KEY_ID=local AWS_SECRET_ACCESS_KEY=local
 python scripts/seed_cases.py --create-table   # loads the 7 sample cases
 ```
@@ -106,7 +106,7 @@ retrieval. Flip it on with `AI_PROVIDER=bedrock`.
 |---|---|---|
 | `AI_PROVIDER` | `stub` | `stub` or `bedrock` |
 | `CASES_TABLE` / `AUDIT_TABLE` / `FEEDBACK_TABLE` | `sehati-*` | DynamoDB table names (set by CDK) |
-| `AWS_REGION` | `eu-central-1` | Region |
+| `AWS_REGION` | `us-east-1` | Region |
 | `DYNAMODB_ENDPOINT` | – | Local DynamoDB endpoint override |
 | `BEDROCK_MODEL_ID` | `anthropic.claude-sonnet-4-...` | Claude model (bedrock provider) |
 | `BEDROCK_GUARDRAIL_ID` / `_VERSION` | – | Optional Bedrock Guardrail |

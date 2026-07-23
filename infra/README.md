@@ -1,7 +1,7 @@
 # SEHATI-AI — Infrastructure (AWS CDK, Python)
 
 This CDK app provisions the entire SEHATI-AI backend as one CloudFormation stack
-(`SehatiBackend`) in **eu-central-1**: API Gateway, Lambda, DynamoDB (×3), Cognito,
+(`SehatiBackend`) in **us-east-1**: API Gateway, Lambda, DynamoDB (×3), Cognito,
 S3 (documents + WORM audit), and a KMS key.
 
 **Full hosting instructions are in [`../docs/AWS_DEPLOYMENT.md`](../docs/AWS_DEPLOYMENT.md).**
@@ -13,7 +13,7 @@ python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 
 export CDK_DEFAULT_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
-export CDK_DEFAULT_REGION=eu-central-1
+export CDK_DEFAULT_REGION=us-east-1
 
 cdk bootstrap                 # once per account/region
 cdk deploy                    # deploy with the stub AI (default)

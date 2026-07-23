@@ -22,7 +22,7 @@ Task Set 8 (update) and occasionally Task Set 9 (teardown).
 | **10** | Tear it down | when finished |
 
 **What you're building:** one CloudFormation stack called `SehatiBackend` in the
-**eu-central-1 (Frankfurt)** region, containing API Gateway (the REST API),
+**us-east-1 (N. Virginia)** region, containing API Gateway (the REST API),
 Lambda (the logic), DynamoDB (3 tables), Cognito (logins), S3 + KMS (files,
 audit, encryption).
 
@@ -48,18 +48,18 @@ audit, encryption).
 
 ## Task Set 1 — Point at your AWS account (per shell session)
 
-**Goal:** let the tools talk to *your* AWS account, in Frankfurt.
+**Goal:** let the tools talk to *your* AWS account, in `us-east-1`.
 
 1. Configure your AWS credentials (access key + secret) once:
    ```bash
    aws configure
-   # Region: enter  eu-central-1
+   # Region: enter  us-east-1
    ```
 2. Confirm you're connected and remember your account number + region:
    ```bash
    aws sts get-caller-identity
    export CDK_DEFAULT_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
-   export CDK_DEFAULT_REGION=eu-central-1
+   export CDK_DEFAULT_REGION=us-east-1
    ```
 
 **Checkpoint:** `aws sts get-caller-identity` prints your account id (no error).
@@ -79,10 +79,10 @@ audit, encryption).
    ```
 2. Bootstrap:
    ```bash
-   cdk bootstrap aws://$CDK_DEFAULT_ACCOUNT/eu-central-1
+   cdk bootstrap aws://$CDK_DEFAULT_ACCOUNT/us-east-1
    ```
 
-**Checkpoint:** you see `✅ Environment aws://…/eu-central-1 bootstrapped`.
+**Checkpoint:** you see `✅ Environment aws://…/us-east-1 bootstrapped`.
 
 ---
 
@@ -121,7 +121,7 @@ aws cloudformation describe-stacks --stack-name SehatiBackend \
 | `ApiUrl` | The API address the app calls (ends in `/prod/`). |
 | `UserPoolId` | The Cognito user directory id (for creating users). |
 | `UserPoolClientId` | The app's login client id (for signing in). |
-| `Region` | `eu-central-1`. |
+| `Region` | `us-east-1`. |
 | `CasesTableName` | The cases table name (used by the seed step). |
 | `AIProvider` | `stub` or `bedrock` (which AI is active). |
 
@@ -177,7 +177,7 @@ the same 7 cases the frontend was built around.
 ```bash
 cd ../backend
 pip install -r requirements.txt
-export AWS_REGION=eu-central-1
+export AWS_REGION=us-east-1
 
 # Assign who owns the seeded cases (use the subs from Task Set 5):
 export SEED_PATIENT_SUB=<layla-sub>
@@ -219,7 +219,7 @@ only their own. See [`API.md`](./API.md) for every endpoint.
 stub is fine for your demo.
 
 1. **Enable model access:** AWS console → **Amazon Bedrock** → **Model access**
-   (make sure you're in **eu-central-1**) → enable the Claude model you want.
+   (make sure you're in **us-east-1**) → enable the Claude model you want.
 2. **Redeploy with Bedrock selected:**
    ```bash
    cd ../infra
@@ -285,7 +285,7 @@ Give the frontend team these four values from Task Set 4:
 
 ```
 API base URL          = <ApiUrl>
-AWS region            = eu-central-1
+AWS region            = us-east-1
 Cognito User Pool Id  = <UserPoolId>
 Cognito App Client Id = <UserPoolClientId>
 ```
@@ -304,7 +304,7 @@ receive matches the frontend's existing `PatientCase` type.
 | `cdk deploy` says "bootstrap" | Do Task Set 2 for this account/region. |
 | `Unauthorized` from the API | Login token missing/expired — get a fresh one (Task Set 7). |
 | Patient gets `Forbidden` on another case | Correct behaviour — patients only see their own. |
-| `listCases` is empty | Run the seed step (Task Set 6), and check you're in `eu-central-1`. |
-| Bedrock `AccessDenied` / model not found | Enable model access (Task Set 8, step 1) in eu-central-1. |
+| `listCases` is empty | Run the seed step (Task Set 6), and check you're in `us-east-1`. |
+| Bedrock `AccessDenied` / model not found | Enable model access (Task Set 8, step 1) in us-east-1. |
 | Changed code but AWS didn't update | Re-run Task Set 9 (`cdk deploy`). |
 | Can't delete the audit bucket | It's WORM by design — see Task Set 10. |

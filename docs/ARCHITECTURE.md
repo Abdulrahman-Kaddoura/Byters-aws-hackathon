@@ -24,9 +24,10 @@ Tablet / Web (frontend team)
   Observability ............ CloudWatch Logs + API Gateway access logs + X-ray
 ```
 
-Region: **eu-central-1 (Frankfurt)**, per the design doc's region decision
-(strongest EU model catalog + full supporting services + EU data-protection
-jurisdiction).
+Region: **us-east-1 (N. Virginia)** — chosen to match the region the AI team's
+Bedrock/Lambda pipeline already runs in, overriding the design doc's original
+EU-region recommendation (see [`AWS_CURRENT_STATE.md`](./AWS_CURRENT_STATE.md)
+for why). Revisit if a real data-residency requirement is confirmed later.
 
 ## 3. Requirements coverage (design doc §3)
 
