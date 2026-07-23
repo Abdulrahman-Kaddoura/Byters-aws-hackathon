@@ -1,6 +1,6 @@
 """The SEHATI-AI backend stack.
 
-    Cognito (auth, groups)  ->  AppSync (GraphQL + subscriptions)
+    Cognito (auth, groups)  ->  API Gateway (REST, Cognito authorizer)
                                       |
                                 Lambda orchestrator (Python)
                                       |
@@ -22,7 +22,7 @@ from aws_cdk import (
     RemovalPolicy,
     Stack,
 )
-from aws_cdk import aws_appsync as appsync
+from aws_cdk import aws_apigateway as apigateway
 from aws_cdk import aws_cognito as cognito
 from aws_cdk import aws_dynamodb as dynamodb
 from aws_cdk import aws_iam as iam
@@ -34,20 +34,6 @@ from constructs import Construct
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 BACKEND_DIR = os.path.abspath(os.path.join(HERE, "..", "..", "backend"))
-SCHEMA_PATH = os.path.abspath(os.path.join(HERE, "..", "schema.graphql"))
-
-# GraphQL (type, field) pairs wired to the Lambda data source.
-QUERY_FIELDS = ["listCases", "getCase", "caseAudit"]
-MUTATION_FIELDS = [
-    "submitIntake", "setCaseState", "addNote",
-    "postInterviewMessage", "generateSummary",
-    "recommendExams", "recordExamFinding",
-    "requestRecommendations", "askDiagnosis", "rerankAfterResults",
-    "proposeFinalDiagnosis", "acceptFinalDiagnosis",
-    "orderTest", "recordTestResult",
-    "assistantChat", "acceptRecommendation", "rejectRecommendation",
-    "publishCaseUpdate", "publishMessage",
-]
 
 
 class SehatiStack(Stack):
@@ -228,35 +214,89 @@ class SehatiStack(Stack):
             )
         )
 
-        # --- AppSync GraphQL API -------------------------------------------
-        api = appsync.GraphqlApi(
-            self, "GraphqlApi",
-            name="sehati-api",
-            definition=appsync.Definition.from_file(SCHEMA_PATH),
-            authorization_config=appsync.AuthorizationConfig(
-                default_authorization=appsync.AuthorizationMode(
-                    authorization_type=appsync.AuthorizationType.USER_POOL,
-                    user_pool_config=appsync.UserPoolConfig(user_pool=user_pool),
-                ),
-                additional_authorization_modes=[
-                    appsync.AuthorizationMode(authorization_type=appsync.AuthorizationType.IAM),
-                ],
-            ),
-            log_config=appsync.LogConfig(
-                field_log_level=appsync.FieldLogLevel.ERROR,
-                retention=logs.RetentionDays.ONE_MONTH,
-            ),
-            xray_enabled=True,
+        # --- API Gateway (REST) ---------------------------------------------
+        api_log_group = logs.LogGroup(
+            self, "ApiAccessLogs",
+            log_group_name="/aws/apigateway/sehati-api",
+            retention=logs.RetentionDays.ONE_MONTH,
+            removal_policy=RemovalPolicy.DESTROY,
         )
-        ds = api.add_lambda_data_source("OrchestratorDS", fn)
-        for field in QUERY_FIELDS:
-            ds.create_resolver(f"Query_{field}", type_name="Query", field_name=field)
-        for field in MUTATION_FIELDS:
-            ds.create_resolver(f"Mutation_{field}", type_name="Mutation", field_name=field)
+        api = apigateway.RestApi(
+            self, "Api",
+            rest_api_name="sehati-api",
+            description="SEHATI-AI clinical decision-support REST API",
+            deploy_options=apigateway.StageOptions(
+                stage_name="prod",
+                logging_level=apigateway.MethodLoggingLevel.ERROR,
+                access_log_destination=apigateway.LogGroupLogDestination(api_log_group),
+                access_log_format=apigateway.AccessLogFormat.json_with_standard_fields(
+                    caller=True, http_method=True, ip=True, protocol=True,
+                    request_time=True, resource_path=True, response_length=True,
+                    status=True, user=True,
+                ),
+                tracing_enabled=True,
+            ),
+            default_cors_preflight_options=apigateway.CorsOptions(
+                allow_origins=apigateway.Cors.ALL_ORIGINS,
+                allow_methods=["GET", "POST", "PUT", "OPTIONS"],
+                allow_headers=["Content-Type", "Authorization"],
+            ),
+        )
+        authorizer = apigateway.CognitoUserPoolsAuthorizer(
+            self, "ApiAuthorizer",
+            cognito_user_pools=[user_pool],
+        )
+        integration = apigateway.LambdaIntegration(fn)
+
+        def secured(resource: apigateway.Resource, method: str) -> None:
+            resource.add_method(
+                method, integration,
+                authorization_type=apigateway.AuthorizationType.COGNITO,
+                authorizer=authorizer,
+            )
+
+        # /cases
+        cases_res = api.root.add_resource("cases")
+        secured(cases_res, "GET")   # listCases
+        secured(cases_res, "POST")  # submitIntake
+
+        # /cases/{caseId}
+        case_res = cases_res.add_resource("{caseId}")
+        secured(case_res, "GET")  # getCase
+        secured(case_res, "PUT")  # setCaseState
+
+        secured(case_res.add_resource("audit"), "GET")  # caseAudit
+        secured(case_res.add_resource("notes"), "POST")  # addNote
+
+        interview_res = case_res.add_resource("interview")
+        secured(interview_res.add_resource("messages"), "POST")  # postInterviewMessage
+        secured(interview_res.add_resource("summary"), "POST")  # generateSummary
+
+        exams_res = case_res.add_resource("exams")
+        secured(exams_res, "POST")  # recommendExams
+        secured(exams_res.add_resource("{examId}"), "PUT")  # recordExamFinding
+
+        diagnoses_res = case_res.add_resource("diagnoses")
+        secured(diagnoses_res, "POST")  # requestRecommendations
+        secured(diagnoses_res.add_resource("ask"), "POST")  # askDiagnosis
+        secured(diagnoses_res.add_resource("rerank"), "POST")  # rerankAfterResults
+
+        final_dx_res = case_res.add_resource("final-diagnosis")
+        secured(final_dx_res, "POST")  # proposeFinalDiagnosis
+        secured(final_dx_res, "PUT")  # acceptFinalDiagnosis
+
+        test_res = case_res.add_resource("tests").add_resource("{testId}")
+        secured(test_res.add_resource("order"), "POST")  # orderTest
+        secured(test_res.add_resource("result"), "PUT")  # recordTestResult
+
+        secured(case_res.add_resource("assistant"), "POST")  # assistantChat
+
+        recommendation_res = case_res.add_resource("recommendations").add_resource("{targetId}")
+        secured(recommendation_res.add_resource("accept"), "POST")  # acceptRecommendation
+        secured(recommendation_res.add_resource("reject"), "POST")  # rejectRecommendation
 
         # --- Outputs --------------------------------------------------------
-        CfnOutput(self, "GraphQLApiUrl", value=api.graphql_url)
-        CfnOutput(self, "GraphQLApiId", value=api.api_id)
+        CfnOutput(self, "ApiUrl", value=api.url)
         CfnOutput(self, "UserPoolId", value=user_pool.user_pool_id)
         CfnOutput(self, "UserPoolClientId", value=user_pool_client.user_pool_client_id)
         CfnOutput(self, "Region", value=self.region)
