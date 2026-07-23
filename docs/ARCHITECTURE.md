@@ -108,6 +108,14 @@ The backend never hard-codes model behavior. `ai/base.AIService` is the contract
   system > physician > retrieved-docs, and every structured method requests strict
   JSON. On any failure it degrades to the stub so the workflow never breaks.
 
+**Current status (2026-07-23):** the AI team has been building their Bedrock
+integration independently and directly in the console (a Bedrock Agent, two
+Knowledge Bases, four standalone Lambdas) rather than through this seam — see
+[`AWS_CURRENT_STATE.md`](./AWS_CURRENT_STATE.md) for the full audit. That work
+is not yet case-scoped or wired end-to-end, so **this backend deliberately runs
+on the stub for now**; `ai/bedrock.py` is not yet pointed at their setup. This
+is a conscious decision, not an oversight — revisit once their pipeline matures.
+
 **Confidence** (design doc §9.4) is carried as the frontend's qualitative fields
 (reasoning, `whyNot100`, `confidenceExplanation`, trend) — an honest band, not a
 spurious validated probability.
