@@ -2,8 +2,9 @@
 """CDK app entry point for the SEHATI-AI backend.
 
 Deploys the full AWS-native serverless stack described in the design document:
-AppSync (GraphQL + subscriptions) + Lambda + DynamoDB + Cognito + S3/KMS, in
-eu-central-1 (Frankfurt) by default. See docs/AWS_DEPLOYMENT.md.
+API Gateway (REST) + Lambda + DynamoDB + Cognito + S3/KMS, in us-east-1
+(N. Virginia) by default — matching the region the AI team's Bedrock/Lambda
+pipeline already runs in. See docs/AWS_DEPLOYMENT.md.
 """
 
 import os
@@ -14,10 +15,10 @@ from stacks.sehati_stack import SehatiStack
 
 app = cdk.App()
 
-# Region is fixed to Frankfurt per the design doc; override with CDK_DEFAULT_REGION.
+# Region defaults to us-east-1 to match the AI team's existing setup; override with CDK_DEFAULT_REGION.
 env = cdk.Environment(
     account=os.environ.get("CDK_DEFAULT_ACCOUNT"),
-    region=os.environ.get("CDK_DEFAULT_REGION", "eu-central-1"),
+    region=os.environ.get("CDK_DEFAULT_REGION", "us-east-1"),
 )
 
 SehatiStack(
@@ -26,7 +27,7 @@ SehatiStack(
     env=env,
     # Toggle the AI provider at deploy time: "stub" (default) or "bedrock".
     ai_provider=app.node.try_get_context("ai_provider") or os.environ.get("AI_PROVIDER", "stub"),
-    description="SEHATI-AI clinical decision-support backend (AppSync + Lambda + DynamoDB + Cognito)",
+    description="SEHATI-AI clinical decision-support backend (API Gateway + Lambda + DynamoDB + Cognito)",
 )
 
 app.synth()

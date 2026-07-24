@@ -1,116 +1,54 @@
-# Aura — AI Clinical Decision Support (Prototype)
+# Aura / SEHATI-AI — AI Clinical Decision Support
 
-A polished, **frontend-only** interactive prototype of an AI-powered clinical
-decision support platform. Aura assists physicians throughout the entire
+A clinical decision-support platform: a React frontend wired to a real,
+deployed AWS-native backend. Aura assists physicians throughout the entire
 diagnostic journey — organizing patient information, interviewing patients,
 brainstorming differential diagnoses, recommending examinations and tests,
-explaining its reasoning with confidence scores and (simulated) references, and
-collaborating with the doctor until a final diagnosis is reached.
+explaining its reasoning with confidence scores and references, and
+collaborating with the doctor until a final diagnosis is reached and signed
+off.
 
-> ⚠️ **This is not a real medical product.** Every patient, conversation,
-> diagnosis, test result, reference and AI response is **hardcoded dummy data**
-> used to simulate the product experience. There is no backend, no database, no
-> authentication and no real AI/LLM. It exists purely to demonstrate the
-> workflow, UX and physician–AI collaboration for feedback.
-
----
-
-## ✨ What it demonstrates
-
-The prototype walks through the complete clinical workflow:
-
-1. **Patient intake** — a multi-step wizard capturing demographics, history and the current complaint.
-2. **AI patient interview** — a simulated adaptive Q&A that auto-generates a **structured clinical summary** (so the doctor never reads the raw transcript).
-3. **Doctor workspace** — a per-case dashboard with patient summary, progress tracker, AI insights, suggested next steps and recent updates.
-4. **Physical examination** — AI-recommended exams (with reason, importance, confidence) where the doctor enters findings, marks complete/skip, and adds notes.
-5. **Differential diagnosis** — ranked diagnosis cards with confidence meters, supporting/contradicting evidence, and full **explainability** (how confidence was calculated, why not 100%, risk, next action, guideline/paper/textbook references, similar historical cases).
-6. **AI discussion** — every diagnosis has its own chat where the doctor can challenge the reasoning ("Why not pulmonary embolism?", "What would increase confidence?"). Responses are simulated but reasoning-first.
-7. **Recommended tests & results** — investigations with reason, expected finding, priority, cost, urgency and diagnostic value; results arrive and the differential re-ranks.
-8. **Final diagnosis** — proposed diagnosis with evidence summary, ruled-out alternatives, treatment, monitoring, complications and follow-up. The doctor can Accept / Modify / Continue investigation / Add notes.
-9. **Timeline & completion** — a vertical case timeline and read-only archived cases with outcomes and lessons learned.
-
-A persistent, case-aware **Aura Assistant** panel is available throughout for
-open-ended collaboration.
-
-### Sample cases
-
-Seven dummy patients across different diseases and workflow stages:
-
-| Case | Condition | Stage / status |
-|------|-----------|----------------|
-| Robert Hayes | Community-acquired Pneumonia | Diagnosis in progress (showcase) |
-| Sofia Marino | Acute Appendicitis | Awaiting tests |
-| Margaret Ellis | Decompensated Heart Failure | Differential |
-| Daniel Osei | Uncontrolled Asthma | Awaiting examination |
-| Priya Nair | Migraine with Aura | AI interview |
-| James Whitfield | Type 2 Diabetes | Completed (read-only) |
-| Ahmed Farouk | Kidney Stone (renal colic) | Completed (read-only) |
+> ⚠️ **Not a real medical product.** This is a decision-support aid for a
+> licensed physician, not a medical device — it presents option lists for
+> independent review, never directives.
 
 ---
 
-## 🚀 Getting started
+## Frontend
 
-Requirements: Node.js 18+ (developed on Node 22).
+[`AURA UPDATED FRONTEND/`](AURA%20UPDATED%20FRONTEND/) is the app — React +
+Vite, Cognito login, and every stage of the case lifecycle (AI interview,
+exam findings, differential diagnosis, tests, final diagnosis sign-off, and
+the audit trail for admin/compliance roles) calling the live backend. No
+mock or seeded data.
 
 ```bash
+cd "AURA UPDATED FRONTEND"
+cp .env.example .env
 npm install
-npm run dev      # start the dev server (http://localhost:5173)
+npm run dev      # http://localhost:5173
 ```
 
-Other scripts:
+See [`AURA UPDATED FRONTEND/README.md`](AURA%20UPDATED%20FRONTEND/README.md)
+for environment variables, project structure, and how to provision a demo
+Cognito login (self sign-up is disabled).
 
-```bash
-npm run build    # type-check + production build to dist/
-npm run preview  # preview the production build
-```
+## Backend (AWS-native, already deployed)
 
----
-
-## 🧱 Tech stack
-
-- **React 18** + **TypeScript** + **Vite**
-- **Tailwind CSS** (custom design system, light + dark themes via CSS variables)
-- **React Router** for navigation
-- **Recharts** for confidence-trend charts
-- **lucide-react** for icons
-
-No application network calls are made — the Inter font is loaded from Google
-Fonts with a graceful system-font fallback, and everything else is bundled.
-
-## 📁 Project structure
-
-```
-src/
-  data/          # Hardcoded cases, type helpers, and the simulated AI responder
-  components/    # Reusable UI: sidebar, cards, chat, charts, drawer, badges…
-  pages/         # Route pages
-    case/        # The per-case workspace (Overview, Interview, Examination,
-                 # Differential, Tests, Final Diagnosis, Timeline)
-  lib/           # Theme hook + UI/color utilities
-  types.ts       # Domain model
-```
-
-The "AI" is a rule/keyword-based responder (`src/data/aiResponder.ts`) that
-produces believable, reasoning-first answers grounded in each case's data — so
-the chat feels interactive during a demo without any model behind it.
-
----
-
-## 🔌 Backend (AWS-native)
-
-A real, working backend now lives alongside this prototype. It implements the
-SEHATI-AI clinical decision-support design as an AWS-native serverless stack —
-**AppSync (GraphQL) + Lambda (Python) + DynamoDB + Cognito**, with a pluggable
-AI seam (a built-in stub today, Amazon Bedrock ready) — and serves the same
-`PatientCase` shape this frontend already uses.
+The SEHATI-AI backend is a serverless stack — **API Gateway (REST) + Lambda
+(Python) + DynamoDB + Cognito**, with a pluggable AI seam (a built-in stub
+today, Amazon Bedrock ready).
 
 | Where | What |
 |-------|------|
 | [`backend/`](backend/) | The Python backend: workflow, API resolvers, data layer, AI seam, tests. Fully runnable locally with no AWS account (`python backend/scripts/local_invoke.py`). |
 | [`infra/`](infra/) | AWS CDK app (Python) that provisions the whole stack. |
-| [`docs/AWS_DEPLOYMENT.md`](docs/AWS_DEPLOYMENT.md) | Step-by-step runbook to host it on AWS. |
-| [`docs/API.md`](docs/API.md) | GraphQL API reference for wiring up this frontend. |
+| [`docs/API.md`](docs/API.md) | REST API reference — every endpoint, request/response shape. |
+| [`docs/DATA_MODEL.md`](docs/DATA_MODEL.md) | The `PatientCase` domain model, field by field. |
+| [`docs/WORKFLOW.md`](docs/WORKFLOW.md) | The case lifecycle state machine. |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | How it maps to the design document. |
+| [`docs/AWS_DEPLOYMENT.md`](docs/AWS_DEPLOYMENT.md) | Step-by-step runbook to (re)deploy it. |
+| [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md) | Current live deployment's stack outputs (API URL, Cognito pool/client IDs, region). |
 
-> The backend is a decision-support aid for a licensed physician, not a medical
-> device — it presents option lists for independent review, never directives.
+The frontend's `.env.example` is pre-filled with the current live deployment's
+values from `docs/PROJECT_STATUS.md`.

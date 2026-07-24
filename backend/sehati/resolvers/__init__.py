@@ -1,1 +1,1 @@
-"""GraphQL field resolvers, grouped by domain area."""
+"""API route resolvers, grouped by domain area."""

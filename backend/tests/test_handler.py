@@ -1,56 +1,67 @@
-"""The Lambda handler: AppSync event parsing + error shaping."""
+"""The Lambda handler: API Gateway proxy event parsing + error shaping."""
 
 import json
 
-import pytest
-
-from sehati.handler import _AppSyncError, handler
+from sehati.handler import handler
 
 
-def _event(field, args=None, groups=("physician",), sub="dr-karim"):
+def _event(method, resource, *, path_params=None, body=None, query=None,
+           groups=("physician",), sub="dr-karim"):
     return {
-        "info": {"fieldName": field},
-        "arguments": args or {},
-        "identity": {
-            "sub": sub,
-            "username": sub,
-            "claims": {"cognito:groups": list(groups)},
+        "httpMethod": method,
+        "resource": resource,
+        "pathParameters": path_params,
+        "queryStringParameters": query,
+        "body": json.dumps(body) if body is not None else None,
+        "requestContext": {
+            "authorizer": {
+                "claims": {
+                    "sub": sub,
+                    "cognito:username": sub,
+                    "cognito:groups": ",".join(groups),
+                }
+            }
         },
     }
 
 
 def test_handler_submit_intake_roundtrip(aws):
     event = _event(
-        "submitIntake",
-        {"input": {"patient": {"name": "Test"}, "chiefComplaint": "Chest pain"}},
+        "POST", "/cases",
+        body={"patient": {"name": "Test"}, "chiefComplaint": "Chest pain"},
         groups=("physician",),
     )
-    result = handler(event)
+    resp = handler(event)
+    assert resp["statusCode"] == 200
+    result = json.loads(resp["body"])
     assert result["chiefComplaint"] == "Chest pain"
     assert result["lifecycleState"] == "AIInterview"
-    # Result must be plain JSON-serializable.
-    json.dumps(result)
 
 
-def test_handler_unauthenticated_raises_appsync_error(aws):
-    event = _event("listCases")
-    event["identity"] = None
-    with pytest.raises(_AppSyncError) as exc:
-        handler(event)
-    payload = json.loads(str(exc.value))
-    assert payload["errorType"] == "Unauthorized"
+def test_handler_unauthenticated_returns_401(aws):
+    event = _event("GET", "/cases")
+    event["requestContext"] = {"authorizer": {}}
+    resp = handler(event)
+    assert resp["statusCode"] == 401
+    assert json.loads(resp["body"])["errorType"] == "Unauthorized"
 
 
-def test_handler_unknown_field(aws):
-    with pytest.raises(_AppSyncError) as exc:
-        handler(_event("noSuchField"))
-    payload = json.loads(str(exc.value))
-    assert payload["errorType"] == "ValidationError"
+def test_handler_unknown_route_returns_404(aws):
+    resp = handler(_event("GET", "/no-such-route"))
+    assert resp["statusCode"] == 404
+    assert json.loads(resp["body"])["errorType"] == "NotFound"
 
 
-def test_handler_groups_from_claims_string(aws):
-    # Cognito sometimes delivers groups as a comma-joined string.
-    event = _event("listCases", groups=())
-    event["identity"]["claims"]["cognito:groups"] = "physician,admin"
-    result = handler(event)
-    assert isinstance(result, list)
+def test_handler_groups_from_bracketed_claim(aws):
+    # API Gateway sometimes flattens array claims to "[a b]" instead of "a,b".
+    event = _event("GET", "/cases", groups=())
+    event["requestContext"]["authorizer"]["claims"]["cognito:groups"] = "[physician admin]"
+    resp = handler(event)
+    assert resp["statusCode"] == 200
+    assert isinstance(json.loads(resp["body"]), list)
+
+
+def test_handler_options_preflight(aws):
+    resp = handler({"httpMethod": "OPTIONS", "resource": "/cases"})
+    assert resp["statusCode"] == 200
+    assert "Access-Control-Allow-Origin" in resp["headers"]

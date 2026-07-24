@@ -22,8 +22,9 @@ Task Set 8 (update) and occasionally Task Set 9 (teardown).
 | **10** | Tear it down | when finished |
 
 **What you're building:** one CloudFormation stack called `SehatiBackend` in the
-**eu-central-1 (Frankfurt)** region, containing AppSync (the API), Lambda (the
-logic), DynamoDB (3 tables), Cognito (logins), S3 + KMS (files, audit, encryption).
+**us-east-1 (N. Virginia)** region, containing API Gateway (the REST API),
+Lambda (the logic), DynamoDB (3 tables), Cognito (logins), S3 + KMS (files,
+audit, encryption).
 
 **Cost:** ~$150–500/month at pilot scale *with real AI on*, dominated by AI tokens;
 **near-zero when idle**. With the default stub AI there is **no model cost at all**.
@@ -47,18 +48,18 @@ logic), DynamoDB (3 tables), Cognito (logins), S3 + KMS (files, audit, encryptio
 
 ## Task Set 1 — Point at your AWS account (per shell session)
 
-**Goal:** let the tools talk to *your* AWS account, in Frankfurt.
+**Goal:** let the tools talk to *your* AWS account, in `us-east-1`.
 
 1. Configure your AWS credentials (access key + secret) once:
    ```bash
    aws configure
-   # Region: enter  eu-central-1
+   # Region: enter  us-east-1
    ```
 2. Confirm you're connected and remember your account number + region:
    ```bash
    aws sts get-caller-identity
    export CDK_DEFAULT_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
-   export CDK_DEFAULT_REGION=eu-central-1
+   export CDK_DEFAULT_REGION=us-east-1
    ```
 
 **Checkpoint:** `aws sts get-caller-identity` prints your account id (no error).
@@ -78,10 +79,10 @@ logic), DynamoDB (3 tables), Cognito (logins), S3 + KMS (files, audit, encryptio
    ```
 2. Bootstrap:
    ```bash
-   cdk bootstrap aws://$CDK_DEFAULT_ACCOUNT/eu-central-1
+   cdk bootstrap aws://$CDK_DEFAULT_ACCOUNT/us-east-1
    ```
 
-**Checkpoint:** you see `✅ Environment aws://…/eu-central-1 bootstrapped`.
+**Checkpoint:** you see `✅ Environment aws://…/us-east-1 bootstrapped`.
 
 ---
 
@@ -117,14 +118,14 @@ aws cloudformation describe-stacks --stack-name SehatiBackend \
 
 | Output | What it's for |
 |--------|---------------|
-| `GraphQLApiUrl` | The API address the app calls. |
+| `ApiUrl` | The API address the app calls (ends in `/prod/`). |
 | `UserPoolId` | The Cognito user directory id (for creating users). |
 | `UserPoolClientId` | The app's login client id (for signing in). |
-| `Region` | `eu-central-1`. |
+| `Region` | `us-east-1`. |
 | `CasesTableName` | The cases table name (used by the seed step). |
 | `AIProvider` | `stub` or `bedrock` (which AI is active). |
 
-**Checkpoint:** you have `GraphQLApiUrl`, `UserPoolId`, and `UserPoolClientId` saved.
+**Checkpoint:** you have `ApiUrl`, `UserPoolId`, and `UserPoolClientId` saved.
 
 ---
 
@@ -176,7 +177,7 @@ the same 7 cases the frontend was built around.
 ```bash
 cd ../backend
 pip install -r requirements.txt
-export AWS_REGION=eu-central-1
+export AWS_REGION=us-east-1
 
 # Assign who owns the seeded cases (use the subs from Task Set 5):
 export SEED_PATIENT_SUB=<layla-sub>
@@ -193,19 +194,6 @@ python scripts/seed_cases.py
 
 **Goal:** prove the API answers and that role-based access works.
 
-### Easiest — the AppSync console
-1. AWS console → **AppSync** → open **`sehati-api`** → **Queries**.
-2. Click **Login with User Pools**, paste your `UserPoolClientId`, sign in as
-   `dr.karim` / `Passw0rd!Demo`.
-3. Run:
-   ```graphql
-   query { listCases }
-   ```
-   You should get the seeded cases back.
-4. Now sign out, sign in as **`layla`** (patient), run the same query — you should
-   see **only her own** cases. That proves the isolation works.
-
-### Or — from the command line
 ```bash
 # 1) get a login token for the physician
 TOKEN=$(aws cognito-idp initiate-auth --auth-flow USER_PASSWORD_AUTH \
@@ -213,14 +201,15 @@ TOKEN=$(aws cognito-idp initiate-auth --auth-flow USER_PASSWORD_AUTH \
   --auth-parameters USERNAME=dr.karim,PASSWORD='Passw0rd!Demo' \
   --query "AuthenticationResult.IdToken" --output text)
 
-# 2) call the API
-curl -s -X POST <GraphQLApiUrl> \
-  -H "Authorization: $TOKEN" -H "Content-Type: application/json" \
-  -d '{"query":"query { listCases }"}'
+# 2) call the API — note: the raw ID token, no "Bearer " prefix
+curl -s "<ApiUrl>cases" -H "Authorization: $TOKEN"
 ```
 
-**Checkpoint:** `listCases` returns case data for the physician; a patient sees only
-their own. See [`API.md`](./API.md) for more calls to try.
+Now sign in as **`layla`** (patient) the same way and call `GET /cases` again —
+she should see **only her own** cases. That proves the isolation works.
+
+**Checkpoint:** `GET /cases` returns case data for the physician; a patient sees
+only their own. See [`API.md`](./API.md) for every endpoint.
 
 ---
 
@@ -230,7 +219,7 @@ their own. See [`API.md`](./API.md) for more calls to try.
 stub is fine for your demo.
 
 1. **Enable model access:** AWS console → **Amazon Bedrock** → **Model access**
-   (make sure you're in **eu-central-1**) → enable the Claude model you want.
+   (make sure you're in **us-east-1**) → enable the Claude model you want.
 2. **Redeploy with Bedrock selected:**
    ```bash
    cd ../infra
@@ -246,8 +235,8 @@ stub is fine for your demo.
 If Bedrock is unavailable or a model isn't enabled, the backend **automatically
 falls back to the stub** so nothing breaks.
 
-**Checkpoint:** the `AIProvider` output (Task Set 4) now reads `bedrock`, and an
-`assistantChat` call returns a model-generated answer.
+**Checkpoint:** the `AIProvider` output (Task Set 4) now reads `bedrock`, and a
+`POST /cases/{caseId}/assistant` call returns a model-generated answer.
 
 ---
 
@@ -295,16 +284,16 @@ first.)
 Give the frontend team these four values from Task Set 4:
 
 ```
-AppSync GraphQL URL   = <GraphQLApiUrl>
-AWS region            = eu-central-1
+API base URL          = <ApiUrl>
+AWS region            = us-east-1
 Cognito User Pool Id  = <UserPoolId>
 Cognito App Client Id = <UserPoolClientId>
 ```
 
-They log the user in with Cognito and send the resulting **ID token** in the
-`Authorization` header to the GraphQL URL. All endpoints and shapes are in
-[`API.md`](./API.md); every case they receive matches the frontend's existing
-`PatientCase` type.
+They log the user in with Cognito and send the resulting **ID token** (raw, no
+`Bearer ` prefix) in the `Authorization` header on every request to the API base
+URL. All endpoints and shapes are in [`API.md`](./API.md); every case they
+receive matches the frontend's existing `PatientCase` type.
 
 ---
 
@@ -315,7 +304,7 @@ They log the user in with Cognito and send the resulting **ID token** in the
 | `cdk deploy` says "bootstrap" | Do Task Set 2 for this account/region. |
 | `Unauthorized` from the API | Login token missing/expired — get a fresh one (Task Set 7). |
 | Patient gets `Forbidden` on another case | Correct behaviour — patients only see their own. |
-| `listCases` is empty | Run the seed step (Task Set 6), and check you're in `eu-central-1`. |
-| Bedrock `AccessDenied` / model not found | Enable model access (Task Set 8, step 1) in eu-central-1. |
+| `listCases` is empty | Run the seed step (Task Set 6), and check you're in `us-east-1`. |
+| Bedrock `AccessDenied` / model not found | Enable model access (Task Set 8, step 1) in us-east-1. |
 | Changed code but AWS didn't update | Re-run Task Set 9 (`cdk deploy`). |
 | Can't delete the audit bucket | It's WORM by design — see Task Set 10. |

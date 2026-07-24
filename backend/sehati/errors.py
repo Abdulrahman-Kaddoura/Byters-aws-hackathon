@@ -1,8 +1,8 @@
 """Typed application errors.
 
-These map onto GraphQL/AppSync error responses. ``AppError.code`` is surfaced
-to the client in ``errorType`` so the frontend can branch on it, while
-``message`` is safe to display. Never put PHI in an error message.
+These map onto API Gateway proxy responses via ``http_status``. ``AppError.code``
+is surfaced to the client in ``errorType`` so the frontend can branch on it,
+while ``message`` is safe to display. Never put PHI in an error message.
 """
 
 from __future__ import annotations

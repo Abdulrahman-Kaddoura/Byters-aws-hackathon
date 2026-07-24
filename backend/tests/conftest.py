@@ -12,7 +12,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 os.environ.setdefault("AI_PROVIDER", "stub")
-os.environ.setdefault("AWS_REGION", "eu-central-1")
+os.environ.setdefault("AWS_REGION", "us-east-1")
 os.environ.setdefault("AWS_ACCESS_KEY_ID", "testing")
 os.environ.setdefault("AWS_SECRET_ACCESS_KEY", "testing")
 os.environ.setdefault("AWS_SECURITY_TOKEN", "testing")

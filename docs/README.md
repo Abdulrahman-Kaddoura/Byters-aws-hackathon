@@ -12,6 +12,8 @@ in this order:
 | 4 | [`API.md`](./API.md) | Every endpoint: what it **wants** (inputs) and what it **sends back** (outputs), with examples. |
 | 5 | [`AWS_DEPLOYMENT.md`](./AWS_DEPLOYMENT.md) | How to put it on AWS, as separate **task sets** you do one at a time. |
 | 6 | [`ARCHITECTURE.md`](./ARCHITECTURE.md) | Deeper mapping to the original design document + design decisions. |
+| 7 | [`AWS_CURRENT_STATE.md`](./AWS_CURRENT_STATE.md) | What already exists by hand in the shared AWS account (the AI team's pipeline) — a point-in-time audit, since none of it is code. |
+| 8 | [`PROJECT_STATUS.md`](./PROJECT_STATUS.md) | Plain-language summary: what changed in this branch, what the AI team already built, and where things stand right now. |
 
 There is also a [`../backend/README.md`](../backend/README.md) (how to run it on
 your laptop) and [`../infra/README.md`](../infra/README.md) (the deployment code).
@@ -51,8 +53,8 @@ Think of a request flowing left to right:
 ```mermaid
 flowchart LR
     App["📱 App screen<br/>(frontend)"] --> Cognito["🔑 Cognito<br/>logs the user in,<br/>knows their role"]
-    Cognito --> AppSync["🌐 AppSync<br/>the API front door<br/>(GraphQL)"]
-    AppSync --> Lambda["⚙️ Lambda<br/>the brain:<br/>runs the workflow"]
+    Cognito --> ApiGw["🌐 API Gateway<br/>the API front door<br/>(REST)"]
+    ApiGw --> Lambda["⚙️ Lambda<br/>the brain:<br/>runs the workflow"]
     Lambda --> AI["🧠 AI seam<br/>stub today,<br/>Bedrock/Claude ready"]
     Lambda --> DDB["🗄️ DynamoDB<br/>stores cases,<br/>audit, feedback"]
     Lambda --> S3["📦 S3 + KMS<br/>files & the<br/>unchangeable audit"]
@@ -62,7 +64,7 @@ In plain terms:
 
 | Part | AWS service | Its one job |
 |------|-------------|-------------|
-| **Front door** | AWS AppSync (a GraphQL API) | Receives every request from the app and routes it. |
+| **Front door** | Amazon API Gateway (a REST API) | Receives every request from the app and routes it. |
 | **Login & roles** | Amazon Cognito | Confirms who the user is and which group they belong to (patient / physician / admin / compliance). |
 | **The brain** | AWS Lambda (Python) | Runs the actual logic for every request. This is where our code lives. |
 | **The AI plug** | The "AI seam" inside Lambda | Where AI answers come from. A stand-in today; Amazon Bedrock (Claude) when switched on. |

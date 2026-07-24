@@ -24,7 +24,7 @@ CASES_TABLE = os.environ.get("CASES_TABLE", "sehati-cases")
 AUDIT_TABLE = os.environ.get("AUDIT_TABLE", "sehati-audit")
 FEEDBACK_TABLE = os.environ.get("FEEDBACK_TABLE", "sehati-feedback")
 
-REGION = os.environ.get("AWS_REGION", "eu-central-1")
+REGION = os.environ.get("AWS_REGION", "us-east-1")
 
 
 @lru_cache(maxsize=1)
