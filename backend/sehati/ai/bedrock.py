@@ -13,7 +13,7 @@ it; on any parsing/availability failure we fall back to the stub so the product
 degrades gracefully rather than breaking the workflow.
 
 Prerequisites (see docs/AWS_DEPLOYMENT.md):
-  * Bedrock model access enabled for the chosen Claude model in eu-central-1.
+  * Bedrock model access enabled for the chosen Claude model in us-east-1.
   * (Optional) A Guardrail and a Knowledge Base; pass their IDs via env vars.
 """
 
@@ -37,7 +37,7 @@ DEFAULT_MODEL_ID = os.environ.get(
 GUARDRAIL_ID = os.environ.get("BEDROCK_GUARDRAIL_ID", "")
 GUARDRAIL_VERSION = os.environ.get("BEDROCK_GUARDRAIL_VERSION", "DRAFT")
 KNOWLEDGE_BASE_ID = os.environ.get("BEDROCK_KNOWLEDGE_BASE_ID", "")
-REGION = os.environ.get("AWS_REGION", "eu-central-1")
+REGION = os.environ.get("AWS_REGION", "us-east-1")
 
 
 def _case_context(case: PatientCase) -> dict[str, Any]:

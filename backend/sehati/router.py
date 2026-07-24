@@ -1,9 +1,8 @@
-"""Maps GraphQL field names to resolver functions.
+"""Maps API route field names to resolver functions.
 
-AppSync is configured with **Direct Lambda Resolvers**: every query/mutation
-field routes to this one Lambda, which dispatches on ``event.info.fieldName``.
-No VTL templates are involved. Each resolver has the signature
-``(ctx: AuthContext, args: dict) -> Any``.
+Every API Gateway route dispatches to this one Lambda, which the handler
+routes to a field name via its (method, resource) table. Each resolver has
+the signature ``(ctx: AuthContext, args: dict) -> Any``.
 """
 
 from __future__ import annotations
@@ -43,10 +42,6 @@ ROUTES: dict[str, Resolver] = {
     "assistantChat": collab.assistant_chat,
     "acceptRecommendation": collab.accept_recommendation,
     "rejectRecommendation": collab.reject_recommendation,
-    # Real-time fan-out (subscription triggers). Passthrough: AppSync delivers
-    # the returned payload to subscribers of the matching subscription.
-    "publishCaseUpdate": collab.publish_case_update,
-    "publishMessage": collab.publish_message,
 }
 
 

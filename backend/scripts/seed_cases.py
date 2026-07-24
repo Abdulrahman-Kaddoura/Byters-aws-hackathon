@@ -15,7 +15,7 @@ Usage:
     python -m scripts.seed_cases
 
     # Against a local DynamoDB / moto:
-    DYNAMODB_ENDPOINT=http://localhost:8000 AWS_REGION=eu-central-1 \
+    DYNAMODB_ENDPOINT=http://localhost:8000 AWS_REGION=us-east-1 \
         python -m scripts.seed_cases --create-table
 """
 
