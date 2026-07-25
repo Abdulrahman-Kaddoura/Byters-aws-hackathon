@@ -278,6 +278,7 @@ class SehatiStack(Stack):
 
         secured(case_res.add_resource("audit"), "GET")  # caseAudit
         secured(case_res.add_resource("notes"), "POST")  # addNote
+        secured(case_res.add_resource("documents"), "POST")  # uploadCaseDocument
 
         interview_res = case_res.add_resource("interview")
         secured(interview_res.add_resource("messages"), "POST")  # postInterviewMessage
