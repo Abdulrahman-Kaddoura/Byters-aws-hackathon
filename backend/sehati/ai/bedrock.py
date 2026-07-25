@@ -9,8 +9,8 @@ It intentionally shares the exact contract and output shapes of
 :class:`~sehati.ai.stub.StubAIService`, so flipping ``AI_PROVIDER=bedrock`` is
 the only change required. Where the model returns free text that must become a
 structured object (summary, differential …), we ask for strict JSON and parse
-it; on any parsing/availability failure we fall back to the stub so the product
-degrades gracefully rather than breaking the workflow.
+it. Failures (model unavailable, throttled, malformed JSON) are raised as real
+errors — this adapter never substitutes fake data for a genuine model response.
 
 Prerequisites (see docs/AWS_DEPLOYMENT.md):
   * Bedrock model access enabled for the chosen Claude model in us-east-1.
@@ -28,7 +28,6 @@ import boto3
 from ..models import PatientCase, chat_message
 from . import prompts
 from .base import AIResult, AIService
-from .stub import StubAIService
 
 # Claude on Bedrock (2026). Override via env to pin a specific model/version.
 DEFAULT_MODEL_ID = os.environ.get(
@@ -74,8 +73,6 @@ class BedrockAIService(AIService):
             if KNOWLEDGE_BASE_ID
             else None
         )
-        # Graceful-degradation fallback.
-        self._stub = StubAIService()
 
     # --- Bedrock plumbing ---------------------------------------------------
     def _retrieve(self, query: str, k: int = 5) -> list[dict[str, Any]]:
@@ -149,128 +146,104 @@ class BedrockAIService(AIService):
     def next_interview_question(
         self, case: PatientCase, transcript: list[dict[str, Any]]
     ) -> AIResult:
-        try:
-            asked = sum(1 for m in transcript if m.get("role") == "ai")
-            if asked >= 6:
-                return AIResult(value=None, model_version=self.model_version)
-            instruction = (
-                "You are conducting an adaptive patient intake interview. Based on the "
-                "case context and transcript so far, ask ONE concise clarifying question "
-                "(plain language, patient-friendly). If enough has been gathered, reply "
-                "with exactly the token DONE."
-            )
-            text, _ = self._converse(task_instruction=instruction, case=case)
-            if text.strip().upper().startswith("DONE"):
-                return AIResult(value=None, model_version=self.model_version)
-            return AIResult(
-                value=chat_message("ai", text.strip()), model_version=self.model_version
-            )
-        except Exception:  # noqa: BLE001
-            return self._stub.next_interview_question(case, transcript)
+        asked = sum(1 for m in transcript if m.get("role") == "ai")
+        if asked >= 6:
+            return AIResult(value=None, model_version=self.model_version)
+        instruction = (
+            "You are conducting an adaptive patient intake interview. Based on the "
+            "case context and transcript so far, ask ONE concise clarifying question "
+            "(plain language, patient-friendly). If enough has been gathered, reply "
+            "with exactly the token DONE."
+        )
+        text, _ = self._converse(task_instruction=instruction, case=case)
+        if text.strip().upper().startswith("DONE"):
+            return AIResult(value=None, model_version=self.model_version)
+        return AIResult(
+            value=chat_message("ai", text.strip()), model_version=self.model_version
+        )
 
     def build_summary(self, case: PatientCase) -> AIResult:
-        try:
-            instruction = (
-                "Produce a structured clinical summary as JSON with keys: chiefComplaint, "
-                "hpi, relevantHistory[], medications[], riskFactors[], redFlags[], "
-                "timeline[{time,event}], symptoms[], findings[]."
-            )
-            value, evidence = self._converse_json(task_instruction=instruction, case=case)
-            return AIResult(value, self.model_version, evidence)
-        except Exception:  # noqa: BLE001
-            return self._stub.build_summary(case)
+        instruction = (
+            "Produce a structured clinical summary as JSON with keys: chiefComplaint, "
+            "hpi, relevantHistory[], medications[], riskFactors[], redFlags[], "
+            "timeline[{time,event}], symptoms[], findings[]."
+        )
+        value, evidence = self._converse_json(task_instruction=instruction, case=case)
+        return AIResult(value, self.model_version, evidence)
 
     def recommend_exams(self, case: PatientCase) -> AIResult:
-        try:
-            instruction = (
-                "Recommend physical examinations as a JSON array of objects with keys: "
-                "id, name, reason, importance(Critical|Important|Routine), confidence(0-100), "
-                "status('pending')."
-            )
-            value, evidence = self._converse_json(task_instruction=instruction, case=case)
-            return AIResult(value, self.model_version, evidence)
-        except Exception:  # noqa: BLE001
-            return self._stub.recommend_exams(case)
+        instruction = (
+            "Recommend physical examinations as a JSON array of objects with keys: "
+            "id, name, reason, importance(Critical|Important|Routine), confidence(0-100), "
+            "status('pending')."
+        )
+        value, evidence = self._converse_json(task_instruction=instruction, case=case)
+        return AIResult(value, self.model_version, evidence)
 
     def differential(self, case: PatientCase) -> AIResult:
-        try:
-            instruction = (
-                "Produce a PRIORITISED differential as a JSON array of Diagnosis objects "
-                "(keys: id, name, confidence, priority, category, tagline, reasoning, "
-                "supporting[], contradicting[], missing[], recommendedTests[], "
-                "confidenceExplanation, whyNot100, riskAssessment, nextAction, references[], "
-                "similarCases[], trend[{label,value}], discussion[]). Every clinical claim must "
-                "be grounded in the retrieved evidence; cite only real retrieved passages."
-            )
-            value, evidence = self._converse_json(
-                task_instruction=instruction,
-                case=case,
-                retrieval_query=case.get("chiefComplaint"),
-            )
-            return AIResult(value, self.model_version, evidence)
-        except Exception:  # noqa: BLE001
-            return self._stub.differential(case)
+        instruction = (
+            "Produce a PRIORITISED differential as a JSON array of Diagnosis objects "
+            "(keys: id, name, confidence, priority, category, tagline, reasoning, "
+            "supporting[], contradicting[], missing[], recommendedTests[], "
+            "confidenceExplanation, whyNot100, riskAssessment, nextAction, references[], "
+            "similarCases[], trend[{label,value}], discussion[]). Every clinical claim must "
+            "be grounded in the retrieved evidence; cite only real retrieved passages."
+        )
+        value, evidence = self._converse_json(
+            task_instruction=instruction,
+            case=case,
+            retrieval_query=case.get("chiefComplaint"),
+        )
+        return AIResult(value, self.model_version, evidence)
 
     def recommend_tests(self, case: PatientCase) -> AIResult:
-        try:
-            instruction = (
-                "Recommend investigations as a JSON array with keys: id, name, category, reason, "
-                "expectedFinding, priority, cost, urgency, diagnosticValue(0-100), "
-                "status('recommended')."
-            )
-            value, evidence = self._converse_json(
-                task_instruction=instruction, case=case, retrieval_query=case.get("chiefComplaint")
-            )
-            return AIResult(value, self.model_version, evidence)
-        except Exception:  # noqa: BLE001
-            return self._stub.recommend_tests(case)
+        instruction = (
+            "Recommend investigations as a JSON array with keys: id, name, category, reason, "
+            "expectedFinding, priority, cost, urgency, diagnosticValue(0-100), "
+            "status('recommended')."
+        )
+        value, evidence = self._converse_json(
+            task_instruction=instruction, case=case, retrieval_query=case.get("chiefComplaint")
+        )
+        return AIResult(value, self.model_version, evidence)
 
     def rerank_after_results(self, case: PatientCase) -> AIResult:
-        try:
-            instruction = (
-                "Test results are now available in the case context. Re-reason and return the "
-                "UPDATED prioritised differential in the same Diagnosis JSON array shape, "
-                "adjusting confidence and adding a trend point labelled 'Results'."
-            )
-            value, evidence = self._converse_json(
-                task_instruction=instruction, case=case, retrieval_query=case.get("chiefComplaint")
-            )
-            return AIResult(value, self.model_version, evidence)
-        except Exception:  # noqa: BLE001
-            return self._stub.rerank_after_results(case)
+        instruction = (
+            "Test results are now available in the case context. Re-reason and return the "
+            "UPDATED prioritised differential in the same Diagnosis JSON array shape, "
+            "adjusting confidence and adding a trend point labelled 'Results'."
+        )
+        value, evidence = self._converse_json(
+            task_instruction=instruction, case=case, retrieval_query=case.get("chiefComplaint")
+        )
+        return AIResult(value, self.model_version, evidence)
 
     def propose_final_diagnosis(self, case: PatientCase) -> AIResult:
-        try:
-            instruction = (
-                "Propose a final diagnosis as a JSON FinalDiagnosis object (keys: name, confidence, "
-                "status('proposed'), reasoning, evidenceSummary[], ruledOut[{name,reason}], "
-                "treatment[], monitoring[], complications[], followUp[]). Confidence is a qualitative "
-                "judgment, not a validated probability."
-            )
-            value, evidence = self._converse_json(
-                task_instruction=instruction, case=case, retrieval_query=case.get("chiefComplaint")
-            )
-            return AIResult(value, self.model_version, evidence)
-        except Exception:  # noqa: BLE001
-            return self._stub.propose_final_diagnosis(case)
+        instruction = (
+            "Propose a final diagnosis as a JSON FinalDiagnosis object (keys: name, confidence, "
+            "status('proposed'), reasoning, evidenceSummary[], ruledOut[{name,reason}], "
+            "treatment[], monitoring[], complications[], followUp[]). Confidence is a qualitative "
+            "judgment, not a validated probability."
+        )
+        value, evidence = self._converse_json(
+            task_instruction=instruction, case=case, retrieval_query=case.get("chiefComplaint")
+        )
+        return AIResult(value, self.model_version, evidence)
 
     def answer(
         self, case: PatientCase, question: str, diagnosis_id: str | None = None
     ) -> AIResult:
-        try:
-            instruction = (
-                "Answer the physician's question about this case. Reason first, be honest about "
-                "uncertainty, ground claims in the retrieved evidence, and never fabricate a citation."
-            )
-            text, evidence = self._converse(
-                task_instruction=instruction,
-                case=case,
-                physician_question=question,
-                retrieval_query=question,
-            )
-            return AIResult(chat_message("ai", text.strip()), self.model_version, evidence)
-        except Exception:  # noqa: BLE001
-            return self._stub.answer(case, question, diagnosis_id)
+        instruction = (
+            "Answer the physician's question about this case. Reason first, be honest about "
+            "uncertainty, ground claims in the retrieved evidence, and never fabricate a citation."
+        )
+        text, evidence = self._converse(
+            task_instruction=instruction,
+            case=case,
+            physician_question=question,
+            retrieval_query=question,
+        )
+        return AIResult(chat_message("ai", text.strip()), self.model_version, evidence)
 
 
 def _parse_json(text: str) -> Any:

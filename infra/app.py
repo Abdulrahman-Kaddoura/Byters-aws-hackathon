@@ -11,6 +11,7 @@ import os
 
 import aws_cdk as cdk
 
+from stacks.frontend_stack import SehatiFrontendStack
 from stacks.sehati_stack import SehatiStack
 
 app = cdk.App()
@@ -28,6 +29,15 @@ SehatiStack(
     # Toggle the AI provider at deploy time: "stub" (default) or "bedrock".
     ai_provider=app.node.try_get_context("ai_provider") or os.environ.get("AI_PROVIDER", "stub"),
     description="SEHATI-AI clinical decision-support backend (API Gateway + Lambda + DynamoDB + Cognito)",
+)
+
+# CloudFront requires ACM certs for the distribution itself to live in us-east-1,
+# which is already our default region, so no cross-region complication here.
+SehatiFrontendStack(
+    app,
+    "SehatiFrontend",
+    env=env,
+    description="SEHATI-AI frontend static hosting (S3 + CloudFront)",
 )
 
 app.synth()
