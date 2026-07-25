@@ -1,4 +1,5 @@
 import { Routes, Route } from 'react-router-dom';
+import { CurrentCaseProvider } from './lib/currentCase';
 import { AppLayout } from './components/AppLayout';
 import { Dashboard } from './pages/Dashboard';
 import { Intake } from './pages/Intake';
@@ -18,25 +19,27 @@ import { TimelineTab } from './pages/case/TimelineTab';
 
 export default function App() {
   return (
-    <Routes>
-      <Route element={<AppLayout />}>
-        <Route index element={<Dashboard />} />
-        <Route path="intake" element={<Intake />} />
-        <Route path="cases" element={<Cases />} />
-        <Route path="completed" element={<Completed />} />
-        <Route path="knowledge" element={<Knowledge />} />
-        <Route path="settings" element={<Settings />} />
-        <Route path="cases/:id" element={<CaseLayout />}>
-          <Route index element={<Overview />} />
-          <Route path="interview" element={<Interview />} />
-          <Route path="examination" element={<Examination />} />
-          <Route path="differential" element={<Differential />} />
-          <Route path="tests" element={<Tests />} />
-          <Route path="diagnosis" element={<FinalDiagnosis />} />
-          <Route path="timeline" element={<TimelineTab />} />
+    <CurrentCaseProvider>
+      <Routes>
+        <Route element={<AppLayout />}>
+          <Route index element={<Dashboard />} />
+          <Route path="intake" element={<Intake />} />
+          <Route path="cases" element={<Cases />} />
+          <Route path="completed" element={<Completed />} />
+          <Route path="knowledge" element={<Knowledge />} />
+          <Route path="settings" element={<Settings />} />
+          <Route path="cases/:id" element={<CaseLayout />}>
+            <Route index element={<Overview />} />
+            <Route path="interview" element={<Interview />} />
+            <Route path="examination" element={<Examination />} />
+            <Route path="differential" element={<Differential />} />
+            <Route path="tests" element={<Tests />} />
+            <Route path="diagnosis" element={<FinalDiagnosis />} />
+            <Route path="timeline" element={<TimelineTab />} />
+          </Route>
+          <Route path="*" element={<NotFound />} />
         </Route>
-        <Route path="*" element={<NotFound />} />
-      </Route>
-    </Routes>
+      </Routes>
+    </CurrentCaseProvider>
   );
 }

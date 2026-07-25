@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
+import { FloatingAssistant } from './FloatingAssistant';
 import { useTheme } from '../lib/theme';
 
 export function AppLayout() {
@@ -22,6 +23,7 @@ export function AppLayout() {
           <Outlet />
         </main>
       </div>
+      <FloatingAssistant />
     </div>
   );
 }

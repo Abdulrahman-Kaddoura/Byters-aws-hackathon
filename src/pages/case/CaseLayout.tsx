@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useParams, Link, NavLink, Outlet, useOutletContext } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -16,6 +17,7 @@ import {
   GitBranch,
 } from 'lucide-react';
 import { useCase } from '../../hooks/useCases';
+import { useSetCurrentCase } from '../../lib/currentCase';
 import { Avatar } from '../../components/ui';
 import { StatusBadge, PriorityBadge } from '../../components/badges';
 import { AssistantPanel } from '../../components/AssistantPanel';
@@ -107,6 +109,12 @@ function CaseError({ message, onRetry }: { message: string; onRetry: () => void 
 export function CaseLayout() {
   const { id } = useParams();
   const { data: caseData, loading, error, apply, reload } = useCase(id);
+  const setCurrentCase = useSetCurrentCase();
+
+  useEffect(() => {
+    setCurrentCase(caseData ?? null);
+    return () => setCurrentCase(null);
+  }, [caseData, setCurrentCase]);
 
   if (loading) return <CaseSkeleton />;
   if (error) return <CaseError message={error} onRetry={reload} />;
