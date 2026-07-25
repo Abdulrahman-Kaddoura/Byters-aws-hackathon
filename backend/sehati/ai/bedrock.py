@@ -30,8 +30,15 @@ from . import prompts
 from .base import AIResult, AIService
 
 # Claude on Bedrock (2026). Override via env to pin a specific model/version.
+#
+# This must be a cross-region INFERENCE PROFILE id, not the bare foundation-model
+# id — Bedrock rejects on-demand invocation of this model with:
+#   ValidationException: Invocation of model ID anthropic.claude-sonnet-4-20250514-v1:0
+#   with on-demand throughput isn't supported. Retry your request with the ID or
+#   ARN of an inference profile that contains this model.
+# The "us." prefix selects the US cross-region profile, matching REGION below.
 DEFAULT_MODEL_ID = os.environ.get(
-    "BEDROCK_MODEL_ID", "anthropic.claude-sonnet-4-20250514-v1:0"
+    "BEDROCK_MODEL_ID", "us.anthropic.claude-sonnet-4-20250514-v1:0"
 )
 GUARDRAIL_ID = os.environ.get("BEDROCK_GUARDRAIL_ID", "")
 GUARDRAIL_VERSION = os.environ.get("BEDROCK_GUARDRAIL_VERSION", "DRAFT")
