@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Menu, Search, Bell, Plus, CornerDownLeft, LogOut } from 'lucide-react';
-import { isLive } from '../lib/config';
 import { currentIdentity, signOut } from '../lib/auth';
 import { useCaseList } from '../hooks/useCases';
 import { Avatar } from './ui';
@@ -118,19 +117,17 @@ export function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
           <Bell className="h-[18px] w-[18px] text-secondary" />
           <span className={cn('absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-rose-500')} />
         </button>
-        {isLive && (
-          <button
-            onClick={() => {
-              signOut();
-              window.location.reload();
-            }}
-            className="flex h-9 w-9 items-center justify-center rounded-lg border hover:bg-[var(--surface-hover)]"
-            aria-label="Sign out"
-            title={currentIdentity()?.username ?? 'Sign out'}
-          >
-            <LogOut className="h-[18px] w-[18px] text-secondary" />
-          </button>
-        )}
+        <button
+          onClick={() => {
+            signOut();
+            window.location.reload();
+          }}
+          className="flex h-9 w-9 items-center justify-center rounded-lg border hover:bg-[var(--surface-hover)]"
+          aria-label="Sign out"
+          title={currentIdentity()?.username ?? 'Sign out'}
+        >
+          <LogOut className="h-[18px] w-[18px] text-secondary" />
+        </button>
       </div>
     </header>
   );

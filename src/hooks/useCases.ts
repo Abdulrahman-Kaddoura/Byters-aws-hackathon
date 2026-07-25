@@ -1,7 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
 import * as api from '../lib/api';
-import { isLive } from '../lib/config';
-import { CASES, getCase as getMockCase } from '../data/cases';
 import type { PatientCase } from '../types';
 
 interface Result<T> {
@@ -12,13 +10,12 @@ interface Result<T> {
 }
 
 export function useCaseList(): Result<PatientCase[]> {
-  const [data, setData] = useState<PatientCase[]>(isLive ? [] : CASES);
-  const [loading, setLoading] = useState(isLive);
+  const [data, setData] = useState<PatientCase[]>([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [nonce, setNonce] = useState(0);
 
   useEffect(() => {
-    if (!isLive) return;
     let cancelled = false;
     setLoading(true);
     api
@@ -41,10 +38,8 @@ export function useCaseList(): Result<PatientCase[]> {
 export function useCase(id: string | undefined): Result<PatientCase | undefined> & {
   apply: (updated: PatientCase) => void;
 } {
-  const [data, setData] = useState<PatientCase | undefined>(() =>
-    isLive || !id ? undefined : getMockCase(id)
-  );
-  const [loading, setLoading] = useState(isLive && Boolean(id));
+  const [data, setData] = useState<PatientCase | undefined>(undefined);
+  const [loading, setLoading] = useState(Boolean(id));
   const [error, setError] = useState<string | null>(null);
   const [nonce, setNonce] = useState(0);
 
@@ -52,10 +47,6 @@ export function useCase(id: string | undefined): Result<PatientCase | undefined>
     if (!id) {
       setData(undefined);
       setLoading(false);
-      return;
-    }
-    if (!isLive) {
-      setData(getMockCase(id));
       return;
     }
     let cancelled = false;

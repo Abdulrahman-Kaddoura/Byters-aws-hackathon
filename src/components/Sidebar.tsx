@@ -11,12 +11,10 @@ import {
   Activity,
   X,
 } from 'lucide-react';
-import { CASES } from '../data/cases';
+import { useCaseList } from '../hooks/useCases';
+import { currentIdentity } from '../lib/auth';
 import { cn } from '../lib/ui';
 import type { ThemeMode } from '../lib/theme';
-
-const activeCount = CASES.filter((c) => c.status !== 'Completed' && c.status !== 'Archived').length;
-const completedCount = CASES.filter((c) => c.status === 'Completed' || c.status === 'Archived').length;
 
 interface NavItem {
   to: string;
@@ -25,12 +23,6 @@ interface NavItem {
   badge?: number;
   end?: boolean;
 }
-
-const MAIN: NavItem[] = [
-  { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
-  { to: '/cases', label: 'Active Cases', icon: FolderKanban, badge: activeCount },
-  { to: '/completed', label: 'Completed Cases', icon: CheckCircle2, badge: completedCount },
-];
 
 const CLINICAL: NavItem[] = [
   { to: '/intake', label: 'New Patient Intake', icon: FilePlus2 },
@@ -96,6 +88,26 @@ export function Sidebar({
   mobileOpen: boolean;
   onClose: () => void;
 }) {
+  const { data: cases } = useCaseList();
+  const identity = currentIdentity();
+  const activeCount = cases.filter((c) => c.status !== 'Completed' && c.status !== 'Archived').length;
+  const completedCount = cases.filter((c) => c.status === 'Completed' || c.status === 'Archived').length;
+
+  const MAIN: NavItem[] = [
+    { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
+    { to: '/cases', label: 'Active Cases', icon: FolderKanban, badge: activeCount },
+    { to: '/completed', label: 'Completed Cases', icon: CheckCircle2, badge: completedCount },
+  ];
+
+  const displayName = identity?.email ?? identity?.username ?? 'Signed in';
+  const initials = displayName
+    .split(/[\s@.]+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((s) => s[0]?.toUpperCase())
+    .join('');
+  const role = identity?.groups[0] ?? 'User';
+
   return (
     <>
       {/* Mobile overlay */}
@@ -157,11 +169,11 @@ export function Sidebar({
 
           <div className="mt-3 flex items-center gap-2.5 rounded-lg border bg-[var(--surface-2)] p-2.5">
             <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 text-xs font-semibold text-white">
-              JN
+              {initials || '?'}
             </span>
             <div className="min-w-0 leading-tight">
-              <p className="truncate text-xs font-semibold">Dr. Julia Nolan</p>
-              <p className="truncate text-[11px] text-muted">Internal Medicine</p>
+              <p className="truncate text-xs font-semibold">{displayName}</p>
+              <p className="truncate text-[11px] capitalize text-muted">{role}</p>
             </div>
           </div>
         </div>

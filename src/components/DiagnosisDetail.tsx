@@ -1,5 +1,4 @@
 import { useState, type ReactNode } from 'react';
-import { isLive } from '../lib/config';
 import * as api from '../lib/api';
 import {
   CheckCircle2,
@@ -77,7 +76,6 @@ function DoctorFeedback({ caseId, diagnosisId }: { caseId: string; diagnosisId: 
 
   async function record(next: 'up' | 'down', reason?: string) {
     setVote(next);
-    if (!isLive) return;
     const opts = { targetType: 'diagnosis', reason };
     await (next === 'up'
       ? api.acceptRecommendation(caseId, diagnosisId, opts)

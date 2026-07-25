@@ -9,7 +9,6 @@ import {
   Beaker,
 } from 'lucide-react';
 import { useCaseData, useCaseActions } from './CaseLayout';
-import { isLive } from '../../lib/config';
 import * as api from '../../lib/api';
 import { SectionHeading, Badge } from '../../components/ui';
 import { PriorityBadge, FlagBadge } from '../../components/badges';
@@ -82,7 +81,7 @@ function TestCard({ test, caseId }: { test: TestRecommendation; caseId: string }
   async function changeStatus(next: TestStatus) {
     setStatus(next);
     // Ordering is the only transition the doctor drives; results arrive from the lab.
-    if (!isLive || next !== 'ordered') return;
+    if (next !== 'ordered') return;
     const res = await api.orderTest(caseId, test.id);
     apply(res.case);
   }

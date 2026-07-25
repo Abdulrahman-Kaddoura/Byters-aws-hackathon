@@ -15,7 +15,6 @@ import {
   MessagesSquare,
 } from 'lucide-react';
 import { PageHeader } from '../components/PageHeader';
-import { isLive } from '../lib/config';
 import * as api from '../lib/api';
 import { cn } from '../lib/ui';
 
@@ -163,16 +162,6 @@ export function Intake() {
     setSubmitting(true);
     setPhase(0);
 
-    if (!isLive) {
-      const t1 = setTimeout(() => setPhase(1), 1100);
-      const t2 = setTimeout(() => setPhase(2), 2500);
-      const t3 = setTimeout(() => {
-        setSubmitting(false);
-        setDone(true);
-      }, 3900);
-      return () => [t1, t2, t3].forEach(clearTimeout);
-    }
-
     try {
       const created = await api.submitIntake({
         patient: {
@@ -227,7 +216,7 @@ export function Intake() {
           </p>
           <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-center">
             <button
-              onClick={() => navigate(`/cases/${createdId ?? 'AUR-1046'}`)}
+              onClick={() => navigate(`/cases/${createdId}`)}
               className="btn btn-primary"
             >
               <Sparkles className="h-4 w-4" /> Open case & review summary
@@ -236,12 +225,6 @@ export function Intake() {
               Go to active cases
             </button>
           </div>
-          {!isLive && (
-            <p className="mt-5 rounded-lg border border-dashed px-3 py-2 text-[11px] text-muted">
-              Prototype note: submitted data isn't stored. This opens a representative sample case to demonstrate the
-              downstream workflow.
-            </p>
-          )}
         </div>
       </div>
     );

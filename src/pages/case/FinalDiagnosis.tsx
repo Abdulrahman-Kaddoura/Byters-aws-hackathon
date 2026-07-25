@@ -18,7 +18,6 @@ import {
   Hourglass,
 } from 'lucide-react';
 import { useCaseData, useCaseActions } from './CaseLayout';
-import { isLive } from '../../lib/config';
 import * as api from '../../lib/api';
 import { SectionHeading, ConfidenceRing, Badge, TagList, EmptyState } from '../../components/ui';
 import { cn } from '../../lib/ui';
@@ -65,7 +64,6 @@ export function FinalDiagnosis() {
 
   async function accept() {
     setDecision('accepted');
-    if (!isLive) return;
     const res = await api.acceptFinalDiagnosis(c.id);
     apply(res.case);
   }

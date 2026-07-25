@@ -13,7 +13,6 @@ import { useCaseData, useCaseActions } from './CaseLayout';
 import { SectionHeading, Badge } from '../../components/ui';
 import { FlagBadge } from '../../components/badges';
 import { IMPORTANCE_META } from '../../data/helpers';
-import { isLive } from '../../lib/config';
 import * as api from '../../lib/api';
 import { cn } from '../../lib/ui';
 import type { ExamRecommendation } from '../../types';
@@ -30,7 +29,6 @@ function ExamItem({ exam, caseId }: { exam: ExamRecommendation; caseId: string }
   async function persist(nextStatus: 'complete' | 'skipped') {
     setStatus(nextStatus);
     if (nextStatus === 'complete' && finding.trim()) setAiUpdated(true);
-    if (!isLive) return;
     const res = await api.recordExamFinding(caseId, exam.id, {
       finding,
       note,
