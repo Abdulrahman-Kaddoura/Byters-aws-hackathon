@@ -17,6 +17,7 @@ from __future__ import annotations
 import os
 
 from aws_cdk import (
+    BundlingOptions,
     CfnOutput,
     Duration,
     RemovalPolicy,
@@ -182,13 +183,27 @@ class SehatiStack(Stack):
                     "scripts",
                     "**/__pycache__",
                     "*.md",
-                    "requirements*.txt",
+                    "requirements.txt",
                     "sehati/data",
                     ".venv",
                     "venv",
                     "**/*.egg-info",
                     ".pytest_cache",
                 ],
+                # resolvers/documents.py imports pypdf/python-docx to extract text
+                # from uploaded PDFs/DOCX. Neither ships with the Lambda Python
+                # runtime (only boto3 does), so without this bundling step the
+                # source-only zip above would 500 on the first real upload. This
+                # installs requirements-lambda.txt into the package alongside the
+                # source, using the same Python version as the function.
+                bundling=BundlingOptions(
+                    image=lambda_.Runtime.PYTHON_3_12.bundling_image,
+                    command=[
+                        "bash", "-c",
+                        "pip install -r requirements-lambda.txt -t /asset-output "
+                        "&& cp -au . /asset-output",
+                    ],
+                ),
             ),
             timeout=Duration.seconds(60),
             memory_size=512,

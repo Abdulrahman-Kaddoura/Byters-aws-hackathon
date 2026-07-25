@@ -42,8 +42,14 @@ audit, encryption).
 | Node.js 18+ | https://nodejs.org (needed only to run the CDK command) | `node --version` |
 | AWS CDK | `npm install -g aws-cdk` | `cdk --version` |
 | Python 3.12 | https://www.python.org | `python3 --version` |
+| Docker | https://www.docker.com (must be **running**, not just installed) | `docker ps` |
 
-**Checkpoint:** all four version commands print a version number.
+**Checkpoint:** all five commands print a version number (or, for Docker, a
+(possibly empty) table with no error). Docker is needed because `cdk deploy`
+installs the Lambda's `pypdf`/`python-docx` dependencies into the deployment
+package by running a short-lived build container — without it running,
+`cdk deploy`/`cdk synth` will fail with a "docker exited with status 1" /
+"cannot connect to the Docker daemon" error.
 
 ---
 

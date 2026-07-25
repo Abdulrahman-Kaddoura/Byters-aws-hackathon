@@ -1,0 +1,9 @@
+# Runtime dependencies that must be bundled into the Lambda deployment package.
+# boto3 is preinstalled in the AWS Lambda Python runtime and is deliberately
+# NOT listed here, to keep the bundle small. pypdf/python-docx are NOT
+# preinstalled, so resolvers/documents.py's PDF/DOCX extraction fails at
+# runtime unless these are actually packaged alongside the code (see the
+# `bundling` block on the Lambda's Code.from_asset in
+# infra/stacks/sehati_stack.py).
+pypdf>=4.0.0
+python-docx>=1.1.0
