@@ -7,19 +7,20 @@ diagnoses, recommending examinations and tests, explaining its reasoning with
 confidence scores and references, and collaborating with the doctor until a
 final diagnosis is reached.
 
-> ⚠️ **This is not a real medical product.** Patients, conversations, diagnoses,
-> test results and references are dummy data used to demonstrate the workflow,
-> UX and physician–AI collaboration.
+> ⚠️ **This is not a real medical product.** It is a decision-support aid for a
+> licensed physician — it presents option lists for independent review, never
+> a directive.
 
-### Two run modes
+### Always live — no demo mode
 
-| Mode | When | Data source |
-|------|------|-------------|
-| **Demo** (default) | No `.env` present | Bundled sample cases; AI replies are simulated in-browser |
-| **Live AWS** | `.env` points at a deployed stack | Cognito login → API Gateway → Lambda → DynamoDB |
-
-Demo mode needs nothing but `npm install`. For live mode see
-[AWS deployment](#-aws-deployment) below.
+The frontend has a single code path: **Cognito login → API Gateway → Lambda →
+DynamoDB**. There is no bundled sample data and no simulated AI in the
+browser — every case, message, exam finding, test result and diagnosis is
+read from and written to a deployed AWS stack. This means the app **will not
+run at all** until you've completed [AWS deployment](#-aws-deployment) below
+and have a `.env` pointing at it (see `.env.example`) — `npm run dev` fails
+fast with a clear error if `VITE_API_URL` or the Cognito variables are
+missing.
 
 ---
 
@@ -28,11 +29,11 @@ Demo mode needs nothing but `npm install`. For live mode see
 The prototype walks through the complete clinical workflow:
 
 1. **Patient intake** — a multi-step wizard capturing demographics, history and the current complaint.
-2. **AI patient interview** — a simulated adaptive Q&A that auto-generates a **structured clinical summary** (so the doctor never reads the raw transcript).
+2. **AI patient interview** — an adaptive Q&A (backend `AIService.next_interview_question`) that auto-generates a **structured clinical summary** (so the doctor never reads the raw transcript).
 3. **Doctor workspace** — a per-case dashboard with patient summary, progress tracker, AI insights, suggested next steps and recent updates.
 4. **Physical examination** — AI-recommended exams (with reason, importance, confidence) where the doctor enters findings, marks complete/skip, and adds notes.
 5. **Differential diagnosis** — ranked diagnosis cards with confidence meters, supporting/contradicting evidence, and full **explainability** (how confidence was calculated, why not 100%, risk, next action, guideline/paper/textbook references, similar historical cases).
-6. **AI discussion** — every diagnosis has its own chat where the doctor can challenge the reasoning ("Why not pulmonary embolism?", "What would increase confidence?"). Responses are simulated but reasoning-first.
+6. **AI discussion** — every diagnosis has its own chat where the doctor can challenge the reasoning ("Why not pulmonary embolism?", "What would increase confidence?"), answered by the backend AI seam (stub or Bedrock).
 7. **Recommended tests & results** — investigations with reason, expected finding, priority, cost, urgency and diagnostic value; results arrive and the differential re-ranks.
 8. **Final diagnosis** — proposed diagnosis with evidence summary, ruled-out alternatives, treatment, monitoring, complications and follow-up. The doctor can Accept / Modify / Continue investigation / Add notes.
 9. **Timeline & completion** — a vertical case timeline and read-only archived cases with outcomes and lessons learned.
@@ -40,25 +41,24 @@ The prototype walks through the complete clinical workflow:
 A persistent, case-aware **Aura Assistant** panel is available throughout for
 open-ended collaboration.
 
-### Sample cases
+### Seeding sample cases (optional)
 
-Seven dummy patients across different diseases and workflow stages:
-
-| Case | Condition | Stage / status |
-|------|-----------|----------------|
-| Robert Hayes | Community-acquired Pneumonia | Diagnosis in progress (showcase) |
-| Sofia Marino | Acute Appendicitis | Awaiting tests |
-| Margaret Ellis | Decompensated Heart Failure | Differential |
-| Daniel Osei | Uncontrolled Asthma | Awaiting examination |
-| Priya Nair | Migraine with Aura | AI interview |
-| James Whitfield | Type 2 Diabetes | Completed (read-only) |
-| Ahmed Farouk | Kidney Stone (renal colic) | Completed (read-only) |
+`scripts/deploy.sh` / `scripts/deploy.ps1` seed 7 sample patients across
+different diseases and workflow stages into DynamoDB so there's something to
+look at right after deploying — see [`backend/sehati/data/seed_cases.json`](backend/sehati/data/seed_cases.json)
+for the full list (community-acquired pneumonia, acute appendicitis,
+decompensated heart failure, uncontrolled asthma, migraine with aura, and two
+completed/archived cases). These are real rows in `sehati-cases`, not
+frontend-bundled data — delete them from DynamoDB like any other case if you
+don't want them.
 
 ---
 
 ## 🚀 Getting started
 
-Requirements: Node.js 18+ (developed on Node 22).
+Requirements: Node.js 18+ (developed on Node 22). The backend must already be
+deployed (see [AWS deployment](#-aws-deployment) below) — the frontend has no
+offline/demo mode and won't start without a `.env` pointing at a real stack.
 
 ```bash
 npm install
@@ -83,10 +83,27 @@ export AWS_ACCESS_KEY_ID=... AWS_SECRET_ACCESS_KEY=...
 ./scripts/deploy.sh
 ```
 
-It deploys `SehatiBackend` (API Gateway + Lambda + DynamoDB + Cognito + S3/KMS)
-via CDK, then prints the `aws cognito-idp admin-create-user` commands to create
-your first physician login. Restart `npm run dev` afterwards and the app will
-require sign-in and read every case from DynamoDB.
+On Windows, without Git Bash/WSL, use the PowerShell-native equivalent instead:
+
+```powershell
+$env:AWS_ACCESS_KEY_ID = "..."; $env:AWS_SECRET_ACCESS_KEY = "..."
+.\scripts\deploy.ps1
+```
+
+Both do the same thing: deploy `SehatiBackend` (API Gateway + Lambda +
+DynamoDB + Cognito + S3/KMS) via CDK, then print the
+`aws cognito-idp admin-create-user` commands to create your first physician
+login. After creating that user (and adding it to the `physician` group), run
+`npm run dev` — the app requires sign-in and reads every case from DynamoDB.
+
+> **Local dev gotcha:** don't create a Python virtualenv inside `backend/`
+> (e.g. `backend/.venv`) — CDK zips the whole `backend/` directory as the
+> Lambda deployment package, and a venv full of `boto3`/`botocore` pushes it
+> past Lambda's 250 MB unzipped-code limit, causing `cdk deploy` to fail with
+> `Unzipped size must be smaller than 262144000 bytes`. Put your venv at the
+> repo root (or anywhere outside `backend/`) instead. The stack's asset
+> `exclude` list also filters out `.venv`/`venv`/`.pytest_cache` as a
+> second line of defense.
 
 To switch the AI from the deterministic stub to Amazon Bedrock:
 
@@ -117,15 +134,14 @@ Details: [`docs/AWS_DEPLOYMENT.md`](docs/AWS_DEPLOYMENT.md),
 - **Recharts** for confidence-trend charts
 - **lucide-react** for icons
 
-In live mode the frontend talks to AWS directly — Cognito for auth
-(`src/lib/auth.ts`) and API Gateway for data (`src/lib/api.ts`), with no SDK
-dependency. In demo mode no application network calls are made.
+The frontend talks to AWS directly — Cognito for auth (`src/lib/auth.ts`) and
+API Gateway for data (`src/lib/api.ts`), with no SDK dependency.
 
 ## 📁 Project structure
 
 ```
 src/
-  data/          # Hardcoded cases, type helpers, and the simulated AI responder
+  data/          # Type/UI helpers and suggested-prompt labels for the chat panels
   components/    # Reusable UI: sidebar, cards, chat, charts, drawer, badges…
   pages/         # Route pages
     case/        # The per-case workspace (Overview, Interview, Examination,
@@ -134,9 +150,11 @@ src/
   types.ts       # Domain model
 ```
 
-The "AI" is a rule/keyword-based responder (`src/data/aiResponder.ts`) that
-produces believable, reasoning-first answers grounded in each case's data — so
-the chat feels interactive during a demo without any model behind it.
+All AI reasoning comes from the backend seam (`backend/sehati/ai/`) — a
+deterministic stub by default, or Amazon Bedrock when `AI_PROVIDER=bedrock`.
+`src/data/aiResponder.ts` only holds the clickable suggested-prompt labels
+shown above the chat input (e.g. "Why not the alternatives?") — clicking one
+sends that question through the real API like any typed message.
 
 ---
 

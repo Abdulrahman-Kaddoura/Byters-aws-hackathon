@@ -308,3 +308,5 @@ receive matches the frontend's existing `PatientCase` type.
 | Bedrock `AccessDenied` / model not found | Enable model access (Task Set 8, step 1) in us-east-1. |
 | Changed code but AWS didn't update | Re-run Task Set 9 (`cdk deploy`). |
 | Can't delete the audit bucket | It's WORM by design — see Task Set 10. |
+| `cdk deploy` fails with `Unzipped size must be smaller than 262144000 bytes` | A Python virtualenv (e.g. `backend/.venv`) is sitting inside `backend/` and getting bundled into the Lambda zip along with `boto3`/`botocore`. Move the venv outside `backend/` (e.g. to the repo root) and redeploy. The stack's asset `exclude` list also filters `.venv`/`venv`/`.pytest_cache` as a second line of defense. |
+| On Windows, `./scripts/deploy.sh` won't run | It's a bash script. Use Git Bash/WSL, or run `.\scripts\deploy.ps1` instead — a PowerShell-native equivalent that does the same steps. |
