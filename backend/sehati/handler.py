@@ -69,6 +69,7 @@ _ROUTES = [
     _Route("POST", "/cases/{caseId}/assistant", "assistantChat"),
     _Route("POST", "/cases/{caseId}/recommendations/{targetId}/accept", "acceptRecommendation"),
     _Route("POST", "/cases/{caseId}/recommendations/{targetId}/reject", "rejectRecommendation"),
+    _Route("POST", "/cases/{caseId}/documents", "uploadCaseDocument"),
 ]
 _ROUTE_INDEX: dict[tuple[str, str], _Route] = {(r.method, r.resource): r for r in _ROUTES}
 

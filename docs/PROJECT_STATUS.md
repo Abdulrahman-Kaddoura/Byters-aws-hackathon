@@ -196,3 +196,74 @@ non-case-aware AI plumbing. Nothing currently connects them.
 9. CDN/WAF at the edge, real Guardrails, Aurora+pgvector for cohort search,
    multilingual/voice pipeline — all cataloged in
    [`ARCHITECTURE.md`](./ARCHITECTURE.md) §8 as intentionally deferred.
+
+---
+
+## 6. Document upload + HealthScribe integration (2026-07-25)
+
+Someone (AI team) edited `sehati-orchestrator`'s code **directly in the
+Lambda console** instead of through this repo. That is unsafe by
+construction: `infra/stacks/sehati_stack.py` packages the entire `backend/`
+directory from git on every `cdk deploy` and overwrites whatever is live —
+**console edits to this function will be silently destroyed by the next
+deploy anyone runs.** Don't edit `sehati-orchestrator` in the console again;
+edit `backend/sehati/` here and `cdk deploy`.
+
+**What was recovered (via Lambda → Code → Export function) and what it
+contained:**
+
+1. **A live-breaking bug, likely the cause of "the app doesn't work" reports
+   around this date:** `handler.py` had a real Python `SyntaxError` (two
+   `_Route(...)` route entries were mistyped as `_    Route(...)`). The
+   Lambda could not import, so **every** API call failed, not just the new
+   ones. **Fixed** — `handler.py` now parses and the module imports cleanly
+   (verified locally with the exact Lambda env vars).
+2. **A silent regression:** `router.py` mapped the `"assistantChat"` field
+   twice — the existing, working `collab.assistant_chat` (uses
+   `AIService.answer()`, implemented by both Stub and Bedrock) and a new
+   `assistant.assistant_chat` (calls `AIService.assistant_chat()`, which
+   neither implements). The dict literal silently kept the second, so
+   merging as-is would have replaced a working feature with one that
+   crashes on every call. **Fixed** — `router.py` keeps only the working
+   `collab.assistant_chat` mapping; the new `resolvers/assistant.py` is kept
+   in the repo but intentionally not registered (see file docstring).
+3. **Document upload (`resolvers/documents.py`) — finished and wired:**
+   upload a doc → S3 → extract text (`pypdf`/`python-docx`, now in
+   `requirements.txt`) → stored as `case.documentContext`, which
+   `ai/prompts.py`'s per-step prompt builders now include. Fixed the
+   hardcoded, unprovisioned bucket name (`"referencedocument"`) to use the
+   CDK-managed `DOCUMENTS_BUCKET` env var instead — the Lambda already has
+   read/write IAM permission on that bucket, nothing else to grant. Added
+   the missing `POST /cases/{caseId}/documents` API Gateway route (was
+   never added to the CDK stack, so even a working Lambda would have 403'd
+   the frontend on this one — **needs `cdk deploy` to take effect**).
+4. **Not wired — genuinely unfinished, not just "needs a route added":**
+   `ai/service.py` (a new `AIService` implementation meant to call a Bedrock
+   Agent) imports `.client` (`invoke_agent`) and `.result` (`AIResult`) —
+   **neither file exists anywhere in the exported code**, only referenced.
+   `resolvers/transcription.py` imports `ai_get_service` from the `ai`
+   package (the package exports `get_ai_service`, a factory function — no
+   such name exists) and calls it as an already-instantiated object rather
+   than invoking it. `ai/healthscribe.py` calls Amazon Transcribe and a
+   hand-made IAM role (`health-scribe-call-role-...`) and bucket
+   (`healthscribetry`) that aren't provisioned anywhere in the CDK stack —
+   the Lambda's execution role has no `transcribe:*` permission, no
+   `iam:PassRole` for that role, and no access to that bucket. All three
+   files are kept in the repo (not deleted — real work, just not
+   connected to anything) with a docstring stating their status; none are
+   registered in `router.py`/`handler.py`, so calling their intended
+   endpoints today gives a clean 400 ("No resolver registered"), not a
+   crash or silent no-op.
+
+**To finish the HealthScribe/agent pipeline**, in order: create
+`ai/client.py` (the actual Bedrock Agent invocation — presumably against the
+existing `AI-Diagnosis-Assistant` agent from §2) and `ai/result.py` (or just
+reuse `AIResult` from `ai/base.py` instead of a new file); decide whether the
+new capabilities (`assistant_chat`, `start_interview_audio`,
+`ingest_transcription_summary`) belong on the existing `AIService` abstract
+interface (implemented by Stub/Bedrock too) or are provider-specific; add
+Transcribe + `iam:PassRole` + the target bucket to the CDK stack's Lambda
+IAM grants (or migrate onto CDK-managed resources instead of hand-made
+ones); fix `resolvers/transcription.py`'s import; register the finished
+pieces in `router.py`/`handler.py` and add their API Gateway routes; `cdk
+deploy`.

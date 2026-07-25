@@ -10,7 +10,7 @@ from __future__ import annotations
 from typing import Any, Callable
 
 from .context import AuthContext
-from .resolvers import cases, collab, diagnosis, exams, interview, tests
+from .resolvers import cases, collab, diagnosis, documents, exams, interview, tests
 
 Resolver = Callable[[AuthContext, dict[str, Any]], Any]
 
@@ -42,6 +42,8 @@ ROUTES: dict[str, Resolver] = {
     "assistantChat": collab.assistant_chat,
     "acceptRecommendation": collab.accept_recommendation,
     "rejectRecommendation": collab.reject_recommendation,
+    # Documents
+    "uploadCaseDocument": documents.upload_case_document,
 }
 
 
