@@ -1,13 +1,11 @@
 import { useMemo, useState } from 'react';
 import { Search, LayoutGrid, List, SlidersHorizontal } from 'lucide-react';
-import { CASES } from '../data/cases';
+import { useCaseList } from '../hooks/useCases';
 import { PageHeader } from '../components/PageHeader';
 import { CaseCard, CaseRow } from '../components/CaseCard';
 import { EmptyState } from '../components/ui';
 import { cn } from '../lib/ui';
 import type { CaseStatus, Priority } from '../types';
-
-const ACTIVE = CASES.filter((c) => c.status !== 'Completed' && c.status !== 'Archived');
 
 const STATUS_FILTERS: (CaseStatus | 'All')[] = [
   'All',
@@ -26,9 +24,15 @@ export function Cases() {
   const [priority, setPriority] = useState<Priority | 'All'>('All');
   const [sort, setSort] = useState<Sort>('priority');
   const [view, setView] = useState<'grid' | 'list'>('grid');
+  const { data: cases, loading, error } = useCaseList();
+
+  const active = useMemo(
+    () => cases.filter((c) => c.status !== 'Completed' && c.status !== 'Archived'),
+    [cases]
+  );
 
   const filtered = useMemo(() => {
-    let list = ACTIVE.filter((c) => {
+    let list = active.filter((c) => {
       const q = query.toLowerCase();
       const matchesQuery =
         !q ||
@@ -46,13 +50,17 @@ export function Cases() {
       return 0; // recent — keep source order
     });
     return list;
-  }, [query, status, priority, sort]);
+  }, [active, query, status, priority, sort]);
 
   return (
     <div>
       <PageHeader
         title="Active Cases"
-        description={`${ACTIVE.length} cases moving through the diagnostic workflow`}
+        description={
+          loading
+            ? 'Loading cases…'
+            : error ?? `${active.length} cases moving through the diagnostic workflow`
+        }
         actions={
           <div className="flex items-center gap-1 rounded-lg border p-0.5">
             <button

@@ -11,7 +11,7 @@ import {
   Server,
   ListChecks,
 } from 'lucide-react';
-import { CASES } from '../data/cases';
+import { useCaseList } from '../hooks/useCases';
 import { PageHeader } from '../components/PageHeader';
 import { StatTile, SectionHeading, Avatar } from '../components/ui';
 import { CaseCard } from '../components/CaseCard';
@@ -21,30 +21,6 @@ import { STATUS_META } from '../data/helpers';
 import { cn, TONE_DOT } from '../lib/ui';
 import type { CaseStatus, Speaker } from '../types';
 
-const active = CASES.filter((c) => c.status !== 'Completed' && c.status !== 'Archived');
-const completed = CASES.filter((c) => c.status === 'Completed' || c.status === 'Archived');
-const highPriority = active.filter((c) => c.priority === 'High');
-
-const avgConfidence = Math.round(
-  active.reduce((sum, c) => {
-    const lead = [...c.diagnoses].sort((a, b) => b.confidence - a.confidence)[0];
-    return sum + (lead?.confidence ?? 0);
-  }, 0) / (active.length || 1)
-);
-
-// Curated activity feed pulled from the most recent case updates.
-const feed = active
-  .flatMap((c) =>
-    c.recentUpdates.slice(0, 1).map((u) => ({ ...u, patient: c.patient.name, id: c.id, hue: c.patient.avatarHue }))
-  )
-  .slice(0, 6);
-
-// Status distribution
-const statusCounts = active.reduce<Record<string, number>>((acc, c) => {
-  acc[c.status] = (acc[c.status] || 0) + 1;
-  return acc;
-}, {});
-
 const ACTOR_ICON: Record<Speaker, typeof User> = {
   patient: User,
   ai: Sparkles,
@@ -53,6 +29,32 @@ const ACTOR_ICON: Record<Speaker, typeof User> = {
 };
 
 export function Dashboard() {
+  const { data: cases } = useCaseList();
+
+  const active = cases.filter((c) => c.status !== 'Completed' && c.status !== 'Archived');
+  const completed = cases.filter((c) => c.status === 'Completed' || c.status === 'Archived');
+  const highPriority = active.filter((c) => c.priority === 'High');
+
+  const avgConfidence = Math.round(
+    active.reduce((sum, c) => {
+      const lead = [...c.diagnoses].sort((a, b) => b.confidence - a.confidence)[0];
+      return sum + (lead?.confidence ?? 0);
+    }, 0) / (active.length || 1)
+  );
+
+  const feed = active
+    .flatMap((c) =>
+      c.recentUpdates
+        .slice(0, 1)
+        .map((u) => ({ ...u, patient: c.patient.name, id: c.id, hue: c.patient.avatarHue }))
+    )
+    .slice(0, 6);
+
+  const statusCounts = active.reduce<Record<string, number>>((acc, c) => {
+    acc[c.status] = (acc[c.status] || 0) + 1;
+    return acc;
+  }, {});
+
   const topInsights = active[0]?.insights.slice(0, 3) ?? [];
 
   return (

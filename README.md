@@ -1,17 +1,25 @@
 # Aura — AI Clinical Decision Support (Prototype)
 
-A polished, **frontend-only** interactive prototype of an AI-powered clinical
-decision support platform. Aura assists physicians throughout the entire
-diagnostic journey — organizing patient information, interviewing patients,
-brainstorming differential diagnoses, recommending examinations and tests,
-explaining its reasoning with confidence scores and (simulated) references, and
-collaborating with the doctor until a final diagnosis is reached.
+An interactive prototype of an AI-powered clinical decision support platform.
+Aura assists physicians throughout the entire diagnostic journey — organizing
+patient information, interviewing patients, brainstorming differential
+diagnoses, recommending examinations and tests, explaining its reasoning with
+confidence scores and references, and collaborating with the doctor until a
+final diagnosis is reached.
 
-> ⚠️ **This is not a real medical product.** Every patient, conversation,
-> diagnosis, test result, reference and AI response is **hardcoded dummy data**
-> used to simulate the product experience. There is no backend, no database, no
-> authentication and no real AI/LLM. It exists purely to demonstrate the
-> workflow, UX and physician–AI collaboration for feedback.
+> ⚠️ **This is not a real medical product.** Patients, conversations, diagnoses,
+> test results and references are dummy data used to demonstrate the workflow,
+> UX and physician–AI collaboration.
+
+### Two run modes
+
+| Mode | When | Data source |
+|------|------|-------------|
+| **Demo** (default) | No `.env` present | Bundled sample cases; AI replies are simulated in-browser |
+| **Live AWS** | `.env` points at a deployed stack | Cognito login → API Gateway → Lambda → DynamoDB |
+
+Demo mode needs nothing but `npm install`. For live mode see
+[AWS deployment](#-aws-deployment) below.
 
 ---
 
@@ -66,6 +74,41 @@ npm run preview  # preview the production build
 
 ---
 
+## ☁️ AWS deployment
+
+One command provisions the stack, seeds the sample cases and writes your `.env`:
+
+```bash
+export AWS_ACCESS_KEY_ID=... AWS_SECRET_ACCESS_KEY=...
+./scripts/deploy.sh
+```
+
+It deploys `SehatiBackend` (API Gateway + Lambda + DynamoDB + Cognito + S3/KMS)
+via CDK, then prints the `aws cognito-idp admin-create-user` commands to create
+your first physician login. Restart `npm run dev` afterwards and the app will
+require sign-in and read every case from DynamoDB.
+
+To switch the AI from the deterministic stub to Amazon Bedrock:
+
+```bash
+AI_PROVIDER=bedrock ./scripts/deploy.sh
+```
+
+Request flow once live:
+
+```
+Browser ──Cognito JWT──> API Gateway ──> Lambda (sehati.handler)
+                          (authorizer)      │
+                                            ├─ router.py  → resolvers/*.py
+                                            ├─ db/*_repo.py → DynamoDB (row-level authz)
+                                            └─ ai/factory.py → stub | Bedrock
+```
+
+Details: [`docs/AWS_DEPLOYMENT.md`](docs/AWS_DEPLOYMENT.md),
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), [`docs/API.md`](docs/API.md).
+
+---
+
 ## 🧱 Tech stack
 
 - **React 18** + **TypeScript** + **Vite**
@@ -74,8 +117,9 @@ npm run preview  # preview the production build
 - **Recharts** for confidence-trend charts
 - **lucide-react** for icons
 
-No application network calls are made — the Inter font is loaded from Google
-Fonts with a graceful system-font fallback, and everything else is bundled.
+In live mode the frontend talks to AWS directly — Cognito for auth
+(`src/lib/auth.ts`) and API Gateway for data (`src/lib/api.ts`), with no SDK
+dependency. In demo mode no application network calls are made.
 
 ## 📁 Project structure
 

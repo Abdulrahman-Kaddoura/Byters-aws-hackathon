@@ -1,16 +1,16 @@
 import { Link } from 'react-router-dom';
 import { useState } from 'react';
 import { CheckCircle2, Search, ArrowUpRight, CalendarCheck } from 'lucide-react';
-import { CASES } from '../data/cases';
+import { useCaseList } from '../hooks/useCases';
 import { PageHeader } from '../components/PageHeader';
 import { Avatar, EmptyState, Badge } from '../components/ui';
 import { confidenceHex } from '../lib/ui';
 
-const COMPLETED = CASES.filter((c) => c.status === 'Completed' || c.status === 'Archived');
-
 export function Completed() {
   const [query, setQuery] = useState('');
-  const filtered = COMPLETED.filter((c) => {
+  const { data: cases, loading, error } = useCaseList();
+  const completed = cases.filter((c) => c.status === 'Completed' || c.status === 'Archived');
+  const filtered = completed.filter((c) => {
     const q = query.toLowerCase();
     return !q || c.patient.name.toLowerCase().includes(q) || c.primaryImpression.toLowerCase().includes(q);
   });
@@ -19,7 +19,12 @@ export function Completed() {
     <div>
       <PageHeader
         title="Completed Cases"
-        description={`${COMPLETED.length} archived cases · read-only records with full AI reasoning preserved`}
+        description={
+          loading
+            ? 'Loading cases…'
+            : error ??
+              `${completed.length} archived cases · read-only records with full AI reasoning preserved`
+        }
       />
 
       <div className="relative mb-6 max-w-md">

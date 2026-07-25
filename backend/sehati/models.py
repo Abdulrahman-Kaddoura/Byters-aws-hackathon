@@ -186,7 +186,7 @@ def new_case(
     """
     ts = now_iso()
     cid = case_id or new_id()
-    return {
+    case: PatientCase = {
         "id": cid,
         "patient": patient,
         "history": history or _empty_history(),

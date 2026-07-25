@@ -1,4 +1,6 @@
 import { useState, type ReactNode } from 'react';
+import { isLive } from '../lib/config';
+import * as api from '../lib/api';
 import {
   CheckCircle2,
   XCircle,
@@ -67,17 +69,26 @@ function EvidenceLines({
   );
 }
 
-function DoctorFeedback() {
+function DoctorFeedback({ caseId, diagnosisId }: { caseId: string; diagnosisId: string }) {
   const [vote, setVote] = useState<'up' | 'down' | null>(null);
   const [noteOpen, setNoteOpen] = useState(false);
   const [note, setNote] = useState('');
   const [saved, setSaved] = useState(false);
 
+  async function record(next: 'up' | 'down', reason?: string) {
+    setVote(next);
+    if (!isLive) return;
+    const opts = { targetType: 'diagnosis', reason };
+    await (next === 'up'
+      ? api.acceptRecommendation(caseId, diagnosisId, opts)
+      : api.rejectRecommendation(caseId, diagnosisId, opts));
+  }
+
   return (
     <div className="flex flex-wrap items-center gap-2">
       <span className="text-xs font-medium text-muted">Your feedback:</span>
       <button
-        onClick={() => setVote('up')}
+        onClick={() => record('up')}
         className={cn(
           'btn btn-outline px-2.5 py-1.5 text-xs',
           vote === 'up' && 'border-emerald-400 text-emerald-600 dark:text-emerald-400'
@@ -86,7 +97,7 @@ function DoctorFeedback() {
         <ThumbsUp className="h-3.5 w-3.5" /> Agree
       </button>
       <button
-        onClick={() => setVote('down')}
+        onClick={() => record('down')}
         className={cn(
           'btn btn-outline px-2.5 py-1.5 text-xs',
           vote === 'down' && 'border-rose-400 text-rose-600 dark:text-rose-400'
@@ -114,6 +125,7 @@ function DoctorFeedback() {
           <div className="mt-2 flex items-center gap-2">
             <button
               onClick={() => {
+                if (vote) void record(vote, note);
                 setSaved(true);
                 setNoteOpen(false);
               }}
@@ -250,7 +262,7 @@ export function DiagnosisDetail({
             </Block>
 
             <div className="divider" />
-            <DoctorFeedback />
+            <DoctorFeedback caseId={caseData.id} diagnosisId={diagnosis.id} />
           </div>
         )}
 
