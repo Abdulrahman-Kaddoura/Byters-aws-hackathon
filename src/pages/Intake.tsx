@@ -15,6 +15,8 @@ import {
   MessagesSquare,
 } from 'lucide-react';
 import { PageHeader } from '../components/PageHeader';
+import { isLive } from '../lib/config';
+import * as api from '../lib/api';
 import { cn } from '../lib/ui';
 
 // ---- Chips input ----------------------------------------------------------
@@ -118,6 +120,8 @@ export function Intake() {
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const [phase, setPhase] = useState(0);
+  const [createdId, setCreatedId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const [form, setForm] = useState({
     name: '',
@@ -155,16 +159,57 @@ export function Intake() {
     { icon: Sparkles, text: 'Generating structured clinical summary…' },
   ];
 
-  function submit() {
+  async function submit() {
     setSubmitting(true);
     setPhase(0);
-    const t1 = setTimeout(() => setPhase(1), 1100);
-    const t2 = setTimeout(() => setPhase(2), 2500);
-    const t3 = setTimeout(() => {
-      setSubmitting(false);
+
+    if (!isLive) {
+      const t1 = setTimeout(() => setPhase(1), 1100);
+      const t2 = setTimeout(() => setPhase(2), 2500);
+      const t3 = setTimeout(() => {
+        setSubmitting(false);
+        setDone(true);
+      }, 3900);
+      return () => [t1, t2, t3].forEach(clearTimeout);
+    }
+
+    try {
+      const created = await api.submitIntake({
+        patient: {
+          name: form.name,
+          age: Number(form.age) || 0,
+          gender: form.gender || 'Other',
+          weight: form.weight,
+          height: form.height,
+        },
+        history: {
+          previousIllnesses: form.previousIllnesses,
+          medications: form.medications,
+          allergies: form.allergies,
+          familyHistory: form.familyHistory,
+          surgeries: form.surgeries,
+          lifestyle: form.lifestyle,
+          smoking: form.smoking,
+          alcohol: form.alcohol,
+        },
+        complaint: {
+          symptoms: form.symptoms,
+          painScale: form.painScale,
+          duration: form.duration,
+          timeline: form.timeline,
+          aggravating: form.aggravating,
+          relieving: form.relieving,
+        },
+        chiefComplaint: form.symptoms[0] ?? '',
+      });
+      setPhase(2);
+      setCreatedId(created.id);
       setDone(true);
-    }, 3900);
-    return () => [t1, t2, t3].forEach(clearTimeout);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   // ---- Success state ------------------------------------------------------
@@ -181,17 +226,22 @@ export function Intake() {
             summary and is ready for your review.
           </p>
           <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-center">
-            <button onClick={() => navigate('/cases/AUR-1046')} className="btn btn-primary">
+            <button
+              onClick={() => navigate(`/cases/${createdId ?? 'AUR-1046'}`)}
+              className="btn btn-primary"
+            >
               <Sparkles className="h-4 w-4" /> Open case & review summary
             </button>
             <button onClick={() => navigate('/cases')} className="btn btn-outline">
               Go to active cases
             </button>
           </div>
-          <p className="mt-5 rounded-lg border border-dashed px-3 py-2 text-[11px] text-muted">
-            Prototype note: submitted data isn't stored. This opens a representative sample case to demonstrate the
-            downstream workflow.
-          </p>
+          {!isLive && (
+            <p className="mt-5 rounded-lg border border-dashed px-3 py-2 text-[11px] text-muted">
+              Prototype note: submitted data isn't stored. This opens a representative sample case to demonstrate the
+              downstream workflow.
+            </p>
+          )}
         </div>
       </div>
     );
@@ -421,6 +471,12 @@ export function Intake() {
             </div>
             <ReviewGrid form={form} />
           </div>
+        )}
+
+        {error && (
+          <p className="mt-6 rounded-lg border border-rose-200/70 bg-rose-50/60 px-3 py-2 text-[13px] text-rose-700 dark:border-rose-500/25 dark:bg-rose-500/10 dark:text-rose-300">
+            {error}
+          </p>
         )}
 
         {/* Nav */}

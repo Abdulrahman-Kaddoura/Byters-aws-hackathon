@@ -8,7 +8,9 @@ import {
   ChevronDown,
   Beaker,
 } from 'lucide-react';
-import { useCaseData } from './CaseLayout';
+import { useCaseData, useCaseActions } from './CaseLayout';
+import { isLive } from '../../lib/config';
+import * as api from '../../lib/api';
 import { SectionHeading, Badge } from '../../components/ui';
 import { PriorityBadge, FlagBadge } from '../../components/badges';
 import { cn, TONE_DOT, type Tone } from '../../lib/ui';
@@ -73,8 +75,17 @@ function Meta({ icon, label, value }: { icon: React.ReactNode; label: string; va
   );
 }
 
-function TestCard({ test }: { test: TestRecommendation }) {
+function TestCard({ test, caseId }: { test: TestRecommendation; caseId: string }) {
+  const { apply } = useCaseActions();
   const [status, setStatus] = useState<TestStatus>(test.status);
+
+  async function changeStatus(next: TestStatus) {
+    setStatus(next);
+    // Ordering is the only transition the doctor drives; results arrive from the lab.
+    if (!isLive || next !== 'ordered') return;
+    const res = await api.orderTest(caseId, test.id);
+    apply(res.case);
+  }
 
   return (
     <div className="card-flat p-4">
@@ -91,7 +102,7 @@ function TestCard({ test }: { test: TestRecommendation }) {
             <p className="text-xs text-muted">{test.category}</p>
           </div>
         </div>
-        <StatusControl status={status} onChange={setStatus} />
+        <StatusControl status={status} onChange={changeStatus} />
       </div>
 
       <p className="mt-3 text-[13px] text-secondary">{test.reason}</p>
@@ -189,7 +200,7 @@ export function Tests() {
 
       <div className="space-y-3">
         {c.tests.map((t) => (
-          <TestCard key={t.id} test={t} />
+          <TestCard key={t.id} test={t} caseId={c.id} />
         ))}
       </div>
     </div>

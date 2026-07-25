@@ -17,7 +17,9 @@ import {
   ShieldCheck,
   Hourglass,
 } from 'lucide-react';
-import { useCaseData } from './CaseLayout';
+import { useCaseData, useCaseActions } from './CaseLayout';
+import { isLive } from '../../lib/config';
+import * as api from '../../lib/api';
 import { SectionHeading, ConfidenceRing, Badge, TagList, EmptyState } from '../../components/ui';
 import { cn } from '../../lib/ui';
 
@@ -55,10 +57,18 @@ function ListBlock({
 export function FinalDiagnosis() {
   const c = useCaseData();
   const fd = c.finalDiagnosis;
+  const { apply } = useCaseActions();
   const [decision, setDecision] = useState<null | 'accepted' | 'investigating'>(
     fd?.status === 'accepted' ? 'accepted' : null
   );
   const readOnly = c.status === 'Completed' || c.status === 'Archived';
+
+  async function accept() {
+    setDecision('accepted');
+    if (!isLive) return;
+    const res = await api.acceptFinalDiagnosis(c.id);
+    apply(res.case);
+  }
 
   // -- Not ready yet --------------------------------------------------------
   if (!fd) {
@@ -125,7 +135,7 @@ export function FinalDiagnosis() {
           {!readOnly && (
             <div className="mt-5 flex flex-wrap gap-2 border-t pt-4">
               <button
-                onClick={() => setDecision('accepted')}
+                onClick={accept}
                 className={cn('btn', decision === 'accepted' ? 'btn-primary' : 'btn-primary')}
               >
                 <Check className="h-4 w-4" /> Accept diagnosis

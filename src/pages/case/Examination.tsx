@@ -9,14 +9,17 @@ import {
   Circle,
   X,
 } from 'lucide-react';
-import { useCaseData } from './CaseLayout';
+import { useCaseData, useCaseActions } from './CaseLayout';
 import { SectionHeading, Badge } from '../../components/ui';
 import { FlagBadge } from '../../components/badges';
 import { IMPORTANCE_META } from '../../data/helpers';
+import { isLive } from '../../lib/config';
+import * as api from '../../lib/api';
 import { cn } from '../../lib/ui';
 import type { ExamRecommendation } from '../../types';
 
-function ExamItem({ exam }: { exam: ExamRecommendation }) {
+function ExamItem({ exam, caseId }: { exam: ExamRecommendation; caseId: string }) {
+  const { apply } = useCaseActions();
   const [status, setStatus] = useState(exam.status);
   const [finding, setFinding] = useState(exam.finding ?? '');
   const [noteOpen, setNoteOpen] = useState(false);
@@ -24,9 +27,16 @@ function ExamItem({ exam }: { exam: ExamRecommendation }) {
   const [aiUpdated, setAiUpdated] = useState(false);
   const imp = IMPORTANCE_META[exam.importance];
 
-  function complete() {
-    setStatus('complete');
-    if (finding.trim()) setAiUpdated(true);
+  async function persist(nextStatus: 'complete' | 'skipped') {
+    setStatus(nextStatus);
+    if (nextStatus === 'complete' && finding.trim()) setAiUpdated(true);
+    if (!isLive) return;
+    const res = await api.recordExamFinding(caseId, exam.id, {
+      finding,
+      note,
+      status: nextStatus,
+    });
+    apply(res.case);
   }
 
   return (
@@ -90,10 +100,10 @@ function ExamItem({ exam }: { exam: ExamRecommendation }) {
                   className="input"
                 />
                 <div className="flex gap-2">
-                  <button onClick={complete} className="btn btn-primary shrink-0 px-3 py-2 text-xs">
+                  <button onClick={() => persist('complete')} className="btn btn-primary shrink-0 px-3 py-2 text-xs">
                     <Check className="h-3.5 w-3.5" /> Complete
                   </button>
-                  <button onClick={() => setStatus('skipped')} className="btn btn-outline shrink-0 px-3 py-2 text-xs">
+                  <button onClick={() => persist('skipped')} className="btn btn-outline shrink-0 px-3 py-2 text-xs">
                     <SkipForward className="h-3.5 w-3.5" /> Skip
                   </button>
                   <button onClick={() => setNoteOpen((o) => !o)} className="btn btn-ghost shrink-0 px-2.5 py-2 text-xs" aria-label="Add note">
@@ -155,7 +165,7 @@ export function Examination() {
 
       <div className="space-y-3">
         {c.exams.map((exam) => (
-          <ExamItem key={exam.id} exam={exam} />
+          <ExamItem key={exam.id} exam={exam} caseId={c.id} />
         ))}
       </div>
     </div>

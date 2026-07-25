@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { Send, Sparkles, Stethoscope, User } from 'lucide-react';
 import type { ChatMessage, PatientCase, Diagnosis, Speaker } from '../types';
 import { generateAIResponse, type SuggestedPrompt } from '../data/aiResponder';
+import { isLive } from '../lib/config';
+import * as api from '../lib/api';
 import { cn } from '../lib/ui';
 
 function Bubble({ msg }: { msg: ChatMessage }) {
@@ -85,21 +87,39 @@ export function ChatThread({
 
   useEffect(() => () => clearTimeout(timeoutRef.current), []);
 
-  function send(text: string) {
+  async function send(text: string) {
     const trimmed = text.trim();
     if (!trimmed || typing) return;
     const doctorMsg: ChatMessage = { role: 'doctor' as Speaker, text: trimmed, time: 'now' };
     setMessages((m) => [...m, doctorMsg]);
     setInput('');
     setTyping(true);
-    timeoutRef.current = setTimeout(
-      () => {
-        const reply = generateAIResponse(caseData, trimmed, diagnosis);
-        setTyping(false);
-        setMessages((m) => [...m, { role: 'ai', text: reply, time: 'now' }]);
-      },
-      850 + Math.min(trimmed.length * 12, 900)
-    );
+
+    if (!isLive) {
+      timeoutRef.current = setTimeout(
+        () => {
+          const reply = generateAIResponse(caseData, trimmed, diagnosis);
+          setTyping(false);
+          setMessages((m) => [...m, { role: 'ai', text: reply, time: 'now' }]);
+        },
+        850 + Math.min(trimmed.length * 12, 900)
+      );
+      return;
+    }
+
+    try {
+      const res = diagnosis
+        ? await api.askDiagnosis(caseData.id, trimmed, diagnosis.id)
+        : await api.assistantChat(caseData.id, trimmed);
+      setMessages((m) => [...m, res.aiMessage]);
+    } catch (err) {
+      setMessages((m) => [
+        ...m,
+        { role: 'system', text: `Could not reach Aura: ${(err as Error).message}`, time: 'now' },
+      ]);
+    } finally {
+      setTyping(false);
+    }
   }
 
   return (
@@ -152,7 +172,7 @@ export function ChatThread({
         </button>
       </form>
       <p className="mt-2 text-center text-[10px] text-muted">
-        Simulated assistant · responses are illustrative and not medical advice
+        {isLive ? 'Aura' : 'Simulated assistant'} · responses are illustrative and not medical advice
       </p>
     </div>
   );

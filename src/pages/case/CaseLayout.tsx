@@ -15,7 +15,7 @@ import {
   ClipboardCheck,
   GitBranch,
 } from 'lucide-react';
-import { getCase } from '../../data/cases';
+import { useCase } from '../../hooks/useCases';
 import { Avatar } from '../../components/ui';
 import { StatusBadge, PriorityBadge } from '../../components/badges';
 import { AssistantPanel } from '../../components/AssistantPanel';
@@ -23,8 +23,20 @@ import { NotFound } from '../NotFound';
 import { cn } from '../../lib/ui';
 import type { PatientCase, Vitals } from '../../types';
 
+interface CaseContext {
+  caseData: PatientCase;
+  /** Push a mutation's returned case into state without a second round trip. */
+  apply: (updated: PatientCase) => void;
+  reload: () => void;
+}
+
 export function useCaseData() {
-  return useOutletContext<PatientCase>();
+  return useOutletContext<CaseContext>().caseData;
+}
+
+export function useCaseActions() {
+  const { apply, reload } = useOutletContext<CaseContext>();
+  return { apply, reload };
 }
 
 const TABS = [
@@ -62,10 +74,42 @@ function VitalsRow({ vitals }: { vitals: Vitals }) {
   );
 }
 
+function CaseSkeleton() {
+  return (
+    <div className="card animate-pulse p-5">
+      <div className="flex items-start gap-4">
+        <div className="h-14 w-14 rounded-full bg-[var(--surface-hover)]" />
+        <div className="flex-1 space-y-2">
+          <div className="h-5 w-48 rounded bg-[var(--surface-hover)]" />
+          <div className="h-4 w-72 rounded bg-[var(--surface-hover)]" />
+          <div className="h-4 w-64 rounded bg-[var(--surface-hover)]" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CaseError({ message, onRetry }: { message: string; onRetry: () => void }) {
+  return (
+    <div className="card p-6 text-center">
+      <p className="text-sm font-semibold">Could not load this case</p>
+      <p className="mt-1 text-sm text-muted">{message}</p>
+      <button
+        onClick={onRetry}
+        className="mt-4 rounded-lg border px-4 py-2 text-sm font-medium hover:bg-[var(--surface-hover)]"
+      >
+        Try again
+      </button>
+    </div>
+  );
+}
+
 export function CaseLayout() {
   const { id } = useParams();
-  const caseData = id ? getCase(id) : undefined;
+  const { data: caseData, loading, error, apply, reload } = useCase(id);
 
+  if (loading) return <CaseSkeleton />;
+  if (error) return <CaseError message={error} onRetry={reload} />;
   if (!caseData) return <NotFound />;
 
   const readOnly = caseData.status === 'Completed' || caseData.status === 'Archived';
@@ -143,7 +187,7 @@ export function CaseLayout() {
       {/* Body */}
       <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
         <div className="min-w-0">
-          <Outlet context={caseData} />
+          <Outlet context={{ caseData, apply, reload } satisfies CaseContext} />
         </div>
         <aside>
           <AssistantPanel caseData={caseData} />
