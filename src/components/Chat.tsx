@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Send, Sparkles, Stethoscope, User } from 'lucide-react';
 import type { ChatMessage, PatientCase, Diagnosis, Speaker } from '../types';
-import { generateAIResponse, type SuggestedPrompt } from '../data/aiResponder';
-import { isLive } from '../lib/config';
+import type { SuggestedPrompt } from '../data/aiResponder';
 import * as api from '../lib/api';
 import { cn } from '../lib/ui';
 
@@ -79,13 +78,10 @@ export function ChatThread({
   const [input, setInput] = useState('');
   const [typing, setTyping] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const timeoutRef = useRef<ReturnType<typeof setTimeout>>();
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
   }, [messages, typing]);
-
-  useEffect(() => () => clearTimeout(timeoutRef.current), []);
 
   async function send(text: string) {
     const trimmed = text.trim();
@@ -94,18 +90,6 @@ export function ChatThread({
     setMessages((m) => [...m, doctorMsg]);
     setInput('');
     setTyping(true);
-
-    if (!isLive) {
-      timeoutRef.current = setTimeout(
-        () => {
-          const reply = generateAIResponse(caseData, trimmed, diagnosis);
-          setTyping(false);
-          setMessages((m) => [...m, { role: 'ai', text: reply, time: 'now' }]);
-        },
-        850 + Math.min(trimmed.length * 12, 900)
-      );
-      return;
-    }
 
     try {
       const res = diagnosis
@@ -172,7 +156,7 @@ export function ChatThread({
         </button>
       </form>
       <p className="mt-2 text-center text-[10px] text-muted">
-        {isLive ? 'Aura' : 'Simulated assistant'} · responses are illustrative and not medical advice
+        Aura · responses are illustrative and not medical advice
       </p>
     </div>
   );
