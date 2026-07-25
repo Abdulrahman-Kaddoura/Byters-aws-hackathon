@@ -113,7 +113,7 @@ def main() -> None:
     if args.create_table:
         _maybe_create_table()
 
-    cases = json.loads(DATA_PATH.read_text())
+    cases = json.loads(DATA_PATH.read_text(encoding="utf-8"))
     table = tables.cases_table()
     for raw in cases:
         case = _augment(raw)
