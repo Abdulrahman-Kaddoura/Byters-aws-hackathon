@@ -71,6 +71,13 @@ export function caseAudit(caseId: string): Promise<Record<string, unknown>[]> {
   return request('GET', `/cases/${enc(caseId)}/audit`);
 }
 
+export function uploadCaseDocument(
+  caseId: string,
+  payload: { fileBase64: string; fileExtension: string; contentType: string }
+): Promise<CaseEnvelope & { documentS3Uri: string }> {
+  return request('POST', `/cases/${enc(caseId)}/documents`, payload);
+}
+
 // --- Interview --------------------------------------------------------------
 export function postInterviewMessage(
   caseId: string,

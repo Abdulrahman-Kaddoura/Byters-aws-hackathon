@@ -20,7 +20,6 @@ import { useCase } from '../../hooks/useCases';
 import { useSetCurrentCase } from '../../lib/currentCase';
 import { Avatar } from '../../components/ui';
 import { StatusBadge, PriorityBadge } from '../../components/badges';
-import { AssistantPanel } from '../../components/AssistantPanel';
 import { NotFound } from '../NotFound';
 import { cn } from '../../lib/ui';
 import type { PatientCase, Vitals } from '../../types';
@@ -193,13 +192,8 @@ export function CaseLayout() {
       </div>
 
       {/* Body */}
-      <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
-        <div className="min-w-0">
-          <Outlet context={{ caseData, apply, reload } satisfies CaseContext} />
-        </div>
-        <aside>
-          <AssistantPanel caseData={caseData} />
-        </aside>
+      <div className="mt-6 min-w-0">
+        <Outlet context={{ caseData, apply, reload } satisfies CaseContext} />
       </div>
     </div>
   );

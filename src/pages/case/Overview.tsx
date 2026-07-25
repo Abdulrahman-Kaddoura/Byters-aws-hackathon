@@ -11,15 +11,17 @@ import {
   Clock,
   CircleDot,
 } from 'lucide-react';
-import { useCaseData } from './CaseLayout';
+import { useCaseData, useCaseActions } from './CaseLayout';
 import { SectionHeading } from '../../components/ui';
 import { ProgressTracker } from '../../components/ProgressTracker';
 import { InsightCard } from '../../components/InsightCard';
+import { DocumentUpload } from '../../components/DocumentUpload';
 import { TagList } from '../../components/ui';
 import { STAGE_ORDER } from '../../data/helpers';
 
 export function Overview() {
   const c = useCaseData();
+  const { apply } = useCaseActions();
   const s = c.summary;
   const currentStage = STAGE_ORDER.find((st) => st.key === c.stage)?.label ?? 'In progress';
   const lead = [...c.diagnoses].sort((a, b) => b.confidence - a.confidence)[0];
@@ -100,6 +102,8 @@ export function Overview() {
               <SummaryBlock icon={<ShieldAlert className="h-4 w-4" />} title="Allergies" items={c.history.allergies} tone="red" />
             </div>
           </div>
+
+          <DocumentUpload caseData={c} onUploaded={apply} />
         </div>
 
         {/* Side column */}

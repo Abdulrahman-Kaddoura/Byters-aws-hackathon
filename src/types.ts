@@ -235,6 +235,9 @@ export interface PatientCase {
   nextSteps: string[];
   recentUpdates: { time: string; text: string; actor: Speaker }[];
   assistantThread: ChatMessage[];
+  /** Set once a doctor uploads a supporting document (see uploadCaseDocument). */
+  documentContext?: string;
+  documentS3Uri?: string;
   outcome?: string;
   lessonsLearned?: string[];
   associatedConditions?: string[];
