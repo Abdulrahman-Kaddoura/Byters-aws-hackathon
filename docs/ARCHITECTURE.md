@@ -107,7 +107,8 @@ The backend never hard-codes model behavior. `ai/base.AIService` is the contract
   **Guardrails** + **Knowledge Bases** retrieval. Prompt architecture (§9.3):
   system prompt fixes the CDS-not-diagnostician role, the instruction hierarchy is
   system > physician > retrieved-docs, and every structured method requests strict
-  JSON. On any failure it degrades to the stub so the workflow never breaks.
+  JSON. Failures (model access, throttling, malformed JSON) surface as real API
+  errors — this adapter never substitutes stub output for a genuine model response.
 
 **Current status (2026-07-23):** the AI team has been building their Bedrock
 integration independently and directly in the console (a Bedrock Agent, two

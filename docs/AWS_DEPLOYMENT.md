@@ -20,6 +20,7 @@ Task Set 8 (update) and occasionally Task Set 9 (teardown).
 | **8** | Turn on real AI (Bedrock) | optional |
 | **9** | Update / redeploy | whenever code changes |
 | **10** | Tear it down | when finished |
+| **11** | Host the frontend on AWS (S3 + CloudFront) | once, then on frontend updates |
 
 **What you're building:** one CloudFormation stack called `SehatiBackend` in the
 **us-east-1 (N. Virginia)** region, containing API Gateway (the REST API),
@@ -232,8 +233,10 @@ stub is fine for your demo.
    Environment variables): `BEDROCK_GUARDRAIL_ID`, `BEDROCK_GUARDRAIL_VERSION`,
    `BEDROCK_KNOWLEDGE_BASE_ID`, and optionally `BEDROCK_MODEL_ID`.
 
-If Bedrock is unavailable or a model isn't enabled, the backend **automatically
-falls back to the stub** so nothing breaks.
+If Bedrock is unavailable or a model isn't enabled, requests return a real
+`500 InternalError` instead of silently degrading — there is no stub fallback
+once `AI_PROVIDER=bedrock` is deployed. Check CloudWatch logs on
+`sehati-orchestrator` for the underlying Bedrock error.
 
 **Checkpoint:** the `AIProvider` output (Task Set 4) now reads `bedrock`, and a
 `POST /cases/{caseId}/assistant` call returns a model-generated answer.
@@ -279,6 +282,52 @@ first.)
 
 ---
 
+## Task Set 11 — Host the frontend on AWS (S3 + CloudFront)
+
+**Goal:** put the built React app online at a real HTTPS URL, not just `npm run dev`
+on your machine. Do this after Task Set 4 — the frontend needs `.env` (from
+Task Set 4 / `scripts/deploy.sh`) baked into the build before it's uploaded.
+
+**What you're adding:** a second stack, `SehatiFrontend` — a private S3 bucket
+(no public access) served through CloudFront (HTTPS, CDN, and 403/404s rewritten
+to `/index.html` so React Router's client-side routes work on refresh/deep-link).
+
+1. Make sure `.env` has the real values (Task Set 4) — `cdk synth`/`deploy` for
+   `SehatiFrontend` doesn't need AWS creds for this, but the **build** needs
+   `.env` so the deployed site points at your real API/Cognito.
+2. One command does build + deploy:
+   ```bash
+   ./scripts/deploy-frontend.sh        # or .\scripts\deploy-frontend.ps1 on Windows
+   ```
+   Equivalently, by hand:
+   ```bash
+   npm install && npm run build          # produces ./dist
+   cd infra && source .venv/bin/activate # if not already active
+   cdk deploy SehatiFrontend --require-approval never
+   ```
+3. It prints a `SiteUrl` output (a `*.cloudfront.net` HTTPS address) — that's
+   your live site.
+
+**Checkpoint:** opening `SiteUrl` in a browser shows the login page, and signing
+in with a Cognito user from Task Set 5 works exactly like `npm run dev` did
+locally, just from a public AWS URL.
+
+**Updating after a frontend change:** re-run `./scripts/deploy-frontend.sh`. It
+rebuilds, re-syncs the S3 bucket, and invalidates the CloudFront cache
+automatically — no manual cache-busting needed.
+
+**Custom domain (optional):** not wired up by default. If you want
+`app.yourdomain.com` instead of the CloudFront domain, you'll need an ACM
+certificate in `us-east-1` and to add `domain_names`/`certificate` to the
+`Distribution` in `infra/stacks/frontend_stack.py`, plus a DNS record pointing
+at the distribution.
+
+**Cost:** S3 storage for a handful of static files (cents/month) + CloudFront
+data transfer (free tier covers low traffic; otherwise a few dollars/month at
+hackathon scale).
+
+---
+
 ## Connecting the frontend (hand-off)
 
 Give the frontend team these four values from Task Set 4:
@@ -305,7 +354,8 @@ receive matches the frontend's existing `PatientCase` type.
 | `Unauthorized` from the API | Login token missing/expired — get a fresh one (Task Set 7). |
 | Patient gets `Forbidden` on another case | Correct behaviour — patients only see their own. |
 | `listCases` is empty | Run the seed step (Task Set 6), and check you're in `us-east-1`. |
-| Bedrock `AccessDenied` / model not found | Enable model access (Task Set 8, step 1) in us-east-1. |
+| Bedrock `AccessDenied` / model not found | Enable model access (Task Set 8, step 1) in us-east-1. `AI_PROVIDER=bedrock` has no stub fallback — this now returns a real `500` to the frontend until model access is enabled. |
+| Frontend site shows a blank page / old content after redeploy | Hard-refresh (CloudFront may still be serving a stale edge cache for a few seconds after invalidation) or re-run `deploy-frontend.sh`. |
 | Changed code but AWS didn't update | Re-run Task Set 9 (`cdk deploy`). |
 | Can't delete the audit bucket | It's WORM by design — see Task Set 10. |
 | `cdk deploy` fails with `Unzipped size must be smaller than 262144000 bytes` | A Python virtualenv (e.g. `backend/.venv`) is sitting inside `backend/` and getting bundled into the Lambda zip along with `boto3`/`botocore`. Move the venv outside `backend/` (e.g. to the repo root) and redeploy. The stack's asset `exclude` list also filters `.venv`/`venv`/`.pytest_cache` as a second line of defense. |
