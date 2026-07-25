@@ -6,7 +6,9 @@ from pathlib import Path
 from sehati.ai.stub import StubAIService
 
 CASES = json.loads(
-    (Path(__file__).resolve().parents[1] / "sehati" / "data" / "seed_cases.json").read_text()
+    (Path(__file__).resolve().parents[1] / "sehati" / "data" / "seed_cases.json").read_text(
+        encoding="utf-8"
+    )
 )
 PNEUMONIA = next(c for c in CASES if c["id"] == "AUR-1042")
 
