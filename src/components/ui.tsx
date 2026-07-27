@@ -1,6 +1,23 @@
 import type { ReactNode } from 'react';
-import { cn, TONE_SOFT, TONE_DOT, TONE_FILL, TONE_TEXT, initials, type Tone } from '../lib/ui';
+import { Loader2 } from 'lucide-react';
+import { cn, TONE_SOFT, TONE_DOT, TONE_FILL, TONE_TEXT, CHART_COLORS, initials, type Tone } from '../lib/ui';
 import { confidenceTone } from '../data/helpers';
+
+// --------------------------------------------------------------------------
+// Spinner / loading state
+// --------------------------------------------------------------------------
+export function Spinner({ className }: { className?: string }) {
+  return <Loader2 className={cn('h-5 w-5 animate-spin text-muted', className)} />;
+}
+
+export function LoadingState({ label = 'Loading…' }: { label?: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center gap-3 py-16 text-sm text-muted">
+      <Spinner className="h-6 w-6" />
+      {label}
+    </div>
+  );
+}
 
 // --------------------------------------------------------------------------
 // Badge
@@ -97,12 +114,12 @@ export function ConfidenceRing({ value, size = 56 }: { value: number; size?: num
   const dash = (value / 100) * circ;
   const colorVar =
     tone === 'green'
-      ? '#10b981'
+      ? CHART_COLORS.green
       : tone === 'teal'
-        ? '#0a8375'
+        ? CHART_COLORS.teal
         : tone === 'amber'
-          ? '#f59e0b'
-          : '#f43f5e';
+          ? CHART_COLORS.amber
+          : CHART_COLORS.red;
   return (
     <div className="relative inline-flex items-center justify-center" style={{ width: size, height: size }}>
       <svg width={size} height={size} className="-rotate-90">

@@ -25,7 +25,12 @@ export class NewPasswordRequired extends Error {
   }
 }
 
-export class AuthError extends Error {}
+export class AuthError extends Error {
+  constructor(message: string, readonly code?: string) {
+    super(message);
+    this.name = 'AuthError';
+  }
+}
 
 async function idp(action: string, payload: unknown): Promise<any> {
   const res = await fetch(`https://cognito-idp.${config.region}.amazonaws.com/`, {
@@ -38,9 +43,33 @@ async function idp(action: string, payload: unknown): Promise<any> {
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    throw new AuthError(data.message || `Cognito ${action} failed (${res.status}).`);
+    const code = typeof data.__type === 'string' ? data.__type.split('#').pop() : undefined;
+    throw new AuthError(data.message || `Cognito ${action} failed (${res.status}).`, code);
   }
   return data;
+}
+
+/** Plain-language copy for Cognito error codes, for non-technical users. */
+export function describeAuthError(err: unknown): string {
+  const code = err instanceof AuthError ? err.code : undefined;
+  switch (code) {
+    case 'CodeMismatchException':
+      return "That code doesn't match. Check the code and try again.";
+    case 'ExpiredCodeException':
+      return 'This code has expired. Request a new one below.';
+    case 'LimitExceededException':
+    case 'TooManyRequestsException':
+    case 'TooManyFailedAttemptsException':
+      return 'Too many attempts. Please wait a few minutes and try again.';
+    case 'InvalidParameterException':
+      return "We can't send a reset code for this account. Please contact your administrator.";
+    case 'InvalidPasswordException':
+      return "That password doesn't meet the requirements below.";
+    case 'NotAuthorizedException':
+      return 'Incorrect email/username or password.';
+    default:
+      return err instanceof Error ? err.message : 'Something went wrong. Please try again.';
+  }
 }
 
 function persist(result: any): Session {
@@ -99,6 +128,29 @@ export async function completeNewPassword(
     throw new AuthError('Password was set but no tokens were returned.');
   }
   return persist(data.AuthenticationResult);
+}
+
+/** Starts the self-service reset flow; Cognito emails a confirmation code. */
+export async function forgotPassword(username: string): Promise<{ destination?: string }> {
+  const data = await idp('ForgotPassword', {
+    ClientId: config.userPoolClientId,
+    Username: username,
+  });
+  return { destination: data.CodeDeliveryDetails?.Destination };
+}
+
+/** Completes the self-service reset flow with the emailed code and a new password. */
+export async function confirmForgotPassword(
+  username: string,
+  confirmationCode: string,
+  newPassword: string
+): Promise<void> {
+  await idp('ConfirmForgotPassword', {
+    ClientId: config.userPoolClientId,
+    Username: username,
+    ConfirmationCode: confirmationCode,
+    Password: newPassword,
+  });
 }
 
 /** Returns a valid ID token, refreshing it when close to expiry. */

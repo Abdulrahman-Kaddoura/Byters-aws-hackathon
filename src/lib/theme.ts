@@ -2,6 +2,8 @@ import { useEffect, useState, useCallback } from 'react';
 
 export type ThemeMode = 'light' | 'dark';
 
+// Keep in sync with the inline script in index.html (which sets the initial
+// class synchronously, before this module loads, to avoid a light-mode flash).
 function getInitial(): ThemeMode {
   if (typeof window === 'undefined') return 'light';
   const stored = window.localStorage.getItem('aura-theme');

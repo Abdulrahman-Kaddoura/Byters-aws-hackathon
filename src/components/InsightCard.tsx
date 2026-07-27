@@ -27,7 +27,7 @@ const ICON_BG: Record<Tone, string> = {
   amber: 'text-amber-600 dark:text-amber-400',
   red: 'text-rose-600 dark:text-rose-400',
   purple: 'text-violet-600 dark:text-violet-400',
-  gray: 'text-slate-500',
+  gray: 'text-slate-500 dark:text-slate-400',
 };
 
 export function InsightCard({ insight }: { insight: AIInsight }) {
