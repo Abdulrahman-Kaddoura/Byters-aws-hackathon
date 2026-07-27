@@ -267,3 +267,51 @@ IAM grants (or migrate onto CDK-managed resources instead of hand-made
 ones); fix `resolvers/transcription.py`'s import; register the finished
 pieces in `router.py`/`handler.py` and add their API Gateway routes; `cdk
 deploy`.
+
+---
+
+## 7. Bedrock turned on for real (2026-07-27)
+
+`SehatiBackend` was redeployed with `AI_PROVIDER=bedrock`
+(`cdk deploy SehatiBackend -c ai_provider=bedrock`) — the assistant chat
+(`POST /cases/{caseId}/assistant`, `ai/bedrock.py::answer`) now calls real
+Claude on Amazon Bedrock instead of the stub. `ai/bedrock.py` itself needed no
+code changes to work at all; getting a working reply end-to-end took three
+real, sequential AWS-side issues (each confirmed via CloudWatch logs on
+`sehati-orchestrator`), documented in full in `AWS_DEPLOYMENT.md` Task Set 8:
+
+1. **Bare model id rejected.** `Converse` on a bare `anthropic.claude-...` id
+   fails with `ValidationException: ... isn't supported. Retry your request
+   with the ID or ARN of an inference profile`. Recent Claude models require a
+   cross-region inference profile id (`us.anthropic.claude-...`).
+2. **First inference profile tried was legacy.** `claude-sonnet-4-20250514`
+   came back `ResourceNotFoundException: ... marked by provider as Legacy`.
+   `aws bedrock list-inference-profiles` was used to find what's actually
+   active in the account.
+3. **Newest model gated behind a use-case form.** `claude-sonnet-5` came back
+   `AccessDeniedException: ... not available for this account` — AWS's Bedrock
+   "Model access" console page is retired (models auto-enable on first
+   invoke), but first-time use of a brand-new Anthropic model can still
+   require submitting a one-time "use case details" form. Fell back to
+   `us.anthropic.claude-sonnet-4-5-20250929-v1:0` (current, non-legacy,
+   no form required) instead of chasing that down.
+4. **API Gateway's 29-second hard integration timeout** (a REST API ceiling
+   that cannot be raised) was intermittently beating slow-but-successful
+   Bedrock calls — the Lambda (60s timeout) would finish fine and CloudWatch
+   showed no error, but the physician-facing request already failed. Fixed by
+   capping `answer()`'s `maxTokens` at 600 (chat replies don't need the 2000
+   used by the structured JSON tasks) so replies reliably land well under 29s.
+
+**Also fixed:** `BEDROCK_MODEL_ID` was initially patched by hand via
+`aws lambda update-function-configuration` — a dead end, since CDK owns the
+Lambda's entire environment map and replaces it wholesale on every deploy,
+silently reverting a hand-set var on the next `cdk deploy`. `bedrock_model_id`
+is now a proper stack prop / CLI context value (`-c bedrock_model_id=...`,
+mirroring `ai_provider`), defaulting to the working Sonnet 4.5 inference
+profile, in both `infra/app.py` and `infra/stacks/sehati_stack.py`.
+
+**Still not done:** no Guardrail or Knowledge Base configured (`answer()` runs
+without grounding/retrieval evidence until `BEDROCK_KNOWLEDGE_BASE_ID` is set —
+those two env vars remain hand-set only, not CDK-managed). The AI team's
+separate pipeline (§2) is still fully disconnected — none of this used their
+Agent, Lambdas, or Knowledge Bases.
