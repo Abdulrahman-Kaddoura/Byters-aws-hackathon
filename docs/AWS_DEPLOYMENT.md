@@ -219,24 +219,68 @@ only their own. See [`API.md`](./API.md) for every endpoint.
 **Goal:** switch from the built-in stub to real Claude reasoning. Skip this if the
 stub is fine for your demo.
 
-1. **Enable model access:** AWS console → **Amazon Bedrock** → **Model access**
-   (make sure you're in **us-east-1**) → enable the Claude model you want.
-2. **Redeploy with Bedrock selected:**
+**Console model access is gone.** AWS retired the Bedrock "Model access" page —
+foundation models now enable automatically the first time your account invokes
+them, nothing to click in advance. The one thing that can still gate you: the
+**first time your account ever calls an Anthropic model**, Bedrock may require a
+one-time "use case details" form (Bedrock console → Model catalog → open any
+Claude model → it'll prompt you if needed). Submit it and access is typically
+granted within a minute or two.
+
+1. **Redeploy with Bedrock selected:**
    ```bash
    cd ../infra
-   cdk deploy -c ai_provider=bedrock
+   cdk deploy SehatiBackend -c ai_provider=bedrock
    ```
-   (The Lambda already has permission to call Bedrock.)
+   (The Lambda already has permission to call Bedrock.) This also bakes in
+   `BEDROCK_MODEL_ID` — see the next point.
+2. **Model id must be an inference profile, not a bare model id.** Recent Claude
+   models on Bedrock reject on-demand `Converse` calls against the bare model id
+   (`anthropic.claude-...`) with `ValidationException: ... isn't supported.
+   Retry your request with the ID or ARN of an inference profile`. Use the
+   `us.anthropic.claude-...` (or `global.anthropic.claude-...`) cross-region
+   inference profile id instead. `infra/stacks/sehati_stack.py` defaults
+   `BEDROCK_MODEL_ID` to `us.anthropic.claude-sonnet-4-5-20250929-v1:0` — a
+   currently-active, non-legacy Sonnet model that doesn't need the use-case form.
+   Override it at deploy time with `-c bedrock_model_id=<id>` if you want a
+   different one. To see what's actually available/active in your account:
+   ```bash
+   aws bedrock list-inference-profiles --region us-east-1 \
+     --query "inferenceProfileSummaries[].{Id:inferenceProfileId,Name:inferenceProfileName}" \
+     --output table
+   ```
+   Two failure modes you may hit picking a model:
+   - `ResourceNotFoundException: ... marked by provider as Legacy` — that model id
+     is retired from active serving; pick a newer one from the list above.
+   - `AccessDeniedException: ... is not available for this account` — usually the
+     brand-newest models (e.g. a freshly released Sonnet/Opus) gated behind the
+     one-time Anthropic use-case form described above; fall back to an
+     already-active model (like Sonnet 4.5) or submit the form and retry.
 3. **Optional, for production quality:** create a Bedrock **Guardrail** and a
-   **Knowledge Base** (your curated medical corpus), then set these as Lambda
-   environment variables (Lambda console → `sehati-orchestrator` → Configuration →
-   Environment variables): `BEDROCK_GUARDRAIL_ID`, `BEDROCK_GUARDRAIL_VERSION`,
-   `BEDROCK_KNOWLEDGE_BASE_ID`, and optionally `BEDROCK_MODEL_ID`.
+   **Knowledge Base** (your curated medical corpus), then set
+   `BEDROCK_GUARDRAIL_ID`, `BEDROCK_GUARDRAIL_VERSION`, `BEDROCK_KNOWLEDGE_BASE_ID`
+   as Lambda environment variables (Lambda console → `sehati-orchestrator` →
+   Configuration → Environment variables — these three aren't CDK-managed yet).
 
 If Bedrock is unavailable or a model isn't enabled, requests return a real
 `500 InternalError` instead of silently degrading — there is no stub fallback
 once `AI_PROVIDER=bedrock` is deployed. Check CloudWatch logs on
-`sehati-orchestrator` for the underlying Bedrock error.
+`sehati-orchestrator` for the underlying Bedrock error:
+```bash
+aws logs tail /aws/lambda/sehati-orchestrator --since 15m --region us-east-1 --format short
+```
+
+**API Gateway's 29-second hard timeout.** REST API Lambda integrations cannot be
+configured past 29 seconds — this is an AWS ceiling, not something this stack
+can raise. The Lambda's own timeout is 60s, so a slow Bedrock call can finish
+successfully server-side (visible in CloudWatch as a normal, non-error
+`REPORT` line) while the physician-facing request already failed client-side
+with a generic error a second earlier. `ai/bedrock.py`'s `answer()` (case chat)
+caps `maxTokens` at 600 to keep replies fast and reliably under that ceiling;
+`_converse`/`_converse_json` still default to 2000 tokens for the
+structured, JSON-shaped calls (differential, summary, etc.) that need the room.
+If you still see intermittent timeouts, that's Bedrock-side latency/throttling
+variance, not a code bug — retry, or space out requests.
 
 **Checkpoint:** the `AIProvider` output (Task Set 4) now reads `bedrock`, and a
 `POST /cases/{caseId}/assistant` call returns a model-generated answer.
@@ -354,7 +398,10 @@ receive matches the frontend's existing `PatientCase` type.
 | `Unauthorized` from the API | Login token missing/expired — get a fresh one (Task Set 7). |
 | Patient gets `Forbidden` on another case | Correct behaviour — patients only see their own. |
 | `listCases` is empty | Run the seed step (Task Set 6), and check you're in `us-east-1`. |
-| Bedrock `AccessDenied` / model not found | Enable model access (Task Set 8, step 1) in us-east-1. `AI_PROVIDER=bedrock` has no stub fallback — this now returns a real `500` to the frontend until model access is enabled. |
+| Bedrock `ValidationException: ... isn't supported ... inference profile` | Bare model id used instead of an inference profile id — see Task Set 8, step 2. |
+| Bedrock `ResourceNotFoundException: ... marked by provider as Legacy` | That model id is retired; pick a currently-active one (Task Set 8, step 2). |
+| Bedrock `AccessDeniedException: ... not available for this account` | Newest model gated behind Anthropic's one-time use-case form, or genuinely not enabled — see Task Set 8's intro, or fall back to an already-active model. |
+| Chat works a couple of times then a generic "internal error" for no CloudWatch error | API Gateway's 29s hard timeout beat a slow-but-successful Bedrock call — see Task Set 8's timeout note. Not caused by `AI_PROVIDER=bedrock` having no stub fallback (that still applies for genuine Bedrock errors, which do show up in CloudWatch as a real exception). |
 | Frontend site shows a blank page / old content after redeploy | Hard-refresh (CloudFront may still be serving a stale edge cache for a few seconds after invalidation) or re-run `deploy-frontend.sh`. |
 | Changed code but AWS didn't update | Re-run Task Set 9 (`cdk deploy`). |
 | Can't delete the audit bucket | It's WORM by design — see Task Set 10. |
