@@ -43,6 +43,7 @@ class SehatiStack(Stack):
         construct_id: str,
         *,
         ai_provider: str = "stub",
+        bedrock_model_id: str = "us.anthropic.claude-sonnet-4-5-20250929-v1:0",
         **kwargs,
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
@@ -200,6 +201,7 @@ class SehatiStack(Stack):
                 "DOCUMENTS_BUCKET": documents.bucket_name,
                 "AUDIT_BUCKET": audit_bucket.bucket_name,
                 "AI_PROVIDER": ai_provider,
+                "BEDROCK_MODEL_ID": bedrock_model_id,
                 "LOG_LEVEL": "INFO",
             },
         )

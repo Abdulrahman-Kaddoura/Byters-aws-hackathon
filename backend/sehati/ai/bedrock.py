@@ -107,6 +107,7 @@ class BedrockAIService(AIService):
         case: PatientCase,
         physician_question: str | None = None,
         retrieval_query: str | None = None,
+        max_tokens: int = 2000,
     ) -> tuple[str, list[dict[str, Any]]]:
         evidence = self._retrieve(retrieval_query) if retrieval_query else []
         messages = prompts.build_messages(
@@ -119,7 +120,7 @@ class BedrockAIService(AIService):
             "modelId": DEFAULT_MODEL_ID,
             "messages": messages,
             "system": [{"text": prompts.SYSTEM_PROMPT}],
-            "inferenceConfig": {"maxTokens": 2000, "temperature": 0.2},
+            "inferenceConfig": {"maxTokens": max_tokens, "temperature": 0.2},
         }
         if GUARDRAIL_ID:
             kwargs["guardrailConfig"] = {
@@ -242,6 +243,7 @@ class BedrockAIService(AIService):
             case=case,
             physician_question=question,
             retrieval_query=question,
+            max_tokens=600,
         )
         return AIResult(chat_message("ai", text.strip()), self.model_version, evidence)
 
