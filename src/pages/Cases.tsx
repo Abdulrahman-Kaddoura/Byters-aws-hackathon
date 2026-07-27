@@ -3,7 +3,7 @@ import { Search, LayoutGrid, List, SlidersHorizontal } from 'lucide-react';
 import { useCaseList } from '../hooks/useCases';
 import { PageHeader } from '../components/PageHeader';
 import { CaseCard, CaseRow } from '../components/CaseCard';
-import { EmptyState } from '../components/ui';
+import { EmptyState, LoadingState } from '../components/ui';
 import { cn } from '../lib/ui';
 import type { CaseStatus, Priority } from '../types';
 
@@ -128,7 +128,9 @@ export function Cases() {
         </div>
       </div>
 
-      {filtered.length === 0 ? (
+      {loading ? (
+        <LoadingState label="Loading cases…" />
+      ) : filtered.length === 0 ? (
         <EmptyState
           icon={<Search className="h-5 w-5" />}
           title="No cases match your filters"

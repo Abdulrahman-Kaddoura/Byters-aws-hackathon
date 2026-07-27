@@ -15,9 +15,16 @@
   --text-muted: #858c9a;
   --brand: #2f66f6;
   --brand-weak: #eef4ff;
-  --teal: #0a8375;
-  --teal-weak: #e6f7f3;
+  --teal: #55797a;
+  --teal-weak: #eff3f3;
   --shadow-card: 0 1px 3px rgba(16, 24, 40, 0.05), 0 6px 20px -8px rgba(16, 24, 40, 0.10);
+
+  /* Muted status/chart colors — see tailwind.config.js for the matching ramps. */
+  --tone-green: #6e8874;
+  --tone-amber: #a3763c;
+  --tone-red: #a15850;
+  --tone-purple: #7c6a92;
+  --tone-teal: #55797a;
 }
 
 .dark {
@@ -33,9 +40,15 @@
   --text-muted: #6f7889;
   --brand: #6d97ff;
   --brand-weak: #16203a;
-  --teal: #34c9b3;
-  --teal-weak: #0f2a29;
+  --teal: #9ab3b3;
+  --teal-weak: #202f30;
   --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px -10px rgba(0, 0, 0, 0.6);
+
+  --tone-green: #a9bdac;
+  --tone-amber: #c9a978;
+  --tone-red: #c2938d;
+  --tone-purple: #a99cba;
+  --tone-teal: #9ab3b3;
 }
 
 * {

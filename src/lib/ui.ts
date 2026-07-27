@@ -49,17 +49,17 @@ export const TONE_FILL: Record<Tone, string> = {
   gray: 'bg-slate-400',
 };
 
-// Chart-mark colors — slightly darker/higher-contrast variants of the brand
-// ramp so thin marks read on light surfaces. Every use pairs them with a
-// direct numeric label, so identity/magnitude is never color-alone.
+// Chart-mark colors, sourced from the muted CSS-variable palette (src/index.css)
+// so they stay theme-reactive. Every use pairs them with a direct numeric
+// label, so identity/magnitude is never color-alone.
 export const CHART_COLORS = {
-  brand: '#2f66f6',
-  teal: '#0b8a7a',
-  green: '#059669',
-  amber: '#d97706',
-  red: '#e11d48',
-  purple: '#7c3aed',
-  grid: 'rgba(120,130,150,0.16)',
+  brand: 'var(--brand)',
+  teal: 'var(--tone-teal)',
+  green: 'var(--tone-green)',
+  amber: 'var(--tone-amber)',
+  red: 'var(--tone-red)',
+  purple: 'var(--tone-purple)',
+  grid: 'rgba(120,130,150,0.12)',
 };
 
 // Confidence → chart color (status ramp, always shown with the % value).
