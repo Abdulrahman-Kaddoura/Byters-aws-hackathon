@@ -1,59 +1,38 @@
 import { useState } from 'react';
-import {
-  ChevronDown,
-  Sparkles,
-  BookMarked,
-  Gauge,
-  CheckCircle2,
-  XCircle,
-  FlaskConical,
-  Stethoscope,
-} from 'lucide-react';
-import type { PatientCase, Diagnosis } from '../types';
-import { ConfidenceMeter, Badge } from './ui';
-import { PriorityBadge } from './badges';
-import { Drawer } from './Drawer';
-import { DiagnosisDetail, type DetailTab } from './DiagnosisDetail';
-import { cn, confidenceHex } from '../lib/ui';
+import { ChevronDown, Sparkles, BookMarked, Gauge, CheckCircle2, XCircle, FlaskConical } from 'lucide-react';
+import type { PatientCase, Diagnosis } from '@/types';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
+import { ConfidenceMeter } from '@/components/common';
+import { PriorityBadge } from '@/components/badges';
+import { DiagnosisDetail, type DetailTab } from '@/components/DiagnosisDetail';
+import { cn } from '@/lib/utils';
 
-export function DiagnosisCard({
-  caseData,
-  diagnosis,
-  rank,
-}: {
-  caseData: PatientCase;
-  diagnosis: Diagnosis;
-  rank: number;
-}) {
+export function DiagnosisCard({ caseData, diagnosis, rank }: { caseData: PatientCase; diagnosis: Diagnosis; rank: number }) {
   const [expanded, setExpanded] = useState(false);
   const [drawer, setDrawer] = useState<DetailTab | null>(null);
 
   return (
     <>
-      <div
-        className={cn(
-          'card overflow-hidden transition-shadow hover:shadow-lift',
-          rank === 1 && 'ring-1 ring-brand-500/25'
-        )}
-      >
+      <Card className={cn('overflow-hidden transition-shadow hover:shadow-md', rank === 1 && 'ring-1 ring-primary/30')}>
         {rank === 1 && (
-          <div className="flex items-center gap-1.5 bg-brand-50 px-4 py-1.5 text-[11px] font-semibold text-brand-700 dark:bg-brand-500/12 dark:text-brand-200">
+          <div className="flex items-center gap-1.5 bg-primary/10 px-4 py-1.5 text-[11px] font-semibold text-primary">
             <Sparkles className="h-3.5 w-3.5" />
             Leading diagnosis
           </div>
         )}
-        <div className="p-4 sm:p-5">
+        <CardContent className="p-4 sm:p-5">
           <div className="flex items-start gap-3">
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[var(--bg-subtle)] text-xs font-bold text-secondary">
-              {rank}
-            </span>
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-muted text-xs font-bold text-muted-foreground">{rank}</span>
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
                 <h3 className="text-base font-semibold tracking-tight">{diagnosis.name}</h3>
                 <PriorityBadge priority={diagnosis.priority} />
-                <Badge tone="gray">{diagnosis.category}</Badge>
+                <Badge variant="secondary">{diagnosis.category}</Badge>
               </div>
-              <p className="mt-1 text-sm text-secondary">{diagnosis.tagline}</p>
+              <p className="mt-1 text-sm text-muted-foreground">{diagnosis.tagline}</p>
             </div>
           </div>
 
@@ -61,99 +40,89 @@ export function DiagnosisCard({
             <ConfidenceMeter value={diagnosis.confidence} height={8} />
           </div>
 
-          {/* Findings preview */}
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <div>
-              <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted">
+              <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                 <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" /> Supporting ({diagnosis.supporting.length})
               </p>
               <ul className="space-y-1">
                 {diagnosis.supporting.slice(0, expanded ? undefined : 3).map((s, i) => (
-                  <li key={i} className="text-[13px] leading-snug text-secondary">
+                  <li key={i} className="text-[13px] leading-snug text-muted-foreground">
                     • {s}
                   </li>
                 ))}
-                {!expanded && diagnosis.supporting.length > 3 && (
-                  <li className="text-[12px] text-muted">+{diagnosis.supporting.length - 3} more</li>
-                )}
+                {!expanded && diagnosis.supporting.length > 3 && <li className="text-[12px] text-muted-foreground">+{diagnosis.supporting.length - 3} more</li>}
               </ul>
             </div>
             <div>
-              <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted">
+              <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                 <XCircle className="h-3.5 w-3.5 text-rose-500" /> Contradicting ({diagnosis.contradicting.length})
               </p>
               <ul className="space-y-1">
                 {diagnosis.contradicting.length ? (
                   diagnosis.contradicting.slice(0, expanded ? undefined : 3).map((s, i) => (
-                    <li key={i} className="text-[13px] leading-snug text-secondary">
+                    <li key={i} className="text-[13px] leading-snug text-muted-foreground">
                       • {s}
                     </li>
                   ))
                 ) : (
-                  <li className="text-[13px] text-muted">None significant</li>
+                  <li className="text-[13px] text-muted-foreground">None significant</li>
                 )}
               </ul>
             </div>
           </div>
 
-          {/* Expanded reasoning */}
           {expanded && (
-            <div className="mt-4 animate-fade-in space-y-3 rounded-lg border bg-[var(--surface-2)] p-3.5">
+            <div className="mt-4 space-y-3 rounded-lg border bg-muted/30 p-3.5">
               <div>
-                <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted">Reasoning</p>
-                <p className="text-[13px] leading-relaxed text-secondary">{diagnosis.reasoning}</p>
+                <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Reasoning</p>
+                <p className="text-[13px] leading-relaxed text-muted-foreground">{diagnosis.reasoning}</p>
               </div>
               <div>
-                <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted">
+                <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                   <FlaskConical className="h-3.5 w-3.5" /> Recommended tests
                 </p>
                 <div className="flex flex-wrap gap-1.5">
                   {diagnosis.recommendedTests.map((t, i) => (
-                    <span key={i} className="rounded-md border bg-[var(--surface)] px-2 py-0.5 text-xs font-medium">
+                    <Badge key={i} variant="secondary">
                       {t}
-                    </span>
+                    </Badge>
                   ))}
                 </div>
               </div>
             </div>
           )}
 
-          {/* Actions */}
           <div className="mt-4 flex flex-wrap items-center gap-2">
-            <button onClick={() => setExpanded((e) => !e)} className="btn btn-ghost px-2.5 py-1.5 text-xs">
+            <Button variant="ghost" size="sm" onClick={() => setExpanded((e) => !e)}>
               <ChevronDown className={cn('h-4 w-4 transition-transform', expanded && 'rotate-180')} />
               {expanded ? 'Collapse' : 'Expand'}
-            </button>
-            <div className="mx-1 h-4 w-px bg-[var(--border)]" />
-            <button onClick={() => setDrawer('explanation')} className="btn btn-outline px-2.5 py-1.5 text-xs">
+            </Button>
+            <div className="mx-1 h-4 w-px bg-border" />
+            <Button variant="outline" size="sm" onClick={() => setDrawer('explanation')}>
               <Gauge className="h-3.5 w-3.5" /> Explain
-            </button>
-            <button onClick={() => setDrawer('evidence')} className="btn btn-outline px-2.5 py-1.5 text-xs">
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setDrawer('evidence')}>
               <BookMarked className="h-3.5 w-3.5" /> Evidence
-            </button>
-            <button onClick={() => setDrawer('discussion')} className="btn btn-primary px-2.5 py-1.5 text-xs">
+            </Button>
+            <Button size="sm" onClick={() => setDrawer('discussion')}>
               <Sparkles className="h-3.5 w-3.5" /> Discuss with AI
-            </button>
+            </Button>
           </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
-      <Drawer
-        open={drawer !== null}
-        onClose={() => setDrawer(null)}
-        title={diagnosis.name}
-        subtitle={`${diagnosis.confidence}% confidence · ${caseData.patient.name}`}
-        icon={
-          <span
-            className="flex h-9 w-9 items-center justify-center rounded-lg text-white"
-            style={{ background: confidenceHex(diagnosis.confidence) }}
-          >
-            <Stethoscope className="h-5 w-5" />
-          </span>
-        }
-      >
-        {drawer && <DiagnosisDetail caseData={caseData} diagnosis={diagnosis} initialTab={drawer} />}
-      </Drawer>
+      <Sheet open={drawer !== null} onOpenChange={(open) => !open && setDrawer(null)}>
+        <SheetContent className="flex w-full flex-col sm:max-w-2xl">
+          <SheetHeader>
+            <SheetTitle>{diagnosis.name}</SheetTitle>
+            <SheetDescription>
+              {diagnosis.confidence}% confidence · {caseData.patient.name}
+            </SheetDescription>
+          </SheetHeader>
+          <div className="flex-1 overflow-y-auto px-6 py-5">{drawer && <DiagnosisDetail caseData={caseData} diagnosis={diagnosis} initialTab={drawer} />}</div>
+        </SheetContent>
+      </Sheet>
     </>
   );
 }

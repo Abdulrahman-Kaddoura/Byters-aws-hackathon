@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
-import { isSignedIn } from '../lib/auth';
-import { Login } from '../pages/Login';
+import { isSignedIn } from '@/lib/auth';
+import { Login } from '@/pages/Login';
 
 export function AuthGate({ children }: { children: ReactNode }) {
   const [authed, setAuthed] = useState(() => isSignedIn());

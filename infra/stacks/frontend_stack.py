@@ -55,9 +55,9 @@ class SehatiFrontendStack(Stack):
                     content_security_policy=(
                         "default-src 'self'; "
                         "script-src 'self'; "
-                        "style-src 'self' 'unsafe-inline'; "
+                        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
                         "img-src 'self' data:; "
-                        "font-src 'self' data:; "
+                        "font-src 'self' data: https://fonts.gstatic.com; "
                         "connect-src 'self' https://cognito-idp.*.amazonaws.com "
                         "https://*.execute-api.*.amazonaws.com; "
                         "object-src 'none'; "
