@@ -8,9 +8,13 @@ import {
   describeAuthError,
   forgotPassword,
   signIn,
-} from '../lib/auth';
-import { PasswordField, PasswordRequirements } from '../components/PasswordField';
-import { isPasswordValid } from '../lib/passwordPolicy';
+} from '@/lib/auth';
+import { PasswordField, PasswordRequirements } from '@/components/PasswordField';
+import { isPasswordValid } from '@/lib/passwordPolicy';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 type Mode = 'signin' | 'forgot' | 'reset';
 
@@ -64,7 +68,6 @@ export function Login({ onSignedIn }: { onSignedIn: () => void }) {
       setMode('reset');
     } catch (err) {
       if (err instanceof AuthError && err.code === 'UserNotFoundException') {
-        // Don't reveal whether the account exists — proceed as if a code was sent.
         setCodeDestination(null);
         setMode('reset');
       } else {
@@ -119,203 +122,125 @@ export function Login({ onSignedIn }: { onSignedIn: () => void }) {
     setResetConfirm('');
   }
 
-  const resetValid =
-    isPasswordValid(resetPassword) && resetPassword === resetConfirm && resetCode.length > 0;
+  const resetValid = isPasswordValid(resetPassword) && resetPassword === resetConfirm && resetCode.length > 0;
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4">
-      <div className="card w-full max-w-sm p-6">
-        <div className="mb-6 flex items-center gap-2">
-          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-500 text-white">
-            <Activity className="h-5 w-5" />
-          </span>
-          <div>
-            <h1 className="text-lg font-bold tracking-tight">Aura</h1>
-            <p className="text-xs text-muted">Clinical Decision Support</p>
+    <div className="flex min-h-screen w-full items-center justify-center bg-sidebar px-4 text-sidebar-foreground">
+      <Card className="w-full max-w-sm shadow-2xl">
+        <CardContent className="p-6">
+          <div className="mb-6 flex flex-col items-center gap-2 text-center">
+            <span className="mb-1 flex h-11 w-11 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
+              <Activity className="h-5 w-5" />
+            </span>
+            <h1 className="text-xl font-bold tracking-tight">Aura Platform</h1>
+            <p className="text-xs text-muted-foreground">Clinical AI Decision Support</p>
           </div>
-        </div>
 
-        {mode === 'signin' && (
-          <form onSubmit={submitSignIn} className="space-y-3">
-            {!challenge && (
-              <>
-                <Field label="Email or username" value={username} onChange={setUsername} autoFocus />
-                <PasswordField
-                  label="Password"
-                  value={password}
-                  onChange={setPassword}
-                  autoComplete="current-password"
-                />
-                <div className="text-right">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMode('forgot');
-                      setError(null);
-                      setInfo(null);
-                    }}
-                    className="text-[12px] font-medium text-brand-600 hover:underline dark:text-brand-300"
-                  >
-                    Forgot password?
-                  </button>
-                </div>
-              </>
-            )}
-            {challenge && (
-              <>
-                <PasswordField
-                  label="New password"
-                  value={newPassword}
-                  onChange={setNewPassword}
-                  autoFocus
-                  autoComplete="new-password"
-                />
-                <PasswordRequirements password={newPassword} />
-              </>
-            )}
+          {mode === 'signin' && (
+            <form onSubmit={submitSignIn} className="space-y-3">
+              {!challenge && (
+                <>
+                  <div className="space-y-1.5">
+                    <Label>Email or username</Label>
+                    <Input value={username} onChange={(e) => setUsername(e.target.value)} autoFocus required />
+                  </div>
+                  <PasswordField label="Password" value={password} onChange={setPassword} autoComplete="current-password" />
+                  <div className="text-right">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMode('forgot');
+                        setError(null);
+                        setInfo(null);
+                      }}
+                      className="text-[12px] font-medium text-primary hover:underline"
+                    >
+                      Forgot password?
+                    </button>
+                  </div>
+                </>
+              )}
+              {challenge && (
+                <>
+                  <PasswordField label="New password" value={newPassword} onChange={setNewPassword} autoFocus autoComplete="new-password" />
+                  <PasswordRequirements password={newPassword} />
+                </>
+              )}
 
-            {error && <ErrorBanner message={error} />}
-            {info && <InfoBanner message={info} />}
+              {error && <ErrorBanner message={error} />}
+              {info && <InfoBanner message={info} />}
 
-            <button
-              type="submit"
-              disabled={busy || (!!challenge && !isPasswordValid(newPassword))}
-              className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-60"
-            >
-              {busy && <Loader2 className="h-4 w-4 animate-spin" />}
-              {challenge ? 'Set password & continue' : 'Sign in'}
-            </button>
-          </form>
-        )}
+              <Button type="submit" className="w-full" disabled={busy || (!!challenge && !isPasswordValid(newPassword))}>
+                {busy && <Loader2 className="h-4 w-4 animate-spin" />}
+                {challenge ? 'Set password & continue' : 'Sign in to workspace'}
+              </Button>
+            </form>
+          )}
 
-        {mode === 'forgot' && (
-          <form onSubmit={submitForgot} className="space-y-3">
-            <p className="text-[13px] text-secondary">
-              Enter your email or username and we'll send you a code to reset your password.
-            </p>
-            <Field label="Email or username" value={username} onChange={setUsername} autoFocus />
+          {mode === 'forgot' && (
+            <form onSubmit={submitForgot} className="space-y-3">
+              <p className="text-[13px] text-muted-foreground">Enter your email or username and we'll send you a code to reset your password.</p>
+              <div className="space-y-1.5">
+                <Label>Email or username</Label>
+                <Input value={username} onChange={(e) => setUsername(e.target.value)} autoFocus required />
+              </div>
 
-            {error && <ErrorBanner message={error} />}
+              {error && <ErrorBanner message={error} />}
 
-            <button
-              type="submit"
-              disabled={busy}
-              className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-60"
-            >
-              {busy && <Loader2 className="h-4 w-4 animate-spin" />}
-              Send reset code
-            </button>
-            <button
-              type="button"
-              onClick={backToSignIn}
-              className="w-full text-center text-[13px] font-medium text-secondary hover:text-[var(--text)]"
-            >
-              Back to sign in
-            </button>
-          </form>
-        )}
-
-        {mode === 'reset' && (
-          <form onSubmit={submitReset} className="space-y-3">
-            <p className="text-[13px] text-secondary">
-              Enter the code sent to {codeDestination ?? 'your email'}, then choose a new password.
-            </p>
-            <Field label="Reset code" value={resetCode} onChange={setResetCode} autoFocus inputMode="numeric" />
-            <PasswordField
-              label="New password"
-              value={resetPassword}
-              onChange={setResetPassword}
-              autoComplete="new-password"
-            />
-            <PasswordRequirements password={resetPassword} />
-            <PasswordField
-              label="Confirm new password"
-              value={resetConfirm}
-              onChange={setResetConfirm}
-              autoComplete="new-password"
-            />
-            {resetConfirm.length > 0 && resetConfirm !== resetPassword && (
-              <p className="text-[12px] text-rose-600 dark:text-rose-400">Passwords don&apos;t match.</p>
-            )}
-
-            {error && <ErrorBanner message={error} />}
-            {info && <InfoBanner message={info} />}
-
-            <button
-              type="submit"
-              disabled={busy || !resetValid}
-              className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-600 disabled:opacity-60"
-            >
-              {busy && <Loader2 className="h-4 w-4 animate-spin" />}
-              Reset password
-            </button>
-            <div className="flex items-center justify-between text-[13px]">
-              <button
-                type="button"
-                onClick={resendCode}
-                disabled={busy}
-                className="font-medium text-brand-600 hover:underline disabled:opacity-60 dark:text-brand-300"
-              >
-                Resend code
-              </button>
-              <button
-                type="button"
-                onClick={backToSignIn}
-                className="font-medium text-secondary hover:text-[var(--text)]"
-              >
+              <Button type="submit" className="w-full" disabled={busy}>
+                {busy && <Loader2 className="h-4 w-4 animate-spin" />}
+                Send reset code
+              </Button>
+              <Button type="button" variant="ghost" className="w-full" onClick={backToSignIn}>
                 Back to sign in
-              </button>
-            </div>
-          </form>
-        )}
-      </div>
+              </Button>
+            </form>
+          )}
+
+          {mode === 'reset' && (
+            <form onSubmit={submitReset} className="space-y-3">
+              <p className="text-[13px] text-muted-foreground">Enter the code sent to {codeDestination ?? 'your email'}, then choose a new password.</p>
+              <div className="space-y-1.5">
+                <Label>Reset code</Label>
+                <Input value={resetCode} onChange={(e) => setResetCode(e.target.value)} autoFocus inputMode="numeric" required />
+              </div>
+              <PasswordField label="New password" value={resetPassword} onChange={setResetPassword} autoComplete="new-password" />
+              <PasswordRequirements password={resetPassword} />
+              <PasswordField label="Confirm new password" value={resetConfirm} onChange={setResetConfirm} autoComplete="new-password" />
+              {resetConfirm.length > 0 && resetConfirm !== resetPassword && <p className="text-[12px] text-rose-600 dark:text-rose-400">Passwords don't match.</p>}
+
+              {error && <ErrorBanner message={error} />}
+              {info && <InfoBanner message={info} />}
+
+              <Button type="submit" className="w-full" disabled={busy || !resetValid}>
+                {busy && <Loader2 className="h-4 w-4 animate-spin" />}
+                Reset password
+              </Button>
+              <div className="flex items-center justify-between text-[13px]">
+                <button type="button" onClick={resendCode} disabled={busy} className="font-medium text-primary hover:underline disabled:opacity-60">
+                  Resend code
+                </button>
+                <button type="button" onClick={backToSignIn} className="font-medium text-muted-foreground hover:text-foreground">
+                  Back to sign in
+                </button>
+              </div>
+            </form>
+          )}
+
+          <div className="mt-6 text-center text-xs text-muted-foreground">
+            <p>For authorized clinical personnel only.</p>
+            <p className="mt-1">Access is logged and monitored.</p>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
 
 function ErrorBanner({ message }: { message: string }) {
-  return (
-    <p className="rounded-lg border border-rose-200/70 bg-rose-50/60 px-3 py-2 text-[13px] text-rose-700 dark:border-rose-500/25 dark:bg-rose-500/10 dark:text-rose-300">
-      {message}
-    </p>
-  );
+  return <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[13px] text-rose-700 dark:border-rose-500/25 dark:bg-rose-500/10 dark:text-rose-300">{message}</p>;
 }
 
 function InfoBanner({ message }: { message: string }) {
-  return (
-    <p className="rounded-lg border border-[var(--border)] bg-[var(--bg-subtle)] px-3 py-2 text-[13px] text-secondary">
-      {message}
-    </p>
-  );
-}
-
-function Field({
-  label,
-  value,
-  onChange,
-  type = 'text',
-  autoFocus,
-  inputMode,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  type?: string;
-  autoFocus?: boolean;
-  inputMode?: 'text' | 'numeric';
-}) {
-  return (
-    <label className="block">
-      <span className="mb-1 block text-[13px] font-medium text-secondary">{label}</span>
-      <input
-        type={type}
-        value={value}
-        autoFocus={autoFocus}
-        inputMode={inputMode}
-        onChange={(e) => onChange(e.target.value)}
-        required
-        className="w-full rounded-lg border bg-[var(--surface)] px-3 py-2 text-sm outline-none focus:border-brand-500"
-      />
-    </label>
-  );
+  return <p className="rounded-lg border bg-muted/40 px-3 py-2 text-[13px] text-muted-foreground">{message}</p>;
 }

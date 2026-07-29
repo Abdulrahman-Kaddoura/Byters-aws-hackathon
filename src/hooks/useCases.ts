@@ -1,71 +1,180 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as api from '../lib/api';
-import type { PatientCase } from '../types';
+import type { Flag, PatientCase } from '../types';
 
-interface Result<T> {
-  data: T;
-  loading: boolean;
-  error: string | null;
-  reload: () => void;
+const casesKey = (opts: { status?: string; mine?: boolean } = {}) => ['cases', opts] as const;
+const caseKey = (id: string) => ['case', id] as const;
+const auditKey = (id: string) => ['case-audit', id] as const;
+
+function applyCase(qc: ReturnType<typeof useQueryClient>, updated: PatientCase) {
+  qc.setQueryData(caseKey(updated.id), updated);
+  qc.invalidateQueries({ queryKey: ['cases'] });
 }
 
-export function useCaseList(): Result<PatientCase[]> {
-  const [data, setData] = useState<PatientCase[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [nonce, setNonce] = useState(0);
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    api
-      .listCases()
-      .then((cases) => !cancelled && (setData(cases), setError(null)))
-      .catch((e) => !cancelled && setError(e.message))
-      .finally(() => !cancelled && setLoading(false));
-    return () => {
-      cancelled = true;
-    };
-  }, [nonce]);
-
-  return { data, loading, error, reload: useCallback(() => setNonce((n) => n + 1), []) };
+// --- Reads --------------------------------------------------------------
+export function useCaseList(opts: { status?: string; mine?: boolean } = {}) {
+  return useQuery({
+    queryKey: casesKey(opts),
+    queryFn: () => api.listCases(opts),
+  });
 }
 
-/**
- * Mutations return the full updated case, so `apply` lets a page push that
- * straight into state without a second round trip.
- */
-export function useCase(id: string | undefined): Result<PatientCase | undefined> & {
-  apply: (updated: PatientCase) => void;
-} {
-  const [data, setData] = useState<PatientCase | undefined>(undefined);
-  const [loading, setLoading] = useState(Boolean(id));
-  const [error, setError] = useState<string | null>(null);
-  const [nonce, setNonce] = useState(0);
+export function useCase(id: string | undefined) {
+  return useQuery({
+    queryKey: caseKey(id ?? ''),
+    queryFn: () => api.getCase(id!),
+    enabled: !!id,
+  });
+}
 
-  useEffect(() => {
-    if (!id) {
-      setData(undefined);
-      setLoading(false);
-      return;
-    }
-    let cancelled = false;
-    setLoading(true);
-    api
-      .getCase(id)
-      .then((c) => !cancelled && (setData(c), setError(null)))
-      .catch((e) => !cancelled && (setData(undefined), setError(e.message)))
-      .finally(() => !cancelled && setLoading(false));
-    return () => {
-      cancelled = true;
-    };
-  }, [id, nonce]);
+export function useCaseAudit(id: string | undefined, enabled: boolean) {
+  return useQuery({
+    queryKey: auditKey(id ?? ''),
+    queryFn: () => api.caseAudit(id!),
+    enabled: !!id && enabled,
+  });
+}
 
-  return {
-    data,
-    loading,
-    error,
-    reload: useCallback(() => setNonce((n) => n + 1), []),
-    apply: useCallback((updated: PatientCase) => setData(updated), []),
-  };
+// --- Mutations ------------------------------------------------------------
+export function useSubmitIntake() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: unknown) => api.submitIntake(payload),
+    onSuccess: (created) => {
+      qc.setQueryData(caseKey(created.id), created);
+      qc.invalidateQueries({ queryKey: ['cases'] });
+    },
+  });
+}
+
+export function useSetCaseState(caseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { state: string; note?: string }) => api.setCaseState(caseId, vars.state, vars.note),
+    onSuccess: (updated) => applyCase(qc, updated),
+  });
+}
+
+export function useAddNote(caseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (text: string) => api.addNote(caseId, text),
+    onSuccess: (updated) => applyCase(qc, updated),
+  });
+}
+
+export function usePostInterviewMessage(caseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (text: string) => api.postInterviewMessage(caseId, text),
+    onSuccess: (res) => applyCase(qc, res.case),
+  });
+}
+
+export function useGenerateSummary(caseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.generateSummary(caseId),
+    onSuccess: (res) => applyCase(qc, res.case),
+  });
+}
+
+export function useRecommendExams(caseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.recommendExams(caseId),
+    onSuccess: (res) => applyCase(qc, res.case),
+  });
+}
+
+export function useRecordExamFinding(caseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { examId: string; patch: { finding?: string; flag?: Flag; note?: string; status?: string } }) =>
+      api.recordExamFinding(caseId, vars.examId, vars.patch),
+    onSuccess: (res) => applyCase(qc, res.case),
+  });
+}
+
+export function useRequestRecommendations(caseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.requestRecommendations(caseId),
+    onSuccess: (res) => applyCase(qc, res.case),
+  });
+}
+
+export function useAskDiagnosis(caseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { question: string; diagnosisId?: string }) => api.askDiagnosis(caseId, vars.question, vars.diagnosisId),
+    onSuccess: (res) => applyCase(qc, res.case),
+  });
+}
+
+export function useRerankAfterResults(caseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.rerankAfterResults(caseId),
+    onSuccess: (res) => applyCase(qc, res.case),
+  });
+}
+
+export function useProposeFinalDiagnosis(caseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.proposeFinalDiagnosis(caseId),
+    onSuccess: (res) => applyCase(qc, res.case),
+  });
+}
+
+export function useAcceptFinalDiagnosis(caseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (note?: string) => api.acceptFinalDiagnosis(caseId, note),
+    onSuccess: (res) => applyCase(qc, res.case),
+  });
+}
+
+export function useOrderTest(caseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (testId: string) => api.orderTest(caseId, testId),
+    onSuccess: (res) => applyCase(qc, res.case),
+  });
+}
+
+export function useRecordTestResult(caseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { testId: string; payload: { result: string; resultFlag?: Flag; resultDetail?: string } }) =>
+      api.recordTestResult(caseId, vars.testId, vars.payload),
+    onSuccess: (res) => applyCase(qc, res.case),
+  });
+}
+
+export function useAssistantChat(caseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (text: string) => api.assistantChat(caseId, text),
+    onSuccess: (res) => applyCase(qc, res.case),
+  });
+}
+
+export function useAcceptRecommendation(caseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { targetId: string; targetType?: string; reason?: string }) =>
+      api.acceptRecommendation(caseId, vars.targetId, { targetType: vars.targetType, reason: vars.reason }),
+    onSuccess: (res) => applyCase(qc, res.case),
+  });
+}
+
+export function useRejectRecommendation(caseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { targetId: string; targetType?: string; reason: string }) =>
+      api.rejectRecommendation(caseId, vars.targetId, { targetType: vars.targetType, reason: vars.reason }),
+    onSuccess: (res) => applyCase(qc, res.case),
+  });
 }

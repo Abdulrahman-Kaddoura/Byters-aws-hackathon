@@ -1,4 +1,5 @@
-import type { ProgressStep, StageKey, CaseStatus, Priority, Flag, Importance } from '../types';
+import type { StageKey, CaseStatus, Priority, Flag, Importance } from '../types';
+import type { Tone } from '../lib/utils';
 
 export const STAGE_ORDER: { key: StageKey; label: string }[] = [
   { key: 'intake', label: 'Patient Intake' },
@@ -13,25 +14,7 @@ export const STAGE_ORDER: { key: StageKey; label: string }[] = [
   { key: 'completion', label: 'Completion' },
 ];
 
-export function buildProgress(current: StageKey, completed = false): ProgressStep[] {
-  const idx = STAGE_ORDER.findIndex((s) => s.key === current);
-  return STAGE_ORDER.map((s, i) => ({
-    key: s.key,
-    label: s.label,
-    status: completed
-      ? 'done'
-      : i < idx
-        ? 'done'
-        : i === idx
-          ? 'active'
-          : 'pending',
-  }));
-}
-
-export const STATUS_META: Record<
-  CaseStatus,
-  { label: string; tone: 'brand' | 'teal' | 'amber' | 'green' | 'gray' | 'red' | 'purple' }
-> = {
+export const STATUS_META: Record<CaseStatus, { label: string; tone: Tone }> = {
   New: { label: 'New', tone: 'brand' },
   'AI Interview': { label: 'AI Interview', tone: 'purple' },
   'Doctor Review': { label: 'Doctor Review', tone: 'brand' },
@@ -44,27 +27,40 @@ export const STATUS_META: Record<
   Archived: { label: 'Archived', tone: 'gray' },
 };
 
-export const PRIORITY_META: Record<Priority, { tone: 'red' | 'amber' | 'green'; label: string }> = {
+export const PRIORITY_META: Record<Priority, { tone: Tone; label: string }> = {
   High: { tone: 'red', label: 'High priority' },
   Medium: { tone: 'amber', label: 'Medium priority' },
   Low: { tone: 'green', label: 'Low priority' },
 };
 
-export const IMPORTANCE_META: Record<Importance, { tone: 'red' | 'amber' | 'gray' }> = {
+export const IMPORTANCE_META: Record<Importance, { tone: Tone }> = {
   Critical: { tone: 'red' },
   Important: { tone: 'amber' },
   Routine: { tone: 'gray' },
 };
 
-export const FLAG_META: Record<Flag, { tone: 'green' | 'amber' | 'red'; label: string }> = {
+export const FLAG_META: Record<Flag, { tone: Tone; label: string }> = {
   normal: { tone: 'green', label: 'Normal' },
   abnormal: { tone: 'amber', label: 'Abnormal' },
   critical: { tone: 'red', label: 'Critical' },
 };
 
-export function confidenceTone(v: number): 'green' | 'teal' | 'amber' | 'red' {
-  if (v >= 75) return 'green';
-  if (v >= 55) return 'teal';
-  if (v >= 35) return 'amber';
-  return 'red';
+/** Maps our semantic Tone to a shadcn Badge `variant`. */
+export function toneVariant(tone: Tone): 'brand' | 'teal' | 'success' | 'warning' | 'critical' | 'purple' | 'secondary' {
+  switch (tone) {
+    case 'brand':
+      return 'brand';
+    case 'teal':
+      return 'teal';
+    case 'green':
+      return 'success';
+    case 'amber':
+      return 'warning';
+    case 'red':
+      return 'critical';
+    case 'purple':
+      return 'purple';
+    default:
+      return 'secondary';
+  }
 }
