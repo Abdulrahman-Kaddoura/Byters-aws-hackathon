@@ -10,21 +10,30 @@ work is version-controlled instead of living only in the console.
 from __future__ import annotations
 
 import json
+import os
 import time
 
 import boto3
 
 from .client import AgentInvokeError
 
-_transcribe_client = boto3.client("transcribe", region_name="us-east-1")
-_s3_client = boto3.client("s3", region_name="us-east-1")
+_REGION = os.environ.get("AWS_REGION", "us-east-1")
+_transcribe_client = boto3.client("transcribe", region_name=_REGION)
+_s3_client = boto3.client("s3", region_name=_REGION)
 
-HEALTHSCRIBE_ROLE_ARN = "arn:aws:iam::782968044136:role/service-role/health-scribe-call-role-0rqio1w7"
-HEALTHSCRIBE_BUCKET = "healthscribetry"
+# No hardcoded account-specific defaults: this data-access role and bucket are
+# environment config, not source, and must be supplied per-deployment.
+HEALTHSCRIBE_ROLE_ARN = os.environ.get("HEALTHSCRIBE_ROLE_ARN", "")
+HEALTHSCRIBE_BUCKET = os.environ.get("HEALTHSCRIBE_BUCKET", "")
 
 
 def start_transcription(case_id: str, audio_s3_uri: str) -> dict:
     """Kick off a HealthScribe medical scribe job for a case's audio."""
+    if not HEALTHSCRIBE_ROLE_ARN or not HEALTHSCRIBE_BUCKET:
+        raise AgentInvokeError(
+            "HealthScribe is not configured: set HEALTHSCRIBE_ROLE_ARN and "
+            "HEALTHSCRIBE_BUCKET."
+        )
     job_name = f"case-{case_id}-{int(time.time())}"
     try:
         return _transcribe_client.start_medical_scribe_job(
@@ -40,6 +49,8 @@ def start_transcription(case_id: str, audio_s3_uri: str) -> dict:
 
 def get_clinical_summary(summary_s3_key: str) -> dict:
     """Fetch + extract a structured clinical summary from a completed job's output."""
+    if not HEALTHSCRIBE_BUCKET:
+        raise AgentInvokeError("HealthScribe is not configured: set HEALTHSCRIBE_BUCKET.")
     try:
         response = _s3_client.get_object(Bucket=HEALTHSCRIBE_BUCKET, Key=summary_s3_key)
         clinical_doc = json.loads(response["Body"].read())
