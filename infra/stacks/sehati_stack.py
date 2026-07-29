@@ -44,9 +44,20 @@ class SehatiStack(Stack):
         *,
         ai_provider: str = "stub",
         bedrock_model_id: str = "us.anthropic.claude-sonnet-4-5-20250929-v1:0",
+        bedrock_guardrail_id: str = "",
+        bedrock_guardrail_version: str = "DRAFT",
+        bedrock_knowledge_base_id: str = "",
+        allowed_origins: list[str] | None = None,
         **kwargs,
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
+
+        # CORS allowlist. Defaults to the local Vite dev server only — pass the
+        # deployed CloudFront/custom domain explicitly once known (e.g. via
+        # `-c allowed_origins=https://xxxx.cloudfront.net,http://localhost:5173`).
+        # Never widen this to "*": the API sits behind bearer tokens read from
+        # the browser, and a wildcard origin lets any site call it cross-site.
+        allowed_origins = allowed_origins or ["http://localhost:5173"]
 
         # --- KMS customer-managed key (encryption at rest) ------------------
         key = kms.Key(
@@ -202,6 +213,10 @@ class SehatiStack(Stack):
                 "AUDIT_BUCKET": audit_bucket.bucket_name,
                 "AI_PROVIDER": ai_provider,
                 "BEDROCK_MODEL_ID": bedrock_model_id,
+                "BEDROCK_GUARDRAIL_ID": bedrock_guardrail_id,
+                "BEDROCK_GUARDRAIL_VERSION": bedrock_guardrail_version,
+                "BEDROCK_KNOWLEDGE_BASE_ID": bedrock_knowledge_base_id,
+                "ALLOWED_ORIGINS": ",".join(allowed_origins),
                 "LOG_LEVEL": "INFO",
             },
         )
@@ -212,7 +227,18 @@ class SehatiStack(Stack):
         audit_bucket.grant_write(fn)
         key.grant_encrypt_decrypt(fn)
 
-        # Bedrock permissions (used only when AI_PROVIDER=bedrock).
+        # Bedrock permissions (used only when AI_PROVIDER=bedrock), scoped to the
+        # specific model/inference-profile/guardrail/knowledge-base configured for
+        # this stack rather than "*". A cross-region inference profile id (e.g.
+        # "us.anthropic.claude-...") still routes to the underlying foundation
+        # model in whichever region it lands in, so that resource is granted
+        # region-wildcarded on the model ARN only (never on the account).
+        model_name = bedrock_model_id.split(".", 1)[-1] if "." in bedrock_model_id else bedrock_model_id
+        model_resources = [
+            f"arn:aws:bedrock:{self.region}::foundation-model/{bedrock_model_id}",
+            f"arn:aws:bedrock:*::foundation-model/{model_name}",
+            f"arn:aws:bedrock:{self.region}:{self.account}:inference-profile/{bedrock_model_id}",
+        ]
         fn.add_to_role_policy(
             iam.PolicyStatement(
                 actions=[
@@ -220,12 +246,28 @@ class SehatiStack(Stack):
                     "bedrock:InvokeModelWithResponseStream",
                     "bedrock:Converse",
                     "bedrock:ConverseStream",
-                    "bedrock:Retrieve",
-                    "bedrock:ApplyGuardrail",
                 ],
-                resources=["*"],  # scope to specific model/KB/guardrail ARNs in prod
+                resources=model_resources,
             )
         )
+        if bedrock_guardrail_id:
+            fn.add_to_role_policy(
+                iam.PolicyStatement(
+                    actions=["bedrock:ApplyGuardrail"],
+                    resources=[
+                        f"arn:aws:bedrock:{self.region}:{self.account}:guardrail/{bedrock_guardrail_id}"
+                    ],
+                )
+            )
+        if bedrock_knowledge_base_id:
+            fn.add_to_role_policy(
+                iam.PolicyStatement(
+                    actions=["bedrock:Retrieve"],
+                    resources=[
+                        f"arn:aws:bedrock:{self.region}:{self.account}:knowledge-base/{bedrock_knowledge_base_id}"
+                    ],
+                )
+            )
 
         # --- API Gateway (REST) ---------------------------------------------
         api_log_group = logs.LogGroup(
@@ -248,9 +290,14 @@ class SehatiStack(Stack):
                     status=True, user=True,
                 ),
                 tracing_enabled=True,
+                # Per-client throttling (defense against a single caller flooding the
+                # API); Cognito auth already stops anonymous abuse, this bounds an
+                # authenticated caller too.
+                throttling_rate_limit=50,
+                throttling_burst_limit=100,
             ),
             default_cors_preflight_options=apigateway.CorsOptions(
-                allow_origins=apigateway.Cors.ALL_ORIGINS,
+                allow_origins=allowed_origins,
                 allow_methods=["GET", "POST", "PUT", "OPTIONS"],
                 allow_headers=["Content-Type", "Authorization"],
             ),

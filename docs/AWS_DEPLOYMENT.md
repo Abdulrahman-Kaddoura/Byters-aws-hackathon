@@ -257,10 +257,15 @@ granted within a minute or two.
      one-time Anthropic use-case form described above; fall back to an
      already-active model (like Sonnet 4.5) or submit the form and retry.
 3. **Optional, for production quality:** create a Bedrock **Guardrail** and a
-   **Knowledge Base** (your curated medical corpus), then set
-   `BEDROCK_GUARDRAIL_ID`, `BEDROCK_GUARDRAIL_VERSION`, `BEDROCK_KNOWLEDGE_BASE_ID`
-   as Lambda environment variables (Lambda console → `sehati-orchestrator` →
-   Configuration → Environment variables — these three aren't CDK-managed yet).
+   **Knowledge Base** (your curated medical corpus), then redeploy with their
+   ids so the Lambda's IAM grant is scoped to those specific resources (instead
+   of just the model):
+   ```bash
+   cdk deploy SehatiBackend -c ai_provider=bedrock \
+     -c bedrock_guardrail_id=<guardrail-id> \
+     -c bedrock_guardrail_version=<version-or-DRAFT> \
+     -c bedrock_knowledge_base_id=<kb-id>
+   ```
 
 If Bedrock is unavailable or a model isn't enabled, requests return a real
 `500 InternalError` instead of silently degrading — there is no stub fallback
@@ -356,6 +361,17 @@ to `/index.html` so React Router's client-side routes work on refresh/deep-link)
 in with a Cognito user from Task Set 5 works exactly like `npm run dev` did
 locally, just from a public AWS URL.
 
+**Important — allow the deployed site through CORS.** The API only accepts
+browser requests from an explicit origin allowlist (never `*`, since requests
+carry a bearer token). It defaults to `http://localhost:5173` only, so the
+`SiteUrl` from this task set will get CORS-blocked until you redeploy the
+backend with it included:
+```bash
+cd ../infra
+cdk deploy SehatiBackend -c allowed_origins=<SiteUrl>,http://localhost:5173
+```
+(Drop `,http://localhost:5173` if you no longer need local dev access.)
+
 **Updating after a frontend change:** re-run `./scripts/deploy-frontend.sh`. It
 rebuilds, re-syncs the S3 bucket, and invalidates the CloudFront cache
 automatically — no manual cache-busting needed.
@@ -403,6 +419,7 @@ receive matches the frontend's existing `PatientCase` type.
 | Bedrock `AccessDeniedException: ... not available for this account` | Newest model gated behind Anthropic's one-time use-case form, or genuinely not enabled — see Task Set 8's intro, or fall back to an already-active model. |
 | Chat works a couple of times then a generic "internal error" for no CloudWatch error | API Gateway's 29s hard timeout beat a slow-but-successful Bedrock call — see Task Set 8's timeout note. Not caused by `AI_PROVIDER=bedrock` having no stub fallback (that still applies for genuine Bedrock errors, which do show up in CloudWatch as a real exception). |
 | Frontend site shows a blank page / old content after redeploy | Hard-refresh (CloudFront may still be serving a stale edge cache for a few seconds after invalidation) or re-run `deploy-frontend.sh`. |
+| Browser console shows a CORS error calling the API from the deployed site | The backend's origin allowlist doesn't include your `SiteUrl` yet — see Task Set 11's CORS note. |
 | Changed code but AWS didn't update | Re-run Task Set 9 (`cdk deploy`). |
 | Can't delete the audit bucket | It's WORM by design — see Task Set 10. |
 | `cdk deploy` fails with `Unzipped size must be smaller than 262144000 bytes` | A Python virtualenv (e.g. `backend/.venv`) is sitting inside `backend/` and getting bundled into the Lambda zip along with `boto3`/`botocore`. Move the venv outside `backend/` (e.g. to the repo root) and redeploy. The stack's asset `exclude` list also filters `.venv`/`venv`/`.pytest_cache` as a second line of defense. |

@@ -28,11 +28,25 @@ from .router import resolve
 logger = logging.getLogger()
 logger.setLevel(os.environ.get("LOG_LEVEL", "INFO"))
 
-_CORS_HEADERS = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "Content-Type,Authorization",
-    "Access-Control-Allow-Methods": "GET,POST,PUT,OPTIONS",
-}
+# Origins allowed to call this API from a browser (set by the CDK stack from
+# its `allowed_origins` param). Never falls back to "*": this API is called
+# with a bearer token read from the browser, so a wildcard origin would let
+# any site drive it cross-site on behalf of a signed-in user.
+def _allowed_origins() -> list[str]:
+    return [o.strip() for o in os.environ.get("ALLOWED_ORIGINS", "").split(",") if o.strip()]
+
+
+def _cors_headers(event: dict[str, Any]) -> dict[str, str]:
+    headers = event.get("headers") or {}
+    origin = next((v for k, v in headers.items() if k.lower() == "origin"), None)
+    result = {
+        "Access-Control-Allow-Headers": "Content-Type,Authorization",
+        "Access-Control-Allow-Methods": "GET,POST,PUT,OPTIONS",
+        "Vary": "Origin",
+    }
+    if origin and origin in _allowed_origins():
+        result["Access-Control-Allow-Origin"] = origin
+    return result
 
 
 @dataclass(frozen=True)
@@ -78,8 +92,10 @@ def handler(event: dict[str, Any], context: Any = None) -> dict[str, Any]:  # no
     method = event.get("httpMethod", "")
     resource = event.get("resource", "")
 
+    cors = _cors_headers(event)
+
     if method == "OPTIONS":
-        return _response(200, "")
+        return _response(200, "", cors)
 
     route = _ROUTE_INDEX.get((method, resource))
     logger.info("dispatch method=%s resource=%s field=%s", method, resource, route.field if route else None)
@@ -92,15 +108,16 @@ def handler(event: dict[str, Any], context: Any = None) -> dict[str, Any]:  # no
         ctx = from_apigw_claims(claims)
         args = _build_args(event, route)
         result = resolve(route.field, ctx, args)
-        return _response(200, json.dumps(result, default=str))
+        return _response(200, json.dumps(result, default=str), cors)
     except AppError as exc:
         logger.warning("app_error resource=%s type=%s msg=%s", resource, exc.code, exc.message)
-        return _response(exc.http_status, json.dumps(exc.to_dict()))
+        return _response(exc.http_status, json.dumps(exc.to_dict()), cors)
     except Exception:  # noqa: BLE001
         logger.exception("unhandled_error resource=%s", resource)
         return _response(
             500,
             json.dumps({"errorType": "InternalError", "message": "An internal error occurred."}),
+            cors,
         )
 
 
@@ -129,9 +146,9 @@ def _coerce_query_value(value: str) -> Any:
     return value
 
 
-def _response(status: int, body: str) -> dict[str, Any]:
+def _response(status: int, body: str, cors: dict[str, str]) -> dict[str, Any]:
     return {
         "statusCode": status,
-        "headers": {**_CORS_HEADERS, "Content-Type": "application/json"},
+        "headers": {**cors, "Content-Type": "application/json"},
         "body": body,
     }

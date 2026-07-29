@@ -44,6 +44,57 @@ class SehatiFrontendStack(Stack):
             auto_delete_objects=True,
         )
 
+        # Browser-enforced defenses (helmet-equivalent) for the SPA response.
+        # Notably a CSP that blocks third-party script/connect origins, which
+        # narrows the blast radius of any XSS given the session tokens the app
+        # keeps in localStorage (see src/lib/auth.ts).
+        response_headers_policy = cloudfront.ResponseHeadersPolicy(
+            self, "SecurityHeaders",
+            security_headers_behavior=cloudfront.ResponseSecurityHeadersBehavior(
+                content_security_policy=cloudfront.ResponseHeadersContentSecurityPolicy(
+                    content_security_policy=(
+                        "default-src 'self'; "
+                        "script-src 'self'; "
+                        "style-src 'self' 'unsafe-inline'; "
+                        "img-src 'self' data:; "
+                        "font-src 'self' data:; "
+                        "connect-src 'self' https://cognito-idp.*.amazonaws.com "
+                        "https://*.execute-api.*.amazonaws.com; "
+                        "object-src 'none'; "
+                        "base-uri 'self'; "
+                        "frame-ancestors 'none'"
+                    ),
+                    override=True,
+                ),
+                content_type_options=cloudfront.ResponseHeadersContentTypeOptions(override=True),
+                frame_options=cloudfront.ResponseHeadersFrameOptions(
+                    frame_option=cloudfront.HeadersFrameOption.DENY, override=True
+                ),
+                referrer_policy=cloudfront.ResponseHeadersReferrerPolicy(
+                    referrer_policy=cloudfront.HeadersReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN,
+                    override=True,
+                ),
+                strict_transport_security=cloudfront.ResponseHeadersStrictTransportSecurity(
+                    access_control_max_age=Duration.days(365),
+                    include_subdomains=True,
+                    preload=True,
+                    override=True,
+                ),
+                xss_protection=cloudfront.ResponseHeadersXSSProtection(
+                    protection=True, mode_block=True, override=True
+                ),
+            ),
+            custom_headers_behavior=cloudfront.ResponseCustomHeadersBehavior(
+                custom_headers=[
+                    cloudfront.ResponseCustomHeader(
+                        header="Permissions-Policy",
+                        value="camera=(), microphone=(), geolocation=()",
+                        override=True,
+                    ),
+                ]
+            ),
+        )
+
         distribution = cloudfront.Distribution(
             self, "SiteDistribution",
             default_root_object="index.html",
@@ -51,6 +102,7 @@ class SehatiFrontendStack(Stack):
                 origin=origins.S3BucketOrigin.with_origin_access_control(bucket),
                 viewer_protocol_policy=cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
                 cache_policy=cloudfront.CachePolicy.CACHING_OPTIMIZED,
+                response_headers_policy=response_headers_policy,
             ),
             # SPA routing: any path S3 doesn't have (client-side routes) -> index.html.
             error_responses=[
