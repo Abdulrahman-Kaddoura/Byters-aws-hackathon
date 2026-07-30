@@ -77,6 +77,7 @@ plain numbers on a 0–100 scale (pain is 0–10). Higher = more/stronger.
 | `nextSteps` | list of text | Suggested next actions, shown as a checklist. |
 | `recentUpdates` | list | Short "what just happened" feed items. |
 | `assistantThread` | list of *ChatMessage* | The case-level chat with the AI assistant panel. |
+| `conversations` | list of *Conversation*, optional | Extra chat sessions layered on top of `interview` — return visits / follow-ups. Purely additive; never affects lifecycle. |
 | `progress` | list of *ProgressStep* | The stage tracker shown as a stepper (entity 16). |
 | `outcome` | text, optional | Final outcome once closed. |
 | `lessonsLearned` | list of text, optional | Retrospective notes on completed cases. |
@@ -145,6 +146,20 @@ Used in the interview, the diagnosis discussion, and the assistant panel.
 | `role` | text | Who spoke: `ai`, `patient`, `doctor`, or `system`. |
 | `text` | text | What was said. |
 | `time` | text, optional | Timestamp/label. |
+
+### 6a. `Conversation` — one extra chat session
+
+A return visit or follow-up chat, distinct from the primary `interview` on
+`PatientCase` — a case can have several. Started with
+`POST /cases/{caseId}/conversations`, posted to with
+`POST /cases/{caseId}/conversations/{conversationId}/messages`.
+
+| Field | Type | Meaning |
+|-------|------|---------|
+| `id` | text | Unique id (`CONV-...`). |
+| `title` | text | Short label shown in the doctor's session list. |
+| `createdAt` / `updatedAt` | text | When it was started / last posted to. |
+| `messages` | list of *ChatMessage* | The turns in this session. |
 
 ### 7. `StructuredSummary` — the AI's tidy write-up for the doctor
 

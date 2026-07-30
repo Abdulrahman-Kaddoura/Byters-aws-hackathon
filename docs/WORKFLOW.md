@@ -51,7 +51,9 @@ Below, **P** = patient, **D** = doctor (physician), **AI** = the AI seam,
 
 ### Step 1 — Intake (patient arrives)
 - **Who:** Patient (or a nurse on their behalf).
-- **What:** Fills in the form / describes symptoms.
+- **What:** Staff enter just the patient's name, then hand the device over —
+  Patient Mode (`/cases/:id/patient-mode`), a full-screen chat, gathers
+  everything else conversationally.
 - **Endpoint:** `submitIntake`
 - **Result:** A brand-new **Case** is created, owned by that patient, and it
   immediately moves **Intake → AIInterview**. The AI's opening greeting is added to
