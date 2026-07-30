@@ -301,14 +301,17 @@ class SehatiStack(Stack):
             self, "ApiAuthorizer",
             cognito_user_pools=[user_pool],
         )
-        # allow_test_invoke=False: skip the extra "test-invoke-stage" Lambda
-        # permission statement CDK otherwise adds per method (for the API
-        # Gateway console's Test button, never used by real traffic). With
-        # OPTIONS now added to every resource this stack's method count
-        # roughly doubled, and the doubled permission count (one deployed-
-        # stage + one test-invoke statement per method) pushed the Lambda's
-        # resource policy past its hard 20KB limit.
-        integration = apigateway.LambdaIntegration(fn, allow_test_invoke=False)
+        # scope_permission_to_method=False: grant API Gateway invoke access
+        # via a single wildcard Lambda::Permission for the whole API instead
+        # of one (or two, with allow_test_invoke) per method. Trimming just
+        # the test-invoke statement still left one permission per method,
+        # and Lambda's resource policy has a hard 20KB ceiling - fine for
+        # ~20 methods, but doubling that by adding OPTIONS to every resource
+        # exceeded it (and would again the next time a route is added). A
+        # single API-scoped statement can't be outgrown by route count.
+        integration = apigateway.LambdaIntegration(
+            fn, allow_test_invoke=False, scope_permission_to_method=False,
+        )
 
         # CORS preflight (OPTIONS) is routed to the same Lambda rather than
         # API Gateway's static `default_cors_preflight_options` MOCK
