@@ -58,6 +58,8 @@ _ROUTES = [
     _Route("POST", "/cases/{caseId}/notes", "addNote"),
     _Route("POST", "/cases/{caseId}/interview/messages", "postInterviewMessage"),
     _Route("POST", "/cases/{caseId}/interview/summary", "generateSummary"),
+    _Route("POST", "/cases/{caseId}/conversations", "createConversation"),
+    _Route("POST", "/cases/{caseId}/conversations/{conversationId}/messages", "postConversationMessage"),
     _Route("POST", "/cases/{caseId}/exams", "recommendExams"),
     _Route("PUT", "/cases/{caseId}/exams/{examId}", "recordExamFinding"),
     _Route("POST", "/cases/{caseId}/diagnoses", "requestRecommendations"),

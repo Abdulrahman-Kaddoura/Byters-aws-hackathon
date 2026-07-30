@@ -224,6 +224,24 @@ class FakeAIService(AIService):
             value=chat_message("ai", text), model_version=self.model_version
         )
 
+    # --- Side conversations (return visits / follow-ups) --------------------
+    def chat(
+        self, case: PatientCase, conversation_messages: list[dict[str, Any]]
+    ) -> AIResult:
+        last_patient_text = next(
+            (m.get("text", "") for m in reversed(conversation_messages) if m.get("role") == "patient"),
+            "",
+        )
+        chief = case.get("chiefComplaint", "your case")
+        text = (
+            f"Thanks for the update. Regarding {chief.lower() if chief else 'your case'}: "
+            f"I've noted \"{last_patient_text}\". A physician will review this alongside "
+            "the rest of your case."
+        )
+        return AIResult(
+            value=chat_message("ai", text), model_version=self.model_version
+        )
+
 
 # ---------------------------------------------------------------------------
 # Port of generateAIResponse() from src/data/aiResponder.ts

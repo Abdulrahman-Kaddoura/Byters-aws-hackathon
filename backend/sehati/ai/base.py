@@ -84,3 +84,14 @@ class AIService(abc.ABC):
         """Answer a physician's free-text question. When ``diagnosis_id`` is
         given the answer is scoped to that diagnosis (explainability dialogue);
         otherwise it is a case-level assistant reply."""
+
+    @abc.abstractmethod
+    def chat(
+        self, case: PatientCase, conversation_messages: list[dict[str, Any]]
+    ) -> AIResult:
+        """Free-form patient-facing reply within one named side conversation
+        (a return visit / follow-up chat layered on top of the primary
+        intake interview — see ``PatientCase.conversations``). Distinct from
+        ``next_interview_question`` (the fixed intake sequence, which drives
+        lifecycle) and ``answer`` (physician-facing explainability). Must be
+        grounded in the case's own data like every other seam method."""

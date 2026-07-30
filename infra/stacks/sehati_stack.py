@@ -336,6 +336,13 @@ class SehatiStack(Stack):
         secured(interview_res.add_resource("messages"), "POST")  # postInterviewMessage
         secured(interview_res.add_resource("summary"), "POST")  # generateSummary
 
+        conversations_res = case_res.add_resource("conversations")
+        secured(conversations_res, "POST")  # createConversation
+        secured(
+            conversations_res.add_resource("{conversationId}").add_resource("messages"),
+            "POST",
+        )  # postConversationMessage
+
         exams_res = case_res.add_resource("exams")
         secured(exams_res, "POST")  # recommendExams
         secured(exams_res.add_resource("{examId}"), "PUT")  # recordExamFinding
