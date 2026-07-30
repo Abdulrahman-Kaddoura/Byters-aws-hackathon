@@ -1,4 +1,12 @@
 # AWS CDK for the SEHATI-AI backend infrastructure.
 # >=2.180 for aws_cloudfront_origins.S3BucketOrigin.with_origin_access_control (frontend_stack.py).
-aws-cdk-lib>=2.180.0,<3.0.0
+# >=2.262.2: older versions' addCorsPreflight() emits Access-Control-Allow-Origin
+# as a single space-joined string when allow_origins has >1 entry (e.g. the prod
+# CloudFront origin + localhost:5173), which browsers reject outright — every
+# preflight-requiring call (any request with an Authorization header) fails with
+# a CORS error. Confirmed fixed as of 2.262.2, which instead emits one static
+# origin plus a conditional VTL override per extra origin. If you're on an
+# older cached install, `pip install --upgrade -r infra/requirements.txt` and
+# redeploy before assuming a CORS failure is a config problem.
+aws-cdk-lib>=2.262.2,<3.0.0
 constructs>=10.0.0,<11.0.0
