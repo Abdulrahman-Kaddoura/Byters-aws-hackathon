@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from ..ai import get_ai_service
+from ..ai import factory
 from ..context import AuthContext
 from ..db import audit_repo, cases_repo, feedback_repo
 from ..errors import ValidationError
@@ -23,7 +23,7 @@ def assistant_chat(ctx: AuthContext, args: dict[str, Any]) -> dict[str, Any]:
     question = _require(args, "text")
 
     case.setdefault("assistantThread", []).append(chat_message("doctor", question))
-    result = get_ai_service().answer(case, question, None)
+    result = factory.get_ai_service().answer(case, question, None)
     case["assistantThread"].append(result.value)
 
     cases_repo.save_case(case, ctx)

@@ -1,24 +1,23 @@
-"""StubAIService — a deterministic, offline, rule/keyword-based AI.
+"""FakeAIService — a deterministic, offline, rule/keyword-based AI double.
 
-This is a faithful Python port of the frontend's ``src/data/aiResponder.ts``
-(for the chat/explainability path) extended with believable structured
-generation for the interview, summary, differential, tests and final diagnosis.
-It makes the backend fully demo-able with **no model, no network, no cost** —
-set ``AI_PROVIDER=stub`` (the default). The real reasoning lives in
-``bedrock.py`` and is owned by the AI team.
+Test-only. Never imported by production code under ``sehati/**`` — the
+deployed app has no fake-AI mode at all, it always talks to Bedrock. This
+exists purely so the test suite stays fast, deterministic, and offline
+(``backend/tests/conftest.py`` patches ``sehati.ai.factory.get_ai_service``
+to return this for every test via an autouse fixture).
 
-Everything it emits is grounded in the case's own data, so the demo feels
-interactive and the output shape matches ``src/types.ts`` exactly.
+It's a straight port of what used to be ``sehati.ai.stub.StubAIService``
+before the stub was deleted from production code.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
-from ..models import PatientCase, chat_message
-from .base import AIResult, AIService
+from sehati.ai.base import AIResult, AIService
+from sehati.models import PatientCase, chat_message
 
-MODEL_VERSION = "stub-v0"
+MODEL_VERSION = "test-fake-v0"
 
 
 def _top_dx(case: PatientCase) -> dict[str, Any] | None:
@@ -32,7 +31,7 @@ def _bullets(items: list[str], max_items: int = 4) -> str:
     return "\n".join(f"• {s}" for s in items[:max_items])
 
 
-class StubAIService(AIService):
+class FakeAIService(AIService):
     model_version = MODEL_VERSION
 
     # --- Interview ----------------------------------------------------------
@@ -113,8 +112,8 @@ class StubAIService(AIService):
     def differential(self, case: PatientCase) -> AIResult:
         existing = case.get("diagnoses") or []
         if existing:
-            # Return what's there, re-sorted; the stub does not fabricate over
-            # curated seed data.
+            # Return what's there, re-sorted; the double does not fabricate
+            # over curated seed data.
             ranked = sorted(existing, key=lambda d: d.get("confidence", 0), reverse=True)
             return AIResult(value=ranked, model_version=self.model_version)
 
@@ -129,7 +128,7 @@ class StubAIService(AIService):
             "tagline": "Provisional impression pending examination and tests",
             "reasoning": (
                 f"Based on the presentation ({chief}), a provisional impression is "
-                "formed. This stub responder does not perform real clinical reasoning; "
+                "formed. This test double does not perform real clinical reasoning; "
                 "enable the Bedrock adapter for grounded differentials."
             ),
             "supporting": symptoms[:4] or ["Reported symptoms"],

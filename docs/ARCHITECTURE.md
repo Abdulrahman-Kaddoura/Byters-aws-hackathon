@@ -98,25 +98,17 @@ raise `StateTransitionError`.
 ## 6. AI/ML architecture (design doc §9) — the seam
 
 The backend never hard-codes model behavior. `ai/base.AIService` is the contract;
-`ai/factory.get_ai_service()` selects the implementation from `AI_PROVIDER`.
+`ai/factory.get_ai_service()` constructs the one shipped implementation.
 
-- **`StubAIService`** (default): deterministic, offline, ports the frontend's
-  `aiResponder.ts` reasoning-first responder and generates believable structured
-  output. Zero cost, so the product is fully demoable now.
-- **`BedrockAIService`** (AI team owns): Amazon Bedrock **Converse** (Claude) +
-  **Guardrails** + **Knowledge Bases** retrieval. Prompt architecture (§9.3):
-  system prompt fixes the CDS-not-diagnostician role, the instruction hierarchy is
-  system > physician > retrieved-docs, and every structured method requests strict
-  JSON. Failures (model access, throttling, malformed JSON) surface as real API
-  errors — this adapter never substitutes stub output for a genuine model response.
-
-**Current status (2026-07-23):** the AI team has been building their Bedrock
-integration independently and directly in the console (a Bedrock Agent, two
-Knowledge Bases, four standalone Lambdas) rather than through this seam — see
-[`AWS_CURRENT_STATE.md`](./AWS_CURRENT_STATE.md) for the full audit. That work
-is not yet case-scoped or wired end-to-end, so **this backend deliberately runs
-on the stub for now**; `ai/bedrock.py` is not yet pointed at their setup. This
-is a conscious decision, not an oversight — revisit once their pipeline matures.
+- **`BedrockAIService`** (AI team owns; the only implementation): Amazon Bedrock
+  **Converse** (Claude) + **Guardrails** + **Knowledge Bases** retrieval. Prompt
+  architecture (§9.3): system prompt fixes the CDS-not-diagnostician role, the
+  instruction hierarchy is system > physician > retrieved-docs, and every
+  structured method requests strict JSON. Failures (model access, throttling,
+  malformed JSON) surface as real API errors — there is no fake-data fallback,
+  ever, in production. Tests substitute a deterministic double at the
+  `factory.get_ai_service` seam instead of a second production implementation
+  (`backend/tests/fakes/ai_double.py`).
 
 **Confidence** (design doc §9.4) is carried as the frontend's qualitative fields
 (reasoning, `whyNot100`, `confidenceExplanation`, trend) — an honest band, not a

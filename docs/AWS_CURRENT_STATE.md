@@ -1,15 +1,21 @@
 # AWS Current State — Audit Snapshot (2026-07-23)
 
+> **Superseded:** this snapshot's "runs on the stub AI" framing (§5) is no
+> longer accurate — `SehatiBackend` has since had its stub AI provider removed
+> entirely; it only ever talks to real Amazon Bedrock now (see
+> [`ARCHITECTURE.md`](./ARCHITECTURE.md) §6). Kept below as a historical
+> record of the 2026-07-23 account audit.
+
 This records what already exists in the shared AWS account, discovered by CLI
 audit since none of it is defined as code (no CloudFormation/CDK). It exists so
 the team has one place that reflects **reality**, separate from what
 [`AWS_DEPLOYMENT.md`](./AWS_DEPLOYMENT.md) will create when `SehatiBackend` is
 first deployed.
 
-**Status: the two systems are currently fully separate, and that's intentional
-for now.** The AI team continues to iterate on their pipeline independently;
-this repo's backend runs on the built-in stub AI (`AI_PROVIDER=stub`) until a
-deliberate decision is made to integrate. See §5 below.
+**Status (as of 2026-07-23): the two systems were fully separate, intentionally.**
+The AI team continued to iterate on their pipeline independently; this repo's
+backend ran on the built-in stub AI (`AI_PROVIDER=stub`) until a deliberate
+decision was made to integrate. See §5 below.
 
 ---
 

@@ -14,7 +14,6 @@
     "@aws-cdk/core:newStyleStackSynthesis": true,
     "@aws-cdk/aws-lambda:recognizeLayerVersion": true,
     "@aws-cdk/core:checkSecretUsage": true,
-    "@aws-cdk/aws-iam:minimizePolicies": true,
-    "ai_provider": "stub"
+    "@aws-cdk/aws-iam:minimizePolicies": true
   }
 }

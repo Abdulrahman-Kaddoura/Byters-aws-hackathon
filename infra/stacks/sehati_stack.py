@@ -6,7 +6,7 @@
                                       |
               DynamoDB (cases/audit/feedback)  +  S3/KMS (docs, WORM audit)
                                       |
-                               Amazon Bedrock (when AI_PROVIDER=bedrock)
+                               Amazon Bedrock (Claude)
 
 All data at rest is encrypted with a customer-managed KMS key. Authorization is
 enforced in the Lambda data layer; the Cognito groups here are the coarse gate.
@@ -42,7 +42,6 @@ class SehatiStack(Stack):
         scope: Construct,
         construct_id: str,
         *,
-        ai_provider: str = "stub",
         bedrock_model_id: str = "us.anthropic.claude-sonnet-4-5-20250929-v1:0",
         bedrock_guardrail_id: str = "",
         bedrock_guardrail_version: str = "DRAFT",
@@ -203,7 +202,6 @@ class SehatiStack(Stack):
                 "FEEDBACK_TABLE": feedback.table_name,
                 "DOCUMENTS_BUCKET": documents.bucket_name,
                 "AUDIT_BUCKET": audit_bucket.bucket_name,
-                "AI_PROVIDER": ai_provider,
                 "BEDROCK_MODEL_ID": bedrock_model_id,
                 "BEDROCK_GUARDRAIL_ID": bedrock_guardrail_id,
                 "BEDROCK_GUARDRAIL_VERSION": bedrock_guardrail_version,
@@ -218,9 +216,9 @@ class SehatiStack(Stack):
         audit_bucket.grant_write(fn)
         key.grant_encrypt_decrypt(fn)
 
-        # Bedrock permissions (used only when AI_PROVIDER=bedrock), scoped to the
-        # specific model/inference-profile/guardrail/knowledge-base configured for
-        # this stack rather than "*". A cross-region inference profile id (e.g.
+        # Bedrock permissions, scoped to the specific model/inference-profile/
+        # guardrail/knowledge-base configured for this stack rather than "*".
+        # A cross-region inference profile id (e.g.
         # "us.anthropic.claude-...") still routes to the underlying foundation
         # model in whichever region it lands in, so that resource is granted
         # region-wildcarded on the model ARN only (never on the account).
@@ -367,4 +365,3 @@ class SehatiStack(Stack):
         CfnOutput(self, "UserPoolClientId", value=user_pool_client.user_pool_client_id)
         CfnOutput(self, "Region", value=self.region)
         CfnOutput(self, "CasesTableName", value=cases.table_name)
-        CfnOutput(self, "AIProvider", value=ai_provider)

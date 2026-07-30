@@ -1,5 +1,10 @@
 # SEHATI-AI — Project Status Summary (2026-07-23)
 
+> **Superseded:** references below to the stub AI / `AI_PROVIDER=stub` /
+> `AI_PROVIDER=bedrock` as a deploy-time toggle no longer apply — the stub
+> provider has since been removed from the codebase entirely; the backend
+> only ever talks to real Amazon Bedrock. Kept below as a historical record.
+
 A plain-language snapshot of where things stand: what was done to the
 backend/infra in this branch, what the AI team already had running
 independently in AWS, and what's live right now. Written so anyone on the

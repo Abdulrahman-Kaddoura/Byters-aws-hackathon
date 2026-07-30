@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from ..ai import get_ai_service
+from ..ai import factory
 from ..context import AuthContext
 from ..db import audit_repo, cases_repo
 from ..errors import NotFoundError, ValidationError
@@ -19,7 +19,7 @@ def request_recommendations(ctx: AuthContext, args: dict[str, Any]) -> dict[str,
     ctx.require_clinical_staff()
     case = cases_repo.get_case(_require(args, "caseId"), ctx)
 
-    ai = get_ai_service()
+    ai = factory.get_ai_service()
     dx = ai.differential(case)
     tests = ai.recommend_tests(case)
     case["diagnoses"] = dx.value
@@ -46,7 +46,7 @@ def ask_diagnosis(ctx: AuthContext, args: dict[str, Any]) -> dict[str, Any]:
     question = _require(args, "question")
     diagnosis_id = args.get("diagnosisId")
 
-    result = get_ai_service().answer(case, question, diagnosis_id)
+    result = factory.get_ai_service().answer(case, question, diagnosis_id)
     ai_message = result.value
 
     # Persist the turn into that diagnosis's discussion thread when scoped.
@@ -71,7 +71,7 @@ def rerank_after_results(ctx: AuthContext, args: dict[str, Any]) -> dict[str, An
     ctx.require_clinical_staff()
     case = cases_repo.get_case(_require(args, "caseId"), ctx)
 
-    result = get_ai_service().rerank_after_results(case)
+    result = factory.get_ai_service().rerank_after_results(case)
     case["diagnoses"] = result.value
     if case.get("lifecycleState") == "InProgress":
         _apply_state(case, "ResultsDiscussion")
@@ -91,7 +91,7 @@ def propose_final_diagnosis(ctx: AuthContext, args: dict[str, Any]) -> dict[str,
     ctx.require_clinical_staff()
     case = cases_repo.get_case(_require(args, "caseId"), ctx)
 
-    result = get_ai_service().propose_final_diagnosis(case)
+    result = factory.get_ai_service().propose_final_diagnosis(case)
     case["finalDiagnosis"] = result.value
     if case.get("lifecycleState") in ("ResultsDiscussion",):
         _apply_state(case, "Diagnosis")

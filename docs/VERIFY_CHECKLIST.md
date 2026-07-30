@@ -249,25 +249,17 @@ aws lambda get-function-configuration --function-name sehati-orchestrator \
 
 **Expect:** `CASES_TABLE=sehati-cases`, `AUDIT_TABLE=sehati-audit`,
 `FEEDBACK_TABLE=sehati-feedback`, `DOCUMENTS_BUCKET=...`, `AUDIT_BUCKET=...`,
-`AI_PROVIDER=stub` (or `bedrock`), `LOG_LEVEL=INFO`.
+`LOG_LEVEL=INFO`.
 
 ---
 
-## 7. AI provider — stub vs Bedrock
+## 7. AI provider — Bedrock only, no fallback
 
-```bash
-aws cloudformation describe-stacks --stack-name SehatiBackend \
-  --query "Stacks[0].Outputs[?OutputKey=='AIProvider'].OutputValue" --output text
-```
-
-- **`stub`** (default): deterministic, no external calls, no cost, always
-  "works" — if AI-driven actions (interview questions, differential
-  diagnosis, assistant chat) still fail with this, the bug is **not** AI
-  related, go back to steps 4–6.
-- **`bedrock`**: **there is no fallback to stub anymore** (removed on
-  purpose — see the "Remove Bedrock stub fallback" commit in this repo's
-  history). If Bedrock model access isn't enabled in `us-east-1`, or the
-  model ID is wrong, every AI-touching endpoint returns a real `500`. Check:
+There is no stub/offline mode in production — every deploy talks to real
+Amazon Bedrock (Claude). If Bedrock model access isn't enabled in
+`us-east-1`, or the model ID is wrong, every AI-touching endpoint (interview
+questions, differential diagnosis, assistant chat) returns a real `500`.
+Check:
 
 ```bash
 aws bedrock list-foundation-models --region us-east-1 \

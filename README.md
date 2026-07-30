@@ -105,12 +105,6 @@ login. After creating that user (and adding it to the `physician` group), run
 > `exclude` list also filters out `.venv`/`venv`/`.pytest_cache` as a
 > second line of defense.
 
-To switch the AI from the deterministic stub to Amazon Bedrock:
-
-```bash
-AI_PROVIDER=bedrock ./scripts/deploy.sh
-```
-
 Request flow once live:
 
 ```
@@ -118,7 +112,7 @@ Browser ──Cognito JWT──> API Gateway ──> Lambda (sehati.handler)
                           (authorizer)      │
                                             ├─ router.py  → resolvers/*.py
                                             ├─ db/*_repo.py → DynamoDB (row-level authz)
-                                            └─ ai/factory.py → stub | Bedrock
+                                            └─ ai/factory.py → Amazon Bedrock (Claude)
 ```
 
 Details: [`docs/AWS_DEPLOYMENT.md`](docs/AWS_DEPLOYMENT.md),
@@ -150,8 +144,8 @@ src/
   types.ts       # Domain model
 ```
 
-All AI reasoning comes from the backend seam (`backend/sehati/ai/`) — a
-deterministic stub by default, or Amazon Bedrock when `AI_PROVIDER=bedrock`.
+All AI reasoning comes from the backend seam (`backend/sehati/ai/`) — Amazon
+Bedrock (Claude); there is no offline/fake mode.
 `src/data/aiResponder.ts` only holds the clickable suggested-prompt labels
 shown above the chat input (e.g. "Why not the alternatives?") — clicking one
 sends that question through the real API like any typed message.

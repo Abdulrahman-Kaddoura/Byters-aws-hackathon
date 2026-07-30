@@ -5,12 +5,11 @@ This is the file the **AI team owns and tunes**. It wires the workflow to:
   * Bedrock **Guardrails** for prompt-attack / PII / grounding defense,
   * Bedrock **Knowledge Bases** (``retrieve``) for the curated, versioned corpus.
 
-It intentionally shares the exact contract and output shapes of
-:class:`~sehati.ai.stub.StubAIService`, so flipping ``AI_PROVIDER=bedrock`` is
-the only change required. Where the model returns free text that must become a
-structured object (summary, differential …), we ask for strict JSON and parse
-it. Failures (model unavailable, throttled, malformed JSON) are raised as real
-errors — this adapter never substitutes fake data for a genuine model response.
+It implements the :class:`~sehati.ai.base.AIService` contract. Where the model
+returns free text that must become a structured object (summary, differential
+…), we ask for strict JSON and parse it. Failures (model unavailable,
+throttled, malformed JSON) are raised as real errors — this adapter never
+substitutes fake data for a genuine model response.
 
 Prerequisites (see docs/AWS_DEPLOYMENT.md):
   * Bedrock model access enabled for the chosen Claude model in us-east-1.

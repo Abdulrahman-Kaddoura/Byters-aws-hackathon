@@ -11,12 +11,22 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-os.environ.setdefault("AI_PROVIDER", "stub")
 os.environ.setdefault("AWS_REGION", "us-east-1")
 os.environ.setdefault("AWS_ACCESS_KEY_ID", "testing")
 os.environ.setdefault("AWS_SECRET_ACCESS_KEY", "testing")
 os.environ.setdefault("AWS_SECURITY_TOKEN", "testing")
 os.environ.setdefault("AWS_SESSION_TOKEN", "testing")
+
+
+@pytest.fixture(autouse=True)
+def _fake_ai(monkeypatch):
+    """Every test gets a deterministic, offline AI double — production code
+    has no fake-AI mode to select, so tests can't run against real Bedrock
+    (no network, no credentials, no moto support for bedrock-runtime)."""
+    from sehati.ai import factory
+    from tests.fakes.ai_double import FakeAIService
+
+    monkeypatch.setattr(factory, "get_ai_service", lambda: FakeAIService())
 
 
 @pytest.fixture()

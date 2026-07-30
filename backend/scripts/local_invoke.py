@@ -1,8 +1,7 @@
-"""End-to-end local walkthrough of the backend — no AWS account required.
+"""End-to-end local walkthrough of the backend.
 
 Spins up an in-memory DynamoDB with ``moto``, then drives a case through the
-entire clinical lifecycle using the stub AI (``AI_PROVIDER=stub``), printing
-each resolver's result:
+entire clinical lifecycle, printing each resolver's result:
 
     intake -> interview -> summary -> exams -> differential -> tests
            -> results -> re-rank -> final diagnosis -> close
@@ -10,9 +9,17 @@ each resolver's result:
 It finishes by demonstrating the data-layer isolation guard: a second patient is
 denied access to the first patient's case.
 
+By default this patches in the same deterministic test-only AI double the
+test suite uses (``tests.fakes.ai_double.FakeAIService``), so it runs free and
+offline with no AWS account needed — production code has no such fallback,
+this is purely a dev-script convenience. Pass ``--bedrock`` (or set
+``USE_REAL_BEDROCK=1``) to exercise the real Bedrock adapter instead, which
+requires real AWS credentials with Bedrock model access.
+
 Usage:
     pip install -r backend/requirements.txt
     python backend/scripts/local_invoke.py
+    python backend/scripts/local_invoke.py --bedrock   # hits real Bedrock
 """
 
 from __future__ import annotations
@@ -24,10 +31,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-os.environ.setdefault("AI_PROVIDER", "stub")
 os.environ.setdefault("AWS_REGION", "us-east-1")
 os.environ.setdefault("AWS_ACCESS_KEY_ID", "testing")
 os.environ.setdefault("AWS_SECRET_ACCESS_KEY", "testing")
+
+USE_REAL_BEDROCK = "--bedrock" in sys.argv[1:] or os.environ.get("USE_REAL_BEDROCK") == "1"
 
 
 def _create_aux_tables(tables) -> None:
@@ -71,6 +79,13 @@ def run() -> None:
 
         _maybe_create_table()
         _create_aux_tables(tables)
+
+        if not USE_REAL_BEDROCK:
+            from sehati.ai import factory
+            from tests.fakes.ai_double import FakeAIService
+
+            factory.get_ai_service.cache_clear()
+            factory.get_ai_service = lambda: FakeAIService()  # noqa: E731
 
         patient = AuthContext(sub="patient-1", username="layla", groups=frozenset({"patient"}))
         physician = AuthContext(sub="dr-karim", username="dr.karim", groups=frozenset({"physician"}))

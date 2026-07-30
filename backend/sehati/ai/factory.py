@@ -1,15 +1,13 @@
-"""Select the active AI implementation from the ``AI_PROVIDER`` env var.
+"""Construct the AI implementation.
 
-    AI_PROVIDER=stub     -> StubAIService     (default; offline, no cost)
-    AI_PROVIDER=bedrock  -> BedrockAIService  (Amazon Bedrock / Claude)
-
-The instance is cached per Lambda container. The Bedrock adapter is imported
-lazily so the stub path never needs botocore's Bedrock clients.
+There is exactly one: Amazon Bedrock (Claude). No fake/offline mode exists in
+production — tests substitute a double via dependency injection at this seam
+(see ``backend/tests/conftest.py``'s ``_fake_ai`` fixture), never a
+production-selectable provider.
 """
 
 from __future__ import annotations
 
-import os
 from functools import lru_cache
 
 from .base import AIService
@@ -17,11 +15,6 @@ from .base import AIService
 
 @lru_cache(maxsize=1)
 def get_ai_service() -> AIService:
-    provider = os.environ.get("AI_PROVIDER", "stub").strip().lower()
-    if provider == "bedrock":
-        from .bedrock import BedrockAIService
+    from .bedrock import BedrockAIService
 
-        return BedrockAIService()
-    from .stub import StubAIService
-
-    return StubAIService()
+    return BedrockAIService()

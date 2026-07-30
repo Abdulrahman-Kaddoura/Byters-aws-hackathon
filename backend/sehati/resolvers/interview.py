@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from ..ai import get_ai_service
+from ..ai import factory
 from ..context import AuthContext
 from ..db import audit_repo, cases_repo
 from ..errors import ValidationError
@@ -29,7 +29,7 @@ def post_interview_message(ctx: AuthContext, args: dict[str, Any]) -> dict[str, 
 
     case.setdefault("interview", []).append(chat_message("patient", patient_text))
 
-    ai = get_ai_service()
+    ai = factory.get_ai_service()
     result = ai.next_interview_question(case, case["interview"])
 
     complete = result.value is None
@@ -60,7 +60,7 @@ def generate_summary(ctx: AuthContext, args: dict[str, Any]) -> dict[str, Any]:
     """Build the structured summary and move the case to DoctorReview."""
     case = cases_repo.get_case(_require(args, "caseId"), ctx)
 
-    ai = get_ai_service()
+    ai = factory.get_ai_service()
     result = ai.build_summary(case)
     case["summary"] = result.value
 
