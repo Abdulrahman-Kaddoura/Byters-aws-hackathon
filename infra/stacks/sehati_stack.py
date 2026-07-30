@@ -296,11 +296,6 @@ class SehatiStack(Stack):
                 throttling_rate_limit=50,
                 throttling_burst_limit=100,
             ),
-            default_cors_preflight_options=apigateway.CorsOptions(
-                allow_origins=allowed_origins,
-                allow_methods=["GET", "POST", "PUT", "OPTIONS"],
-                allow_headers=["Content-Type", "Authorization"],
-            ),
         )
         authorizer = apigateway.CognitoUserPoolsAuthorizer(
             self, "ApiAuthorizer",
@@ -308,12 +303,30 @@ class SehatiStack(Stack):
         )
         integration = apigateway.LambdaIntegration(fn)
 
+        # CORS preflight (OPTIONS) is routed to the same Lambda rather than
+        # API Gateway's static `default_cors_preflight_options` MOCK
+        # integration: that MOCK response bakes the *entire* allowed-origins
+        # list into one header value, which browsers reject as soon as more
+        # than one origin is configured (e.g. CloudFront + local dev). The
+        # Lambda's `_cors_headers` already reflects back whichever single
+        # origin made the request (only if it's allow-listed) and is
+        # exercised by tests in test_handler.py — OPTIONS just needs to
+        # reach it unauthenticated, since preflight requests carry no
+        # Authorization header.
+        _options_added: set[str] = set()
+
         def secured(resource: apigateway.Resource, method: str) -> None:
             resource.add_method(
                 method, integration,
                 authorization_type=apigateway.AuthorizationType.COGNITO,
                 authorizer=authorizer,
             )
+            if resource.path not in _options_added:
+                resource.add_method(
+                    "OPTIONS", integration,
+                    authorization_type=apigateway.AuthorizationType.NONE,
+                )
+                _options_added.add(resource.path)
 
         # /cases
         cases_res = api.root.add_resource("cases")
