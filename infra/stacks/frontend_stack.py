@@ -52,14 +52,21 @@ class SehatiFrontendStack(Stack):
             self, "SecurityHeaders",
             security_headers_behavior=cloudfront.ResponseSecurityHeadersBehavior(
                 content_security_policy=cloudfront.ResponseHeadersContentSecurityPolicy(
+                    # CSP host-source grammar only allows "*" as the *leading*
+                    # label of a host (e.g. "*.execute-api.us-east-1.amazonaws.com").
+                    # A wildcard in a middle label (e.g. "cognito-idp.*.amazonaws.com")
+                    # is invalid syntax, so browsers silently drop that source —
+                    # which left connect-src effectively 'self'-only and blocked
+                    # every fetch() to Cognito/API Gateway before it hit the
+                    # network (hence no request ever showing up in devtools).
                     content_security_policy=(
                         "default-src 'self'; "
                         "script-src 'self'; "
                         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
                         "img-src 'self' data:; "
                         "font-src 'self' data: https://fonts.gstatic.com; "
-                        "connect-src 'self' https://cognito-idp.*.amazonaws.com "
-                        "https://*.execute-api.*.amazonaws.com; "
+                        f"connect-src 'self' https://cognito-idp.{self.region}.amazonaws.com "
+                        f"https://*.execute-api.{self.region}.amazonaws.com; "
                         "object-src 'none'; "
                         "base-uri 'self'; "
                         "frame-ancestors 'none'"
