@@ -54,6 +54,9 @@ def _case_context(case: PatientCase) -> dict[str, Any]:
         "complaint": case.get("complaint"),
         "history": case.get("history"),
         "vitals": case.get("vitals"),
+        "interview": [
+            {"role": m.get("role"), "text": m.get("text")} for m in case.get("interview", [])
+        ],
         "summary": case.get("summary"),
         "exams": case.get("exams"),
         "tests": case.get("tests"),
@@ -152,10 +155,14 @@ class BedrockAIService(AIService):
         if asked >= 6:
             return AIResult(value=None, model_version=self.model_version)
         instruction = (
-            "You are conducting an adaptive patient intake interview. Based on the "
-            "case context and transcript so far, ask ONE concise clarifying question "
-            "(plain language, patient-friendly). If enough has been gathered, reply "
-            "with exactly the token DONE."
+            "You are conducting an adaptive patient intake interview. The case "
+            "context's `interview` field is the full transcript of this conversation "
+            "so far, in order, including your own earlier questions and the patient's "
+            "answers. Read it before responding. Do not reintroduce yourself and do "
+            "not re-ask anything already answered there. Based on what is still "
+            "missing, ask ONE concise clarifying question (plain language, "
+            "patient-friendly). If enough has been gathered, reply with exactly the "
+            "token DONE."
         )
         text, _ = self._converse(task_instruction=instruction, case=case)
         if text.strip().upper().startswith("DONE"):
