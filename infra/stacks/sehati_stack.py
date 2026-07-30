@@ -292,6 +292,14 @@ class SehatiStack(Stack):
                 allow_methods=apigateway.Cors.ALL_METHODS,
                 allow_headers=["Content-Type", "Authorization"],
             ),
+            # Edge-optimized (the default) puts every request through an
+            # AWS-managed CloudFront distribution in front of the API - which
+            # caches responses (including CORS preflight) outside of
+            # CloudFormation's control, so a backend redeploy doesn't bust
+            # stale cached headers there. Regional skips that hidden layer
+            # entirely; the frontend already has its own CloudFront in front
+            # of it, so nothing is lost by dropping the API's own.
+            endpoint_types=[apigateway.EndpointType.REGIONAL],
         )
         authorizer = apigateway.CognitoUserPoolsAuthorizer(
             self, "ApiAuthorizer",
