@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { Sparkles, FileText, Send, CheckCircle2, Loader2 } from 'lucide-react';
+import { useLocation } from 'wouter';
+import { Sparkles, FileText, Send, CheckCircle2, Loader2, Tablet } from 'lucide-react';
 import type { PatientCase } from '@/types';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -10,6 +11,7 @@ import { TagList } from '@/components/common';
 import { usePostInterviewMessage, useGenerateSummary } from '@/hooks/useCases';
 
 export function CaseInterview({ caseData: c }: { caseData: PatientCase }) {
+  const [, navigate] = useLocation();
   const [view, setView] = useState<'chat' | 'summary'>(c.summary?.chiefComplaint ? 'summary' : 'chat');
   const [input, setInput] = useState('');
   const [complete, setComplete] = useState(false);
@@ -49,20 +51,27 @@ export function CaseInterview({ caseData: c }: { caseData: PatientCase }) {
     <div className="flex h-full flex-col space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-semibold">Clinical Interview</h2>
-        <div className="inline-flex rounded-md bg-muted p-1">
-          <button
-            onClick={() => setView('chat')}
-            className={`rounded-sm px-3 py-1.5 text-sm font-medium transition-colors ${view === 'chat' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-          >
-            Transcript
-          </button>
-          <button
-            onClick={() => setView('summary')}
-            disabled={!c.summary?.chiefComplaint}
-            className={`rounded-sm px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-40 ${view === 'summary' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-          >
-            AI Summary
-          </button>
+        <div className="flex items-center gap-3">
+          {interviewOpen && (
+            <Button variant="outline" size="sm" onClick={() => navigate(`/cases/${c.id}/patient-mode`)}>
+              <Tablet className="mr-2 h-4 w-4" /> Hand device to patient
+            </Button>
+          )}
+          <div className="inline-flex rounded-md bg-muted p-1">
+            <button
+              onClick={() => setView('chat')}
+              className={`rounded-sm px-3 py-1.5 text-sm font-medium transition-colors ${view === 'chat' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+            >
+              Transcript
+            </button>
+            <button
+              onClick={() => setView('summary')}
+              disabled={!c.summary?.chiefComplaint}
+              className={`rounded-sm px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-40 ${view === 'summary' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+            >
+              AI Summary
+            </button>
+          </div>
         </div>
       </div>
 

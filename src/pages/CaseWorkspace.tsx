@@ -1,5 +1,5 @@
 import { useParams, useLocation } from 'wouter';
-import { ArrowLeft, User, Stethoscope, FileText, Activity, FlaskConical, ClipboardCheck, GitBranch } from 'lucide-react';
+import { ArrowLeft, User, Stethoscope, FileText, Activity, FlaskConical, ClipboardCheck, GitBranch, MessagesSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PatientAvatar } from '@/components/PatientAvatar';
@@ -15,6 +15,7 @@ import { CaseDifferential } from '@/tabs/CaseDifferential';
 import { CaseTests } from '@/tabs/CaseTests';
 import { CaseDiagnosis } from '@/tabs/CaseDiagnosis';
 import { CaseTimeline } from '@/tabs/CaseTimeline';
+import { CaseConversations } from '@/tabs/CaseConversations';
 
 const CLINICIAN_GROUPS = ['physician', 'admin', 'compliance'];
 
@@ -47,6 +48,7 @@ export function CaseWorkspace() {
   const allTabs = [
     { id: 'overview', label: 'Overview', icon: User, clinicianOnly: false },
     { id: 'interview', label: 'Interview', icon: FileText, clinicianOnly: false },
+    { id: 'conversations', label: 'Sessions', icon: MessagesSquare, clinicianOnly: true },
     { id: 'examination', label: 'Examination', icon: Stethoscope, clinicianOnly: true },
     { id: 'differential', label: 'Differential', icon: Activity, clinicianOnly: true },
     { id: 'tests', label: 'Tests', icon: FlaskConical, clinicianOnly: true },
@@ -113,6 +115,7 @@ export function CaseWorkspace() {
         <div className="mx-auto h-full max-w-5xl">
           {tab === 'overview' && <CaseOverview caseData={caseData} isClinician={isClinician} />}
           {tab === 'interview' && <CaseInterview caseData={caseData} />}
+          {tab === 'conversations' && isClinician && <CaseConversations caseData={caseData} />}
           {tab === 'examination' && isClinician && <CaseExamination caseData={caseData} />}
           {tab === 'differential' && isClinician && <CaseDifferential caseData={caseData} />}
           {tab === 'tests' && isClinician && <CaseTests caseData={caseData} />}
