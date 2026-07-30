@@ -47,17 +47,9 @@ class SehatiStack(Stack):
         bedrock_guardrail_id: str = "",
         bedrock_guardrail_version: str = "DRAFT",
         bedrock_knowledge_base_id: str = "",
-        allowed_origins: list[str] | None = None,
         **kwargs,
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
-
-        # CORS allowlist. Defaults to the local Vite dev server only — pass the
-        # deployed CloudFront/custom domain explicitly once known (e.g. via
-        # `-c allowed_origins=https://xxxx.cloudfront.net,http://localhost:5173`).
-        # Never widen this to "*": the API sits behind bearer tokens read from
-        # the browser, and a wildcard origin lets any site call it cross-site.
-        allowed_origins = allowed_origins or ["http://localhost:5173"]
 
         # --- KMS customer-managed key (encryption at rest) ------------------
         key = kms.Key(
@@ -216,7 +208,6 @@ class SehatiStack(Stack):
                 "BEDROCK_GUARDRAIL_ID": bedrock_guardrail_id,
                 "BEDROCK_GUARDRAIL_VERSION": bedrock_guardrail_version,
                 "BEDROCK_KNOWLEDGE_BASE_ID": bedrock_knowledge_base_id,
-                "ALLOWED_ORIGINS": ",".join(allowed_origins),
                 "LOG_LEVEL": "INFO",
             },
         )
@@ -296,31 +287,23 @@ class SehatiStack(Stack):
                 throttling_rate_limit=50,
                 throttling_burst_limit=100,
             ),
+            default_cors_preflight_options=apigateway.CorsOptions(
+                allow_origins=apigateway.Cors.ALL_ORIGINS,
+                allow_methods=apigateway.Cors.ALL_METHODS,
+                allow_headers=["Content-Type", "Authorization"],
+            ),
         )
         authorizer = apigateway.CognitoUserPoolsAuthorizer(
             self, "ApiAuthorizer",
             cognito_user_pools=[user_pool],
         )
-        # allow_test_invoke=False: skip the extra "test-invoke-stage" Lambda
-        # permission statement CDK otherwise adds per method (for the API
-        # Gateway console's Test button, never used by real traffic). With
-        # OPTIONS now added to every resource this stack's method count
-        # roughly doubled, and the doubled permission count (one deployed-
-        # stage + one test-invoke statement per method) pushed the Lambda's
-        # resource policy past its hard 20KB limit.
-        integration = apigateway.LambdaIntegration(fn, allow_test_invoke=False)
-
-        # CORS preflight (OPTIONS) is routed to the same Lambda rather than
-        # API Gateway's static `default_cors_preflight_options` MOCK
-        # integration: that MOCK response bakes the *entire* allowed-origins
-        # list into one header value, which browsers reject as soon as more
-        # than one origin is configured (e.g. CloudFront + local dev). The
-        # Lambda's `_cors_headers` already reflects back whichever single
-        # origin made the request (only if it's allow-listed) and is
-        # exercised by tests in test_handler.py — OPTIONS just needs to
-        # reach it unauthenticated, since preflight requests carry no
-        # Authorization header.
-        _options_added: set[str] = set()
+        # scope_permission_to_method=False: grant API Gateway invoke access
+        # via a single wildcard Lambda::Permission for the whole API instead
+        # of one per method - Lambda's resource policy has a hard 20KB
+        # ceiling that a permission-per-route design can outgrow.
+        integration = apigateway.LambdaIntegration(
+            fn, scope_permission_to_method=False,
+        )
 
         def secured(resource: apigateway.Resource, method: str) -> None:
             resource.add_method(
@@ -328,12 +311,6 @@ class SehatiStack(Stack):
                 authorization_type=apigateway.AuthorizationType.COGNITO,
                 authorizer=authorizer,
             )
-            if resource.path not in _options_added:
-                resource.add_method(
-                    "OPTIONS", integration,
-                    authorization_type=apigateway.AuthorizationType.NONE,
-                )
-                _options_added.add(resource.path)
 
         # /cases
         cases_res = api.root.add_resource("cases")
