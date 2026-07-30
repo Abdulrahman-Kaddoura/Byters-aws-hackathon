@@ -361,16 +361,8 @@ to `/index.html` so React Router's client-side routes work on refresh/deep-link)
 in with a Cognito user from Task Set 5 works exactly like `npm run dev` did
 locally, just from a public AWS URL.
 
-**Important — allow the deployed site through CORS.** The API only accepts
-browser requests from an explicit origin allowlist (never `*`, since requests
-carry a bearer token). It defaults to `http://localhost:5173` only, so the
-`SiteUrl` from this task set will get CORS-blocked until you redeploy the
-backend with it included:
-```bash
-cd ../infra
-cdk deploy SehatiBackend -c allowed_origins=<SiteUrl>,http://localhost:5173
-```
-(Drop `,http://localhost:5173` if you no longer need local dev access.)
+The API allows CORS requests from any origin, so nothing else is needed here
+before the deployed site can call it.
 
 **Updating after a frontend change:** re-run `./scripts/deploy-frontend.sh`. It
 rebuilds, re-syncs the S3 bucket, and invalidates the CloudFront cache

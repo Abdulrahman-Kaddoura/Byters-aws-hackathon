@@ -61,21 +61,7 @@ def test_handler_groups_from_bracketed_claim(aws):
     assert isinstance(json.loads(resp["body"]), list)
 
 
-def test_handler_options_preflight_allowed_origin(aws, monkeypatch):
-    monkeypatch.setenv("ALLOWED_ORIGINS", "http://localhost:5173")
-    resp = handler({
-        "httpMethod": "OPTIONS", "resource": "/cases",
-        "headers": {"Origin": "http://localhost:5173"},
-    })
+def test_handler_options_preflight(aws):
+    resp = handler({"httpMethod": "OPTIONS", "resource": "/cases"})
     assert resp["statusCode"] == 200
-    assert resp["headers"]["Access-Control-Allow-Origin"] == "http://localhost:5173"
-
-
-def test_handler_options_preflight_unknown_origin_omits_header(aws, monkeypatch):
-    monkeypatch.setenv("ALLOWED_ORIGINS", "http://localhost:5173")
-    resp = handler({
-        "httpMethod": "OPTIONS", "resource": "/cases",
-        "headers": {"Origin": "https://evil.example"},
-    })
-    assert resp["statusCode"] == 200
-    assert "Access-Control-Allow-Origin" not in resp["headers"]
+    assert resp["headers"]["Access-Control-Allow-Origin"] == "*"

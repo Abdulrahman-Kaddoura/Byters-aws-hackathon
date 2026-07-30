@@ -28,25 +28,12 @@ from .router import resolve
 logger = logging.getLogger()
 logger.setLevel(os.environ.get("LOG_LEVEL", "INFO"))
 
-# Origins allowed to call this API from a browser (set by the CDK stack from
-# its `allowed_origins` param). Never falls back to "*": this API is called
-# with a bearer token read from the browser, so a wildcard origin would let
-# any site drive it cross-site on behalf of a signed-in user.
-def _allowed_origins() -> list[str]:
-    return [o.strip() for o in os.environ.get("ALLOWED_ORIGINS", "").split(",") if o.strip()]
-
-
-def _cors_headers(event: dict[str, Any]) -> dict[str, str]:
-    headers = event.get("headers") or {}
-    origin = next((v for k, v in headers.items() if k.lower() == "origin"), None)
-    result = {
+def _cors_headers() -> dict[str, str]:
+    return {
+        "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Headers": "Content-Type,Authorization",
         "Access-Control-Allow-Methods": "GET,POST,PUT,OPTIONS",
-        "Vary": "Origin",
     }
-    if origin and origin in _allowed_origins():
-        result["Access-Control-Allow-Origin"] = origin
-    return result
 
 
 @dataclass(frozen=True)
@@ -92,7 +79,7 @@ def handler(event: dict[str, Any], context: Any = None) -> dict[str, Any]:  # no
     method = event.get("httpMethod", "")
     resource = event.get("resource", "")
 
-    cors = _cors_headers(event)
+    cors = _cors_headers()
 
     if method == "OPTIONS":
         return _response(200, "", cors)
