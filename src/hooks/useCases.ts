@@ -79,6 +79,22 @@ export function useGenerateSummary(caseId: string) {
   });
 }
 
+export function useCreateConversation(caseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (title?: string) => api.createConversation(caseId, title),
+    onSuccess: (res) => applyCase(qc, res.case),
+  });
+}
+
+export function usePostConversationMessage(caseId: string, conversationId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (text: string) => api.postConversationMessage(caseId, conversationId, text),
+    onSuccess: (res) => applyCase(qc, res.case),
+  });
+}
+
 export function useRecommendExams(caseId: string) {
   const qc = useQueryClient();
   return useMutation({

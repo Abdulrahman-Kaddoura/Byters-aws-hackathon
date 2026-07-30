@@ -1,19 +1,19 @@
 # Deploy the SEHATI backend, seed sample cases, and write the frontend .env.
 #
-#   .\scripts\deploy.ps1                              # deploy with the stub AI
-#   $env:AI_PROVIDER = "bedrock"; .\scripts\deploy.ps1
+#   .\scripts\deploy.ps1
 #
-# Requires: AWS credentials in the environment, aws CLI, node, python.
+# Requires: AWS credentials in the environment (with Bedrock model access
+# enabled for the target model in the target region — there is no offline
+# fallback), aws CLI, node, python.
 $ErrorActionPreference = "Stop"
 
 $Stack = "SehatiBackend"
 $Region = if ($env:CDK_DEFAULT_REGION) { $env:CDK_DEFAULT_REGION } else { "us-east-1" }
-$AiProvider = if ($env:AI_PROVIDER) { $env:AI_PROVIDER } else { "stub" }
 $Root = (Resolve-Path "$PSScriptRoot\..").Path
 
 Write-Host "==> Verifying AWS credentials"
 $Account = aws sts get-caller-identity --query Account --output text
-Write-Host "    account=$Account region=$Region ai_provider=$AiProvider"
+Write-Host "    account=$Account region=$Region"
 
 Write-Host "==> Installing CDK dependencies"
 python -m pip install -q -r "$Root\infra\requirements.txt"
@@ -29,7 +29,7 @@ try {
     cdk bootstrap "aws://$Account/$Region"
 
     Write-Host "==> Deploying $Stack"
-    cdk deploy --require-approval never -c "ai_provider=$AiProvider"
+    cdk deploy --require-approval never
 } finally {
     Pop-Location
 }

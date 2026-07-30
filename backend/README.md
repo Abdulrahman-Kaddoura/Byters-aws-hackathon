@@ -4,8 +4,9 @@ A doctor-in-the-loop **clinical decision-support (CDS)** backend, built AWS-nati
 per the SEHATI-AI design document. It owns the case data, the clinical workflow,
 the API, security and the audit trail. The **AI team** plugs its model/prompt/RAG
 work into a single seam (`sehati/ai/`); the **frontend team** consumes a REST
-API. This service works fully **today** with a built-in stub AI — no model, no
-network, no cost.
+API. AI reasoning always goes through Amazon Bedrock (Claude) — there is no
+offline/fake-AI mode in production; tests substitute a deterministic double
+at the AI seam instead (`backend/tests/fakes/ai_double.py`).
 
 > Not a medical device. A CDS aid presents prioritised option lists for a
 > licensed physician to independently review — never a directive, never a
@@ -19,7 +20,7 @@ network, no cost.
 Cognito (auth, groups)
    → API Gateway (REST, Cognito authorizer)
       → Lambda orchestrator (this Python package, Lambda proxy integration)
-         → AIService seam  (stub | Amazon Bedrock + Guardrails + Knowledge Bases)
+         → AIService seam  (Amazon Bedrock + Guardrails + Knowledge Bases)
          → DynamoDB        (cases · audit · feedback)
          → S3 + KMS        (documents · immutable WORM audit)
 ```
@@ -27,7 +28,7 @@ Cognito (auth, groups)
 - **Data store:** DynamoDB (serverless, scale-to-zero). Patient isolation is
   enforced in the **data-access layer** (`db/cases_repo.py`) — the DynamoDB
   analog of Aurora row-level security. The AI is never the authorization boundary.
-- **AI seam:** `AI_PROVIDER=stub` (default) or `AI_PROVIDER=bedrock`.
+- **AI seam:** Amazon Bedrock (Claude) only — no provider toggle.
 - Deploy with the CDK app in [`../infra`](../infra); hosting steps in
   [`../docs/AWS_DEPLOYMENT.md`](../docs/AWS_DEPLOYMENT.md).
 
@@ -56,11 +57,13 @@ cd backend
 python -m venv .venv && source .venv/bin/activate     # optional
 pip install -r requirements.txt
 
-# 1) Run the test suite (moto mocks DynamoDB in-memory)
+# 1) Run the test suite (moto mocks DynamoDB in-memory; the AI seam is
+#    patched to a deterministic test double, see tests/fakes/ai_double.py)
 pytest
 
-# 2) Drive a full case through the entire lifecycle with the stub AI,
-#    including the patient-isolation guard, printing each step:
+# 2) Drive a full case through the entire lifecycle (also uses the test
+#    double by default, no AWS account needed — pass --bedrock to hit real
+#    Bedrock instead), including the patient-isolation guard, printing each step:
 python scripts/local_invoke.py
 ```
 
@@ -80,8 +83,9 @@ python scripts/seed_cases.py --create-table   # loads the 7 sample cases
 
 ## The AI seam (for the AI team)
 
-Implement `sehati.ai.base.AIService`. The two shipped implementations share the
-exact same contract and output shapes (which match `../src/types.ts`):
+Implement `sehati.ai.base.AIService`. The shipped `BedrockAIService`
+implementation follows this exact contract and output shapes (which match
+`../src/types.ts`):
 
 | Method | Produces |
 |---|---|
@@ -98,13 +102,12 @@ Every method returns an `AIResult(value, model_version, retrieved_context)` so t
 audit trail and feedback flywheel capture provenance. The **Bedrock adapter**
 (`ai/bedrock.py`) is where the AI team owns the model id, prompts (`ai/prompts.py`,
 system > physician > retrieved-docs hierarchy), Guardrails, and Knowledge-Base
-retrieval. Flip it on with `AI_PROVIDER=bedrock`.
+retrieval.
 
 ## Configuration (environment variables)
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `AI_PROVIDER` | `stub` | `stub` or `bedrock` |
 | `CASES_TABLE` / `AUDIT_TABLE` / `FEEDBACK_TABLE` | `sehati-*` | DynamoDB table names (set by CDK) |
 | `AWS_REGION` | `us-east-1` | Region |
 | `DYNAMODB_ENDPOINT` | – | Local DynamoDB endpoint override |

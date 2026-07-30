@@ -26,9 +26,7 @@ SehatiStack(
     app,
     "SehatiBackend",
     env=env,
-    # Toggle the AI provider at deploy time: "stub" (default) or "bedrock".
-    ai_provider=app.node.try_get_context("ai_provider") or os.environ.get("AI_PROVIDER", "stub"),
-    # Bedrock model id (or cross-region inference profile id) to use when ai_provider=bedrock.
+    # Bedrock model id (or cross-region inference profile id) to use.
     bedrock_model_id=app.node.try_get_context("bedrock_model_id")
     or os.environ.get("BEDROCK_MODEL_ID", "us.anthropic.claude-sonnet-4-5-20250929-v1:0"),
     # Optional: a Guardrail scopes the IAM grant to bedrock:ApplyGuardrail on that

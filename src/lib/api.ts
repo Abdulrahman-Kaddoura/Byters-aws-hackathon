@@ -1,6 +1,6 @@
 import { config } from './config';
 import { getIdToken, signOut } from './auth';
-import type { ChatMessage, Diagnosis, ExamRecommendation, Flag, FinalDiagnosis, PatientCase, StructuredSummary, TestRecommendation } from '../types';
+import type { ChatMessage, Conversation, Diagnosis, ExamRecommendation, Flag, FinalDiagnosis, PatientCase, StructuredSummary, TestRecommendation } from '../types';
 
 export class ApiError extends Error {
   constructor(readonly status: number, readonly code: string, message: string) {
@@ -81,6 +81,19 @@ export function postInterviewMessage(
 
 export function generateSummary(caseId: string): Promise<CaseEnvelope & { summary: StructuredSummary }> {
   return request('POST', `/cases/${enc(caseId)}/interview/summary`);
+}
+
+// --- Side conversations (return visits / follow-ups) -------------------------
+export function createConversation(caseId: string, title?: string): Promise<CaseEnvelope & { conversation: Conversation }> {
+  return request('POST', `/cases/${enc(caseId)}/conversations`, { title });
+}
+
+export function postConversationMessage(
+  caseId: string,
+  conversationId: string,
+  text: string
+): Promise<CaseEnvelope & { conversation: Conversation; aiMessage: ChatMessage }> {
+  return request('POST', `/cases/${enc(caseId)}/conversations/${enc(conversationId)}/messages`, { text });
 }
 
 // --- Examination ------------------------------------------------------------

@@ -7,11 +7,10 @@ on. Grounding is not optional decoration — it is the regulatory linchpin
 (design doc sections 9.5 and 14): the physician must be able to independently
 review the basis for every recommendation.
 
-Two implementations ship:
-  * :class:`~sehati.ai.stub.StubAIService`   — rule/keyword based, no network,
-    the default, so the backend fully works today.
-  * :class:`~sehati.ai.bedrock.BedrockAIService` — Amazon Bedrock (Claude) +
-    Guardrails + Knowledge Bases; owned and tuned by the AI team.
+The one implementation that ships is :class:`~sehati.ai.bedrock.BedrockAIService`
+(Amazon Bedrock, Claude, + Guardrails + Knowledge Bases; owned and tuned by the
+AI team). Tests substitute a double at the ``factory.get_ai_service`` seam
+instead of a second production implementation.
 """
 
 from __future__ import annotations
@@ -28,7 +27,7 @@ class AIResult:
     """A model output plus its provenance."""
 
     value: Any
-    model_version: str = "stub-v0"
+    model_version: str = "unknown"
     #: Grounding passages / citations used to produce ``value`` (may be empty).
     retrieved_context: list[dict[str, Any]] = field(default_factory=list)
 
@@ -85,3 +84,14 @@ class AIService(abc.ABC):
         """Answer a physician's free-text question. When ``diagnosis_id`` is
         given the answer is scoped to that diagnosis (explainability dialogue);
         otherwise it is a case-level assistant reply."""
+
+    @abc.abstractmethod
+    def chat(
+        self, case: PatientCase, conversation_messages: list[dict[str, Any]]
+    ) -> AIResult:
+        """Free-form patient-facing reply within one named side conversation
+        (a return visit / follow-up chat layered on top of the primary
+        intake interview — see ``PatientCase.conversations``). Distinct from
+        ``next_interview_question`` (the fixed intake sequence, which drives
+        lifecycle) and ``answer`` (physician-facing explainability). Must be
+        grounded in the case's own data like every other seam method."""

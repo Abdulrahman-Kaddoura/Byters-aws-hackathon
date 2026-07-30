@@ -17,22 +17,21 @@ export CDK_DEFAULT_ACCOUNT=$(aws sts get-caller-identity --query Account --outpu
 export CDK_DEFAULT_REGION=us-east-1
 
 cdk bootstrap                          # once per account/region
-cdk deploy SehatiBackend               # deploy with the stub AI (default)
-# cdk deploy SehatiBackend -c ai_provider=bedrock   # switch to Amazon Bedrock (Claude)
+cdk deploy SehatiBackend               # talks to real Amazon Bedrock (Claude) - see docs/AWS_DEPLOYMENT.md Task Set 8
 
 npm run build --prefix ..              # SehatiFrontend uploads whatever is in ../dist
 cdk deploy SehatiFrontend
 ```
 
 Files:
-- `app.py` — CDK app entry (region, AI provider context, both stacks).
+- `app.py` — CDK app entry (region, Bedrock model context, both stacks).
 - `stacks/sehati_stack.py` — backend resources + IAM + wiring, including the API
   Gateway REST API + Cognito authorizer (the API contract itself is documented
   in [`../docs/API.md`](../docs/API.md)).
 - `stacks/frontend_stack.py` — S3 bucket (private, OAI-only) + CloudFront
   distribution (HTTPS, SPA routing) + `BucketDeployment` that uploads
   `../dist` and invalidates the CDN cache on every deploy.
-- `cdk.json` — CDK config (`ai_provider` context default = `stub`).
+- `cdk.json` — CDK config/context defaults.
 
 The Lambda code is bundled directly from [`../backend`](../backend) at deploy time.
 `scripts/deploy.sh`/`.ps1` handle `SehatiBackend`; `scripts/deploy-frontend.sh`/`.ps1`

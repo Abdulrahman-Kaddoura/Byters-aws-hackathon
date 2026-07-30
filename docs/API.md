@@ -37,6 +37,7 @@ is in [`WORKFLOW.md`](./WORKFLOW.md).
 | read cases (`GET /cases`, `GET /cases/{caseId}`) | own only | ✓ | ✓ | ✓ |
 | create a case (`POST /cases`) | ✓ (self) | ✓ | ✓ | — |
 | interview (`.../interview/messages`, `.../interview/summary`) | ✓ | ✓ | ✓ | — |
+| side conversations (`.../conversations`, `.../conversations/{id}/messages`) | ✓ | ✓ | ✓ | — |
 | exams, differential, tests, chat, propose dx | — | ✓ | ✓ | ✓ |
 | accept final diagnosis (sign-off) | — | ✓ | ✓ | — |
 | audit trail (`GET /cases/{caseId}/audit`) | — | — | ✓ | ✓ |
@@ -143,6 +144,26 @@ error (see [Errors](#errors) at the bottom).
   `DoctorReview`.
 - **Who:** patient, physician, or admin.
 - **Sends back:** `{ case, summary }` — `summary` is the *StructuredSummary*.
+
+---
+
+## `POST /cases/{caseId}/conversations` — start a side conversation
+- **Purpose:** Start an extra chat session on an existing case — a return
+  visit or a new question — separate from the primary intake `interview`.
+  Purely additive: never affects `lifecycleState`, `status`, or `stage`.
+- **Who:** patient, physician, or admin.
+- **Wants (JSON body):** `title` (optional; defaults to `"New conversation"`).
+- **Sends back:** `{ case, conversation }` — `conversation` is the new
+  *Conversation* (`{ id, title, createdAt, updatedAt, messages: [] }`),
+  also appended to `case.conversations`.
+
+## `POST /cases/{caseId}/conversations/{conversationId}/messages` — post to a side conversation
+- **Purpose:** Send a message in one specific side conversation and get the
+  AI's grounded reply (uses the case's current data, including stage/status).
+- **Who:** patient, physician, or admin.
+- **Wants (JSON body):** `text` (**required**).
+- **Sends back:** `{ case, conversation, aiMessage }` — `conversation` is the
+  updated *Conversation* (both turns appended to `messages`).
 
 ---
 

@@ -83,6 +83,14 @@ export interface TimelineEntry {
   event: string;
 }
 
+export interface Conversation {
+  id: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+  messages: ChatMessage[];
+}
+
 export interface StructuredSummary {
   chiefComplaint: string;
   hpi: string; // history of present illness
@@ -235,6 +243,7 @@ export interface PatientCase {
   nextSteps: string[];
   recentUpdates: { time: string; text: string; actor: Speaker }[];
   assistantThread: ChatMessage[];
+  conversations?: Conversation[];
   outcome?: string;
   lessonsLearned?: string[];
   associatedConditions?: string[];

@@ -62,6 +62,19 @@ class ChatMessage(TypedDict, total=False):
     time: str
 
 
+class Conversation(TypedDict, total=False):
+    """A single extra chat session on a case, layered on top of the primary
+    intake `interview` — a return visit or follow-up question, not the first
+    interview (that stays on `PatientCase.interview` and keeps driving the
+    lifecycle state machine unchanged)."""
+
+    id: str
+    title: str
+    createdAt: str
+    updatedAt: str
+    messages: list[ChatMessage]
+
+
 class PatientCase(TypedDict, total=False):
     id: str
     patient: dict[str, Any]
@@ -87,6 +100,7 @@ class PatientCase(TypedDict, total=False):
     nextSteps: list[str]
     recentUpdates: list[dict[str, Any]]
     assistantThread: list[ChatMessage]
+    conversations: list[Conversation]
     progress: list[dict[str, Any]]
     # --- Backend-only fields (not rendered by the UI) ---
     lifecycleState: str

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from ..ai import get_ai_service
+from ..ai import factory
 from ..context import AuthContext
 from ..db import audit_repo, cases_repo
 from ..errors import NotFoundError, ValidationError
@@ -15,7 +15,7 @@ from .helpers import find, touch_progress
 def recommend_exams(ctx: AuthContext, args: dict[str, Any]) -> dict[str, Any]:
     ctx.require_clinical_staff()
     case = cases_repo.get_case(_require(args, "caseId"), ctx)
-    result = get_ai_service().recommend_exams(case)
+    result = factory.get_ai_service().recommend_exams(case)
     # Merge without clobbering exams that already have findings.
     existing_ids = {e.get("id") for e in case.get("exams", [])}
     for exam in result.value:

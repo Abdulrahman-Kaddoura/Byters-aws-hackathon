@@ -5,12 +5,11 @@ This is the file the **AI team owns and tunes**. It wires the workflow to:
   * Bedrock **Guardrails** for prompt-attack / PII / grounding defense,
   * Bedrock **Knowledge Bases** (``retrieve``) for the curated, versioned corpus.
 
-It intentionally shares the exact contract and output shapes of
-:class:`~sehati.ai.stub.StubAIService`, so flipping ``AI_PROVIDER=bedrock`` is
-the only change required. Where the model returns free text that must become a
-structured object (summary, differential …), we ask for strict JSON and parse
-it. Failures (model unavailable, throttled, malformed JSON) are raised as real
-errors — this adapter never substitutes fake data for a genuine model response.
+It implements the :class:`~sehati.ai.base.AIService` contract. Where the model
+returns free text that must become a structured object (summary, differential
+…), we ask for strict JSON and parse it. Failures (model unavailable,
+throttled, malformed JSON) are raised as real errors — this adapter never
+substitutes fake data for a genuine model response.
 
 Prerequisites (see docs/AWS_DEPLOYMENT.md):
   * Bedrock model access enabled for the chosen Claude model in us-east-1.
@@ -49,6 +48,8 @@ def _case_context(case: PatientCase) -> dict[str, Any]:
     return {
         "age": patient.get("age"),
         "gender": patient.get("gender"),
+        "stage": case.get("stage"),
+        "status": case.get("status"),
         "chiefComplaint": case.get("chiefComplaint"),
         "complaint": case.get("complaint"),
         "history": case.get("history"),
@@ -243,6 +244,33 @@ class BedrockAIService(AIService):
             case=case,
             physician_question=question,
             retrieval_query=question,
+            max_tokens=600,
+        )
+        return AIResult(chat_message("ai", text.strip()), self.model_version, evidence)
+
+    def chat(
+        self, case: PatientCase, conversation_messages: list[dict[str, Any]]
+    ) -> AIResult:
+        transcript = "\n".join(
+            f"{m.get('role')}: {m.get('text')}" for m in conversation_messages
+        )
+        last_patient_text = next(
+            (m.get("text", "") for m in reversed(conversation_messages) if m.get("role") == "patient"),
+            "",
+        )
+        instruction = (
+            "You are continuing a conversation with the patient about this case — this "
+            "may be a follow-up visit or a new question, separate from the original "
+            "intake interview. Reply in plain, patient-friendly language, grounded in "
+            "the case's own data (including its current stage/status). Do not give a "
+            "diagnosis directly to the patient; if asked, explain a physician will "
+            "review and follow up.\n\n"
+            f"Conversation so far:\n{transcript}"
+        )
+        text, evidence = self._converse(
+            task_instruction=instruction,
+            case=case,
+            retrieval_query=last_patient_text or None,
             max_tokens=600,
         )
         return AIResult(chat_message("ai", text.strip()), self.model_version, evidence)

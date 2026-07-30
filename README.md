@@ -28,12 +28,12 @@ missing.
 
 The prototype walks through the complete clinical workflow:
 
-1. **Patient intake** — a multi-step wizard capturing demographics, history and the current complaint.
-2. **AI patient interview** — an adaptive Q&A (backend `AIService.next_interview_question`) that auto-generates a **structured clinical summary** (so the doctor never reads the raw transcript).
+1. **Patient intake** — staff enter just the patient's name, then hand the device to the patient for a full-screen **Patient Mode** chat (`/cases/:id/patient-mode`) — no form fields to fill in, the AI gathers demographics, history and the current complaint conversationally.
+2. **AI patient interview** — an adaptive Q&A (backend `AIService.next_interview_question`) that auto-generates a **structured clinical summary** (so the doctor never reads the raw transcript). A case can also have extra **side conversations** (return visits/follow-ups) started from the doctor's "Sessions" tab, each its own Patient Mode session.
 3. **Doctor workspace** — a per-case dashboard with patient summary, progress tracker, AI insights, suggested next steps and recent updates.
 4. **Physical examination** — AI-recommended exams (with reason, importance, confidence) where the doctor enters findings, marks complete/skip, and adds notes.
 5. **Differential diagnosis** — ranked diagnosis cards with confidence meters, supporting/contradicting evidence, and full **explainability** (how confidence was calculated, why not 100%, risk, next action, guideline/paper/textbook references, similar historical cases).
-6. **AI discussion** — every diagnosis has its own chat where the doctor can challenge the reasoning ("Why not pulmonary embolism?", "What would increase confidence?"), answered by the backend AI seam (stub or Bedrock).
+6. **AI discussion** — every diagnosis has its own chat where the doctor can challenge the reasoning ("Why not pulmonary embolism?", "What would increase confidence?"), answered by the backend AI seam (Amazon Bedrock).
 7. **Recommended tests & results** — investigations with reason, expected finding, priority, cost, urgency and diagnostic value; results arrive and the differential re-ranks.
 8. **Final diagnosis** — proposed diagnosis with evidence summary, ruled-out alternatives, treatment, monitoring, complications and follow-up. The doctor can Accept / Modify / Continue investigation / Add notes.
 9. **Timeline & completion** — a vertical case timeline and read-only archived cases with outcomes and lessons learned.
@@ -105,12 +105,6 @@ login. After creating that user (and adding it to the `physician` group), run
 > `exclude` list also filters out `.venv`/`venv`/`.pytest_cache` as a
 > second line of defense.
 
-To switch the AI from the deterministic stub to Amazon Bedrock:
-
-```bash
-AI_PROVIDER=bedrock ./scripts/deploy.sh
-```
-
 Request flow once live:
 
 ```
@@ -118,7 +112,7 @@ Browser ──Cognito JWT──> API Gateway ──> Lambda (sehati.handler)
                           (authorizer)      │
                                             ├─ router.py  → resolvers/*.py
                                             ├─ db/*_repo.py → DynamoDB (row-level authz)
-                                            └─ ai/factory.py → stub | Bedrock
+                                            └─ ai/factory.py → Amazon Bedrock (Claude)
 ```
 
 Details: [`docs/AWS_DEPLOYMENT.md`](docs/AWS_DEPLOYMENT.md),
@@ -150,8 +144,8 @@ src/
   types.ts       # Domain model
 ```
 
-All AI reasoning comes from the backend seam (`backend/sehati/ai/`) — a
-deterministic stub by default, or Amazon Bedrock when `AI_PROVIDER=bedrock`.
+All AI reasoning comes from the backend seam (`backend/sehati/ai/`) — Amazon
+Bedrock (Claude); there is no offline/fake mode.
 `src/data/aiResponder.ts` only holds the clickable suggested-prompt labels
 shown above the chat input (e.g. "Why not the alternatives?") — clicking one
 sends that question through the real API like any typed message.

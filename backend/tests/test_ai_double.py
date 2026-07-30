@@ -1,9 +1,9 @@
-"""StubAIService — the ported aiResponder logic and structured generation."""
+"""FakeAIService — the ported aiResponder logic and structured generation."""
 
 import json
 from pathlib import Path
 
-from sehati.ai.stub import StubAIService
+from tests.fakes.ai_double import FakeAIService
 
 CASES = json.loads(
     (Path(__file__).resolve().parents[1] / "sehati" / "data" / "seed_cases.json").read_text(
@@ -14,7 +14,7 @@ PNEUMONIA = next(c for c in CASES if c["id"] == "AUR-1042")
 
 
 def test_answer_why_diagnosis_uses_reasoning():
-    ai = StubAIService()
+    ai = FakeAIService()
     dx = PNEUMONIA["diagnoses"][0]
     # Mirrors the frontend prompt: "Why do you think this is {dx.name}?"
     out = ai.answer(PNEUMONIA, f"Why do you think this is {dx['name']}?", diagnosis_id=dx["id"])
@@ -23,14 +23,14 @@ def test_answer_why_diagnosis_uses_reasoning():
 
 
 def test_answer_why_not_alternative():
-    ai = StubAIService()
+    ai = FakeAIService()
     out = ai.answer(PNEUMONIA, "Why not pulmonary embolism?")
     text = out.value["text"].lower()
     assert "pulmonary embolism" in text
 
 
 def test_answer_references():
-    ai = StubAIService()
+    ai = FakeAIService()
     dx = PNEUMONIA["diagnoses"][0]
     # "reference" (without "support"/"evidence") hits the references branch.
     out = ai.answer(PNEUMONIA, "What references are you using?", diagnosis_id=dx["id"])
@@ -38,7 +38,7 @@ def test_answer_references():
 
 
 def test_interview_terminates():
-    ai = StubAIService()
+    ai = FakeAIService()
     transcript = []
     # Simulate a full interview; it must eventually signal completion (None).
     completed = False
@@ -53,7 +53,7 @@ def test_interview_terminates():
 
 
 def test_build_summary_shape():
-    ai = StubAIService()
+    ai = FakeAIService()
     minimal = {
         "chiefComplaint": "Cough and fever",
         "patient": {"age": 40, "gender": "Male"},
@@ -67,7 +67,7 @@ def test_build_summary_shape():
 
 
 def test_rerank_bumps_top_confidence():
-    ai = StubAIService()
+    ai = FakeAIService()
     before = max(d["confidence"] for d in PNEUMONIA["diagnoses"])
     out = ai.rerank_after_results(PNEUMONIA)
     after = out.value[0]["confidence"]
@@ -76,6 +76,6 @@ def test_rerank_bumps_top_confidence():
 
 
 def test_model_version_recorded():
-    ai = StubAIService()
+    ai = FakeAIService()
     out = ai.answer(PNEUMONIA, "summarize the case")
-    assert out.model_version == "stub-v0"
+    assert out.model_version == "test-fake-v0"

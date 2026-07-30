@@ -1,20 +1,20 @@
 #!/usr/bin/env bash
 # Deploy the SEHATI backend, seed sample cases, and write the frontend .env.
 #
-#   ./scripts/deploy.sh                 # deploy with the stub AI
-#   AI_PROVIDER=bedrock ./scripts/deploy.sh
+#   ./scripts/deploy.sh
 #
-# Requires: AWS credentials in the environment, aws CLI, node, python3.
+# Requires: AWS credentials in the environment (with Bedrock model access
+# enabled for the target model in the target region — there is no offline
+# fallback), aws CLI, node, python3.
 set -euo pipefail
 
 STACK=SehatiBackend
 REGION="${CDK_DEFAULT_REGION:-us-east-1}"
-AI_PROVIDER="${AI_PROVIDER:-stub}"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 echo "==> Verifying AWS credentials"
 ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
-echo "    account=$ACCOUNT region=$REGION ai_provider=$AI_PROVIDER"
+echo "    account=$ACCOUNT region=$REGION"
 
 echo "==> Installing CDK dependencies"
 python3 -m pip install -q -r "$ROOT/infra/requirements.txt"
@@ -27,7 +27,7 @@ CDK_DEFAULT_ACCOUNT=$ACCOUNT CDK_DEFAULT_REGION=$REGION \
 
 echo "==> Deploying $STACK"
 CDK_DEFAULT_ACCOUNT=$ACCOUNT CDK_DEFAULT_REGION=$REGION \
-  cdk deploy --require-approval never -c "ai_provider=$AI_PROVIDER"
+  cdk deploy --require-approval never
 
 echo "==> Reading stack outputs"
 out() {

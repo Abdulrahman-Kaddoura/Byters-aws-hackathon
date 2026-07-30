@@ -83,7 +83,7 @@ nothing when idle, and it scales automatically.
 | **Endpoint** | One action the app can ask for — e.g. "create a case", "get the next interview question". Listed in [`API.md`](./API.md). |
 | **Lifecycle / State** | Which stage a case is at (Intake → AIInterview → … → Closed). The rules for moving between stages are the "state machine". |
 | **Role / Group** | What kind of user someone is: **patient**, **physician**, **admin**, or **compliance**. Roles decide what each person is allowed to do. |
-| **The AI seam** | The single, swappable connection point to the AI. Set to a stand-in ("stub") or to Amazon Bedrock. |
+| **The AI seam** | The single connection point to the AI: Amazon Bedrock. No stand-in/offline mode. |
 | **Audit trail** | A permanent, append-only log: who did what, when, with which AI version, and what evidence was used. For medico-legal safety. |
 | **Feedback flywheel** | Every time a doctor accepts or rejects an AI suggestion, we save it (with the reason). This becomes training data later — safely, without changing the model now. |
 
@@ -91,18 +91,11 @@ nothing when idle, and it scales automatically.
 
 The backend never calls a model directly. It calls a small, fixed set of AI
 "questions" (give me the next interview question, summarise this case, rank the
-diagnoses, answer this doctor's question, …). Behind that sits **one of two
-implementations**:
-
-- **Stub (default):** a rule-based stand-in that produces believable answers using
-  the case's own data. **No AI, no network, no cost.** Lets you demo the entire
-  product today.
-- **Bedrock (flip a switch):** real Claude reasoning via Amazon Bedrock, with
-  safety Guardrails and a medical-literature knowledge base. This is the file the
-  **AI team** owns and tunes.
-
-You switch between them with a single setting (`AI_PROVIDER=stub` or `bedrock`) —
-no code changes. See [`AWS_DEPLOYMENT.md`](./AWS_DEPLOYMENT.md) Task Set G.
+diagnoses, answer this doctor's question, …). Behind that sits one
+implementation: real Claude reasoning via **Amazon Bedrock**, with safety
+Guardrails and a medical-literature knowledge base. This is the file the
+**AI team** owns and tunes. There is no offline/no-cost stand-in — see
+[`AWS_DEPLOYMENT.md`](./AWS_DEPLOYMENT.md) Task Set 8 for prerequisites.
 
 ## 6. How safety is built in (the short version)
 

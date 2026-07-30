@@ -10,7 +10,16 @@ from __future__ import annotations
 from typing import Any, Callable
 
 from .context import AuthContext
-from .resolvers import cases, collab, diagnosis, documents, exams, interview, tests
+from .resolvers import (
+    cases,
+    collab,
+    conversations,
+    diagnosis,
+    documents,
+    exams,
+    interview,
+    tests,
+)
 
 Resolver = Callable[[AuthContext, dict[str, Any]], Any]
 
@@ -26,6 +35,9 @@ ROUTES: dict[str, Resolver] = {
     # Interview
     "postInterviewMessage": interview.post_interview_message,
     "generateSummary": interview.generate_summary,
+    # Side conversations (return visits / follow-ups, additive to interview)
+    "createConversation": conversations.create_conversation,
+    "postConversationMessage": conversations.post_conversation_message,
     # Examination
     "recommendExams": exams.recommend_exams,
     "recordExamFinding": exams.record_exam_finding,
