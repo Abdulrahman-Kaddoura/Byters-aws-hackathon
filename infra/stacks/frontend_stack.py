@@ -61,7 +61,12 @@ class SehatiFrontendStack(Stack):
                     # network (hence no request ever showing up in devtools).
                     content_security_policy=(
                         "default-src 'self'; "
-                        "script-src 'self'; "
+                        # Allows exactly the inline theme-detection script in
+                        # index.html (keeps 'unsafe-inline' off script-src,
+                        # which would let any injected script run — this page
+                        # holds bearer tokens in localStorage). Recompute this
+                        # hash if that inline <script> block's contents change.
+                        "script-src 'self' 'sha256-rc+U/+m7lCtQ/CPTC9NdX2P5Nth+cL4DiCng/Ldd7FU='; "
                         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
                         "img-src 'self' data:; "
                         "font-src 'self' data: https://fonts.gstatic.com; "
