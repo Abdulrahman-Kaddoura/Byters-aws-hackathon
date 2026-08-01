@@ -89,7 +89,7 @@ export function Dashboard() {
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
                           <span>
                             {c.patient.age}
-                            {c.patient.gender[0]}
+                            {c.patient.gender?.[0]}
                           </span>
                           <span>&bull;</span>
                           <span className="max-w-[250px] truncate">{c.chiefComplaint}</span>
