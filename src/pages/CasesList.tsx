@@ -112,7 +112,7 @@ export function CasesList() {
                         <div className="font-medium">{c.patient.name}</div>
                         <div className="text-xs text-muted-foreground">
                           {c.patient.age}
-                          {c.patient.gender[0]} &bull; {c.id}
+                          {c.patient.gender?.[0]} &bull; {c.id}
                         </div>
                       </div>
                     </div>
