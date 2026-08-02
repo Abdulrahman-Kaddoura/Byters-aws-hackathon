@@ -1,6 +1,20 @@
 import { config } from './config';
 import { getIdToken, signOut } from './auth';
-import type { ChatMessage, Conversation, Diagnosis, ExamRecommendation, Flag, FinalDiagnosis, PatientCase, StructuredSummary, TestRecommendation } from '../types';
+import type {
+  AppUser,
+  ChatMessage,
+  CognitoGroup,
+  Conversation,
+  Diagnosis,
+  ExamRecommendation,
+  Flag,
+  FinalDiagnosis,
+  PatientCase,
+  PermissionCatalogEntry,
+  PermissionGroup,
+  StructuredSummary,
+  TestRecommendation,
+} from '../types';
 
 export class ApiError extends Error {
   constructor(readonly status: number, readonly code: string, message: string) {
@@ -171,4 +185,58 @@ export function rejectRecommendation(
   opts: { targetType?: string; reason?: string } = {}
 ): Promise<CaseEnvelope & { accepted: boolean }> {
   return request('POST', `/cases/${enc(caseId)}/recommendations/${enc(targetId)}/reject`, opts);
+}
+
+// --- Admin panel: users + custom permission groups ---------------------------
+export function adminListUsers(): Promise<AppUser[]> {
+  return request('GET', '/admin/users');
+}
+
+export function adminCreateUser(payload: {
+  username: string;
+  email: string;
+  name?: string;
+  cognitoGroup: CognitoGroup;
+  customGroups?: string[];
+}): Promise<{ user: AppUser; temporaryPassword: string }> {
+  return request('POST', '/admin/users', payload);
+}
+
+export function adminGetUser(sub: string): Promise<AppUser> {
+  return request('GET', `/admin/users/${enc(sub)}`);
+}
+
+export function adminUpdateUser(
+  sub: string,
+  patch: {
+    cognitoGroup?: CognitoGroup;
+    customGroups?: string[];
+    permissionOverrides?: Record<string, boolean>;
+    status?: 'active' | 'disabled';
+  }
+): Promise<AppUser> {
+  return request('PUT', `/admin/users/${enc(sub)}`, patch);
+}
+
+export function adminListGroups(): Promise<PermissionGroup[]> {
+  return request('GET', '/admin/groups');
+}
+
+export function adminCreateGroup(payload: { name: string; description?: string; permissions?: string[] }): Promise<PermissionGroup> {
+  return request('POST', '/admin/groups', payload);
+}
+
+export function adminUpdateGroup(
+  id: string,
+  patch: { name?: string; description?: string; permissions?: string[] }
+): Promise<PermissionGroup> {
+  return request('PUT', `/admin/groups/${enc(id)}`, patch);
+}
+
+export function adminDeleteGroup(id: string): Promise<{ deleted: boolean }> {
+  return request('DELETE', `/admin/groups/${enc(id)}`);
+}
+
+export function adminListPermissions(): Promise<PermissionCatalogEntry[]> {
+  return request('GET', '/admin/permissions');
 }

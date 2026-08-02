@@ -11,6 +11,7 @@ from typing import Any, Callable
 
 from .context import AuthContext
 from .resolvers import (
+    admin,
     cases,
     collab,
     conversations,
@@ -56,6 +57,16 @@ ROUTES: dict[str, Resolver] = {
     "rejectRecommendation": collab.reject_recommendation,
     # Documents
     "uploadCaseDocument": documents.upload_case_document,
+    # Admin panel — users + custom permission groups
+    "adminListUsers": admin.list_users,
+    "adminCreateUser": admin.create_user,
+    "adminGetUser": admin.get_user,
+    "adminUpdateUser": admin.update_user,
+    "adminListGroups": admin.list_groups,
+    "adminCreateGroup": admin.create_group,
+    "adminUpdateGroup": admin.update_group,
+    "adminDeleteGroup": admin.delete_group,
+    "adminListPermissions": admin.list_permissions,
 }
 
 

@@ -15,6 +15,7 @@ import {
   Plus,
   LogOut,
   CornerDownLeft,
+  ShieldCheck,
 } from 'lucide-react';
 import { useCaseList } from '@/hooks/useCases';
 import { currentIdentity, signOut } from '@/lib/auth';
@@ -68,6 +69,11 @@ function Sidebar({ mobileOpen, onClose }: { mobileOpen: boolean; onClose: () => 
     { to: '/completed', label: 'Completed', icon: CheckCircle2, badge: completedCount },
     { to: '/knowledge', label: 'Knowledge Base', icon: BookOpen },
   ];
+  // Cosmetic gate only — every /admin endpoint enforces "users.manage"
+  // server-side regardless of what the sidebar shows.
+  if (identity?.groups.includes('admin')) {
+    NAV.push({ to: '/admin', label: 'Admin', icon: ShieldCheck });
+  }
 
   const displayName = identity?.email ?? identity?.username ?? 'Signed in';
   const role = identity?.groups[0] ?? 'User';

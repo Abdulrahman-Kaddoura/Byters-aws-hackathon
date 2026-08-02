@@ -15,13 +15,15 @@ and shape the result into an API Gateway proxy response.
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import logging
 import os
 from dataclasses import dataclass, field
 from typing import Any
 
-from .context import from_apigw_claims
+from .context import AuthContext, from_apigw_claims
+from .db import users_repo
 from .errors import AppError, NotFoundError
 from .router import resolve
 
@@ -73,6 +75,15 @@ _ROUTES = [
     _Route("POST", "/cases/{caseId}/recommendations/{targetId}/accept", "acceptRecommendation"),
     _Route("POST", "/cases/{caseId}/recommendations/{targetId}/reject", "rejectRecommendation"),
     _Route("POST", "/cases/{caseId}/documents", "uploadCaseDocument"),
+    _Route("GET", "/admin/users", "adminListUsers"),
+    _Route("POST", "/admin/users", "adminCreateUser"),
+    _Route("GET", "/admin/users/{userId}", "adminGetUser", path_arg_map={"userId": "sub"}),
+    _Route("PUT", "/admin/users/{userId}", "adminUpdateUser", path_arg_map={"userId": "sub"}),
+    _Route("GET", "/admin/groups", "adminListGroups"),
+    _Route("POST", "/admin/groups", "adminCreateGroup"),
+    _Route("PUT", "/admin/groups/{groupId}", "adminUpdateGroup", path_arg_map={"groupId": "id"}),
+    _Route("DELETE", "/admin/groups/{groupId}", "adminDeleteGroup", path_arg_map={"groupId": "id"}),
+    _Route("GET", "/admin/permissions", "adminListPermissions"),
 ]
 _ROUTE_INDEX: dict[tuple[str, str], _Route] = {(r.method, r.resource): r for r in _ROUTES}
 
@@ -95,6 +106,7 @@ def handler(event: dict[str, Any], context: Any = None) -> dict[str, Any]:  # no
 
         claims = ((event.get("requestContext") or {}).get("authorizer") or {}).get("claims")
         ctx = from_apigw_claims(claims)
+        ctx = _enrich_with_permissions(ctx)
         args = _build_args(event, route)
         result = resolve(route.field, ctx, args)
         return _response(200, json.dumps(result, default=str), cors)
@@ -108,6 +120,17 @@ def handler(event: dict[str, Any], context: Any = None) -> dict[str, Any]:  # no
             json.dumps({"errorType": "InternalError", "message": "An internal error occurred."}),
             cors,
         )
+
+
+def _enrich_with_permissions(ctx: AuthContext) -> AuthContext:
+    """Attach the caller's fine-grained permission set (from the admin-editable
+    custom-group system), looked up in the data layer by ``sub`` — never
+    trusted from the JWT. A caller with no user record yet (not provisioned
+    in ``sehati-users``) gets an empty permission set: fails closed."""
+    user = users_repo.find_user(ctx.sub)
+    if user is None:
+        return ctx
+    return dataclasses.replace(ctx, permissions=users_repo.effective_permissions(user))
 
 
 def _build_args(event: dict[str, Any], route: _Route) -> dict[str, Any]:

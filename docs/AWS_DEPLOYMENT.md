@@ -15,6 +15,7 @@ Task Set 8 (update) and occasionally Task Set 9 (teardown).
 | **3** | Deploy the backend | once, then on updates |
 | **4** | Save the connection details (outputs) | after each deploy |
 | **5** | Create login users (Cognito) | once (add more anytime) |
+| **5b** | Bootstrap the admin panel | once, then create everyone else via `/admin` |
 | **6** | Load the 7 sample cases | once (optional) |
 | **7** | Verify it works | after first deploy |
 | **8** | Bedrock prerequisites & troubleshooting | read before first deploy |
@@ -24,8 +25,9 @@ Task Set 8 (update) and occasionally Task Set 9 (teardown).
 
 **What you're building:** one CloudFormation stack called `SehatiBackend` in the
 **us-east-1 (N. Virginia)** region, containing API Gateway (the REST API),
-Lambda (the logic), DynamoDB (3 tables), Cognito (logins), S3 + KMS (files,
-audit, encryption).
+Lambda (the logic), DynamoDB (5 tables — cases, audit, feedback, plus the
+admin panel's users and permission groups), Cognito (logins), S3 + KMS
+(files, audit, encryption).
 
 **Cost:** ~$150–500/month at pilot scale, dominated by AI tokens; **near-zero
 when idle**. There is no offline/no-cost mode — every deploy talks to real
@@ -125,6 +127,7 @@ aws cloudformation describe-stacks --stack-name SehatiBackend \
 | `UserPoolClientId` | The app's login client id (for signing in). |
 | `Region` | `us-east-1`. |
 | `CasesTableName` | The cases table name (used by the seed step). |
+| `UsersTableName` / `GroupsTableName` | The admin-panel tables (used by the bootstrap step). |
 
 **Checkpoint:** you have `ApiUrl`, `UserPoolId`, and `UserPoolClientId` saved.
 
@@ -167,6 +170,32 @@ aws cognito-idp admin-get-user --user-pool-id $POOL --username dr.karim \
 ```
 
 **Checkpoint:** `admin-add-user-to-group` returned no error for both users.
+
+---
+
+## Task Set 5b — Bootstrap the admin panel
+
+**Goal:** seed the 4 system permission groups and create the initial hospital
+admin account, so you can sign in and provision every other user from
+`/admin` instead of the AWS CLI from here on.
+
+```bash
+cd ../backend
+pip install -r requirements.txt
+USER_POOL_ID=<UserPoolId> AWS_REGION=us-east-1 python -m scripts.bootstrap_admin
+```
+
+Safe to re-run (every step is idempotent — it syncs the seeded groups and
+leaves an existing admin account alone). By default it creates username
+`admin` with password `Admin@123456` (override with `--username`, `--email`,
+`--password`) as a **permanent** password — no forced first-login change,
+since this is the bootstrap account. Once you've signed in, use the Users
+tab in `/admin` to create everyone else: those accounts get a one-time
+temporary password shown in the UI, and go through the normal
+set-your-own-password flow on first login.
+
+**Checkpoint:** the script prints `Sign in with: username: admin ...` and you
+can log in with those credentials.
 
 ---
 

@@ -35,14 +35,19 @@ def aws(monkeypatch):
     from moto import mock_aws
 
     with mock_aws():
-        # Reset the cached DynamoDB resource so it binds to the mock.
+        # Reset cached boto3 clients/resources so they bind to the mock —
+        # both must be (re)built *inside* the mock_aws() context or their
+        # calls hit real AWS instead of moto.
+        from sehati import cognito_admin
         from sehati.db import tables
 
         tables._resource.cache_clear()  # noqa: SLF001
+        cognito_admin._client.cache_clear()  # noqa: SLF001
 
         _create_tables(tables)
         yield tables
         tables._resource.cache_clear()  # noqa: SLF001
+        cognito_admin._client.cache_clear()  # noqa: SLF001
 
 
 def _create_tables(tables) -> None:
@@ -77,6 +82,18 @@ def _create_tables(tables) -> None:
                 {"AttributeName": "sk", "KeyType": "RANGE"},
             ],
         )
+    client.create_table(
+        TableName=tables.USERS_TABLE,
+        BillingMode="PAY_PER_REQUEST",
+        AttributeDefinitions=[{"AttributeName": "sub", "AttributeType": "S"}],
+        KeySchema=[{"AttributeName": "sub", "KeyType": "HASH"}],
+    )
+    client.create_table(
+        TableName=tables.GROUPS_TABLE,
+        BillingMode="PAY_PER_REQUEST",
+        AttributeDefinitions=[{"AttributeName": "id", "AttributeType": "S"}],
+        KeySchema=[{"AttributeName": "id", "KeyType": "HASH"}],
+    )
 
 
 def _gsi(name: str, pk: str) -> dict:
@@ -90,32 +107,82 @@ def _gsi(name: str, pk: str) -> dict:
     }
 
 
+def _default_permissions(role: str) -> frozenset[str]:
+    """The permission set the seeded system group for this Cognito role grants
+    by default (permissions.py) — attached directly to the role fixtures below
+    so resolver tests exercise realistic permission-gated behavior without
+    each test standing up the users/groups tables."""
+    from sehati.permissions import SYSTEM_GROUPS
+
+    return frozenset(SYSTEM_GROUPS[role]["permissions"])
+
+
 @pytest.fixture()
 def patient():
     from sehati.context import AuthContext
 
-    return AuthContext(sub="patient-1", username="layla", groups=frozenset({"patient"}))
+    return AuthContext(
+        sub="patient-1", username="layla", groups=frozenset({"patient"}),
+        permissions=_default_permissions("patient"),
+    )
 
 
 @pytest.fixture()
 def other_patient():
     from sehati.context import AuthContext
 
-    return AuthContext(sub="patient-2", username="sami", groups=frozenset({"patient"}))
+    return AuthContext(
+        sub="patient-2", username="sami", groups=frozenset({"patient"}),
+        permissions=_default_permissions("patient"),
+    )
 
 
 @pytest.fixture()
 def physician():
     from sehati.context import AuthContext
 
-    return AuthContext(sub="dr-karim", username="dr.karim", groups=frozenset({"physician"}))
+    return AuthContext(
+        sub="dr-karim", username="dr.karim", groups=frozenset({"physician"}),
+        permissions=_default_permissions("physician"),
+    )
 
 
 @pytest.fixture()
 def compliance():
     from sehati.context import AuthContext
 
-    return AuthContext(sub="dr-nabil", username="dr.nabil", groups=frozenset({"compliance"}))
+    return AuthContext(
+        sub="dr-nabil", username="dr.nabil", groups=frozenset({"compliance"}),
+        permissions=_default_permissions("compliance"),
+    )
+
+
+@pytest.fixture()
+def admin():
+    from sehati.context import AuthContext
+
+    return AuthContext(
+        sub="admin-1", username="admin", groups=frozenset({"admin"}),
+        permissions=_default_permissions("admin"),
+    )
+
+
+@pytest.fixture()
+def cognito_pool(aws, monkeypatch):
+    """A mocked Cognito user pool with the 4 built-in groups, for tests that
+    exercise the admin panel's Cognito Admin* calls (see cognito_admin.py).
+    Depends on ``aws`` so it shares the same moto session/DynamoDB tables."""
+    import boto3
+
+    idp = boto3.client("cognito-idp", region_name="us-east-1")
+    pool_id = idp.create_user_pool(PoolName="sehati-users")["UserPool"]["Id"]
+    for group in ("patient", "physician", "admin", "compliance"):
+        idp.create_group(UserPoolId=pool_id, GroupName=group)
+    client_id = idp.create_user_pool_client(
+        UserPoolId=pool_id, ClientName="test-client", ExplicitAuthFlows=["ADMIN_NO_SRP_AUTH"]
+    )["UserPoolClient"]["ClientId"]
+    monkeypatch.setenv("USER_POOL_ID", pool_id)
+    return {"idp": idp, "pool_id": pool_id, "client_id": client_id}
 
 
 @pytest.fixture()

@@ -57,3 +57,11 @@ class StateTransitionError(AppError):
 
     code = "StateTransitionError"
     http_status = 409
+
+
+class ConflictError(AppError):
+    """The request conflicts with existing state (e.g. a username already
+    taken, or deleting a system group)."""
+
+    code = "Conflict"
+    http_status = 409

@@ -16,7 +16,7 @@ from .helpers import find, touch_progress
 
 def request_recommendations(ctx: AuthContext, args: dict[str, Any]) -> dict[str, Any]:
     """Generate the prioritised differential + recommended tests."""
-    ctx.require_clinical_staff()
+    ctx.require_permission("diagnoses.manage")
     case = cases_repo.get_case(_require(args, "caseId"), ctx)
 
     ai = factory.get_ai_service()
@@ -41,7 +41,7 @@ def request_recommendations(ctx: AuthContext, args: dict[str, Any]) -> dict[str,
 
 def ask_diagnosis(ctx: AuthContext, args: dict[str, Any]) -> dict[str, Any]:
     """Explainability dialogue scoped to one diagnosis ("Why this test?")."""
-    ctx.require_clinical_staff()
+    ctx.require_permission("diagnoses.manage")
     case = cases_repo.get_case(_require(args, "caseId"), ctx)
     question = _require(args, "question")
     diagnosis_id = args.get("diagnosisId")
@@ -68,7 +68,7 @@ def ask_diagnosis(ctx: AuthContext, args: dict[str, Any]) -> dict[str, Any]:
 
 def rerank_after_results(ctx: AuthContext, args: dict[str, Any]) -> dict[str, Any]:
     """Re-reason once results are in and move to ResultsDiscussion."""
-    ctx.require_clinical_staff()
+    ctx.require_permission("diagnoses.manage")
     case = cases_repo.get_case(_require(args, "caseId"), ctx)
 
     result = factory.get_ai_service().rerank_after_results(case)
@@ -88,7 +88,7 @@ def rerank_after_results(ctx: AuthContext, args: dict[str, Any]) -> dict[str, An
 
 
 def propose_final_diagnosis(ctx: AuthContext, args: dict[str, Any]) -> dict[str, Any]:
-    ctx.require_clinical_staff()
+    ctx.require_permission("diagnoses.manage")
     case = cases_repo.get_case(_require(args, "caseId"), ctx)
 
     result = factory.get_ai_service().propose_final_diagnosis(case)
@@ -110,7 +110,7 @@ def propose_final_diagnosis(ctx: AuthContext, args: dict[str, Any]) -> dict[str,
 
 def accept_final_diagnosis(ctx: AuthContext, args: dict[str, Any]) -> dict[str, Any]:
     """Physician signs off the final diagnosis and closes the case."""
-    ctx.require_physician()
+    ctx.require_permission("final_diagnosis.accept")
     case = cases_repo.get_case(_require(args, "caseId"), ctx)
     if not case.get("finalDiagnosis"):
         raise ValidationError("No final diagnosis has been proposed for this case.")

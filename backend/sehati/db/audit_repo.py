@@ -53,11 +53,8 @@ def record(
 
 
 def list_for_case(case_id: str, ctx: AuthContext) -> list[dict[str, Any]]:
-    """Read a case's audit trail. Compliance / admin only."""
-    if not (ctx.is_compliance or ctx.is_admin):
-        from ..errors import ForbiddenError
-
-        raise ForbiddenError("Only compliance or admin may read the audit trail.")
+    """Read a case's audit trail. Requires the ``audit.view`` permission."""
+    ctx.require_permission("audit.view")
     resp = tables.audit_table().query(
         KeyConditionExpression=Key("caseId").eq(case_id),
         ScanIndexForward=True,

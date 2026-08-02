@@ -18,7 +18,7 @@ from ..models import chat_message
 
 def assistant_chat(ctx: AuthContext, args: dict[str, Any]) -> dict[str, Any]:
     """Case-level assistant reply (persistent SEHATI assistant panel)."""
-    ctx.require_clinical_staff()
+    ctx.require_permission("assistant.chat")
     case = cases_repo.get_case(_require(args, "caseId"), ctx)
     question = _require(args, "text")
 
@@ -36,7 +36,7 @@ def assistant_chat(ctx: AuthContext, args: dict[str, Any]) -> dict[str, Any]:
 
 
 def accept_recommendation(ctx: AuthContext, args: dict[str, Any]) -> dict[str, Any]:
-    ctx.require_clinical_staff()
+    ctx.require_permission("recommendations.record")
     case = cases_repo.get_case(_require(args, "caseId"), ctx)
     target_type = args.get("targetType", "recommendation")
     target_id = _require(args, "targetId")
@@ -53,7 +53,7 @@ def accept_recommendation(ctx: AuthContext, args: dict[str, Any]) -> dict[str, A
 
 
 def reject_recommendation(ctx: AuthContext, args: dict[str, Any]) -> dict[str, Any]:
-    ctx.require_clinical_staff()
+    ctx.require_permission("recommendations.record")
     case = cases_repo.get_case(_require(args, "caseId"), ctx)
     target_type = args.get("targetType", "recommendation")
     target_id = _require(args, "targetId")

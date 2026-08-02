@@ -13,7 +13,7 @@ from .helpers import find, touch_progress
 
 
 def recommend_exams(ctx: AuthContext, args: dict[str, Any]) -> dict[str, Any]:
-    ctx.require_clinical_staff()
+    ctx.require_permission("exams.manage")
     case = cases_repo.get_case(_require(args, "caseId"), ctx)
     result = factory.get_ai_service().recommend_exams(case)
     # Merge without clobbering exams that already have findings.
@@ -29,7 +29,7 @@ def recommend_exams(ctx: AuthContext, args: dict[str, Any]) -> dict[str, Any]:
 
 def record_exam_finding(ctx: AuthContext, args: dict[str, Any]) -> dict[str, Any]:
     """Record a physician's finding for one recommended examination."""
-    ctx.require_clinical_staff()
+    ctx.require_permission("exams.manage")
     case = cases_repo.get_case(_require(args, "caseId"), ctx)
     exam_id = _require(args, "examId")
     exam = find(case.get("exams", []), exam_id)

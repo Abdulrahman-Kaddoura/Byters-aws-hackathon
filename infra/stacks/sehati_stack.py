@@ -113,6 +113,36 @@ class SehatiStack(Stack):
             removal_policy=RemovalPolicy.DESTROY,
         )
 
+        # Admin panel: hospital-provisioned accounts (Cognito is the identity
+        # store; this table carries app-level custom-group membership and
+        # per-user permission overrides) and the admin-editable custom groups
+        # that carry the fine-grained permission catalog (see permissions.py).
+        users = dynamodb.Table(
+            self, "UsersTable",
+            table_name="sehati-users",
+            partition_key=dynamodb.Attribute(name="sub", type=dynamodb.AttributeType.STRING),
+            billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+            encryption=dynamodb.TableEncryption.CUSTOMER_MANAGED,
+            encryption_key=key,
+            point_in_time_recovery_specification=dynamodb.PointInTimeRecoverySpecification(
+                point_in_time_recovery_enabled=True
+            ),
+            removal_policy=RemovalPolicy.DESTROY,
+        )
+
+        groups = dynamodb.Table(
+            self, "GroupsTable",
+            table_name="sehati-groups",
+            partition_key=dynamodb.Attribute(name="id", type=dynamodb.AttributeType.STRING),
+            billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+            encryption=dynamodb.TableEncryption.CUSTOMER_MANAGED,
+            encryption_key=key,
+            point_in_time_recovery_specification=dynamodb.PointInTimeRecoverySpecification(
+                point_in_time_recovery_enabled=True
+            ),
+            removal_policy=RemovalPolicy.DESTROY,
+        )
+
         # --- S3 buckets -----------------------------------------------------
         # Documents / audio / images (KMS-encrypted, private).
         documents = s3.Bucket(
@@ -200,6 +230,9 @@ class SehatiStack(Stack):
                 "CASES_TABLE": cases.table_name,
                 "AUDIT_TABLE": audit.table_name,
                 "FEEDBACK_TABLE": feedback.table_name,
+                "USERS_TABLE": users.table_name,
+                "GROUPS_TABLE": groups.table_name,
+                "USER_POOL_ID": user_pool.user_pool_id,
                 "DOCUMENTS_BUCKET": documents.bucket_name,
                 "AUDIT_BUCKET": audit_bucket.bucket_name,
                 "BEDROCK_MODEL_ID": bedrock_model_id,
@@ -212,9 +245,31 @@ class SehatiStack(Stack):
         cases.grant_read_write_data(fn)
         audit.grant_read_write_data(fn)
         feedback.grant_read_write_data(fn)
+        users.grant_read_write_data(fn)
+        groups.grant_read_write_data(fn)
         documents.grant_read_write(fn)
         audit_bucket.grant_write(fn)
         key.grant_encrypt_decrypt(fn)
+
+        # Admin panel: the Lambda provisions/manages hospital accounts via the
+        # Cognito Admin* API (never client-side — self_sign_up is disabled and
+        # only an authenticated admin's request reaches these resolvers).
+        # Scoped to this one user pool, not the account-wide "*".
+        fn.add_to_role_policy(
+            iam.PolicyStatement(
+                actions=[
+                    "cognito-idp:AdminCreateUser",
+                    "cognito-idp:AdminSetUserPassword",
+                    "cognito-idp:AdminAddUserToGroup",
+                    "cognito-idp:AdminRemoveUserFromGroup",
+                    "cognito-idp:AdminGetUser",
+                    "cognito-idp:AdminDisableUser",
+                    "cognito-idp:AdminEnableUser",
+                    "cognito-idp:ListUsers",
+                ],
+                resources=[user_pool.user_pool_arn],
+            )
+        )
 
         # Bedrock permissions, scoped to the specific model/inference-profile/
         # guardrail/knowledge-base configured for this stack rather than "*".
@@ -366,9 +421,33 @@ class SehatiStack(Stack):
         secured(recommendation_res.add_resource("accept"), "POST")  # acceptRecommendation
         secured(recommendation_res.add_resource("reject"), "POST")  # rejectRecommendation
 
+        # /admin — user + custom-group management (all gated server-side by
+        # the "users.manage" permission, regardless of Cognito role).
+        admin_res = api.root.add_resource("admin")
+
+        admin_users_res = admin_res.add_resource("users")
+        secured(admin_users_res, "GET")   # adminListUsers
+        secured(admin_users_res, "POST")  # adminCreateUser
+
+        admin_user_res = admin_users_res.add_resource("{userId}")
+        secured(admin_user_res, "GET")  # adminGetUser
+        secured(admin_user_res, "PUT")  # adminUpdateUser
+
+        admin_groups_res = admin_res.add_resource("groups")
+        secured(admin_groups_res, "GET")   # adminListGroups
+        secured(admin_groups_res, "POST")  # adminCreateGroup
+
+        admin_group_res = admin_groups_res.add_resource("{groupId}")
+        secured(admin_group_res, "PUT")     # adminUpdateGroup
+        secured(admin_group_res, "DELETE")  # adminDeleteGroup
+
+        secured(admin_res.add_resource("permissions"), "GET")  # adminListPermissions
+
         # --- Outputs --------------------------------------------------------
         CfnOutput(self, "ApiUrl", value=api.url)
         CfnOutput(self, "UserPoolId", value=user_pool.user_pool_id)
         CfnOutput(self, "UserPoolClientId", value=user_pool_client.user_pool_client_id)
         CfnOutput(self, "Region", value=self.region)
         CfnOutput(self, "CasesTableName", value=cases.table_name)
+        CfnOutput(self, "UsersTableName", value=users.table_name)
+        CfnOutput(self, "GroupsTableName", value=groups.table_name)

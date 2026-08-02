@@ -68,7 +68,7 @@ In plain terms:
 | **Login & roles** | Amazon Cognito | Confirms who the user is and which group they belong to (patient / physician / admin / compliance). |
 | **The brain** | AWS Lambda (Python) | Runs the actual logic for every request. This is where our code lives. |
 | **The AI plug** | The "AI seam" inside Lambda | Where AI answers come from. A stand-in today; Amazon Bedrock (Claude) when switched on. |
-| **The database** | Amazon DynamoDB (3 tables) | Stores cases, the audit log, and doctor feedback. |
+| **The database** | Amazon DynamoDB (5 tables) | Stores cases, the audit log, doctor feedback, plus admin-panel accounts and permission groups. |
 | **Files & WORM audit** | Amazon S3 + KMS | Stores documents/images and a permanent, tamper-proof copy of the audit. |
 
 Everything is **serverless** — there are no servers to manage, it costs almost
@@ -82,7 +82,8 @@ nothing when idle, and it scales automatically.
 | **Entity** | A structured piece of data with named fields — e.g. a *Patient*, a *Diagnosis*, a *Test*. Explained one by one in [`DATA_MODEL.md`](./DATA_MODEL.md). |
 | **Endpoint** | One action the app can ask for — e.g. "create a case", "get the next interview question". Listed in [`API.md`](./API.md). |
 | **Lifecycle / State** | Which stage a case is at (Intake → AIInterview → … → Closed). The rules for moving between stages are the "state machine". |
-| **Role / Group** | What kind of user someone is: **patient**, **physician**, **admin**, or **compliance**. Roles decide what each person is allowed to do. |
+| **Role / Group** | What kind of user someone is: **patient**, **physician**, **admin**, or **compliance** (a fixed Cognito group — decides whose *data* you can see). |
+| **Permission group** | A separate, admin-editable bundle of fine-grained permissions (e.g. "manage exams", "sign off diagnoses") assigned to a user on top of their role — decides which *actions* you can take. Managed in the `/admin` panel; see [`API.md`](./API.md)'s admin section and [`ARCHITECTURE.md`](./ARCHITECTURE.md) §5. |
 | **The AI seam** | The single connection point to the AI: Amazon Bedrock. No stand-in/offline mode. |
 | **Audit trail** | A permanent, append-only log: who did what, when, with which AI version, and what evidence was used. For medico-legal safety. |
 | **Feedback flywheel** | Every time a doctor accepts or rejects an AI suggestion, we save it (with the reason). This becomes training data later — safely, without changing the model now. |

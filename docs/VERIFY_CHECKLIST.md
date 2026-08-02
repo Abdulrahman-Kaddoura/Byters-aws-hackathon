@@ -52,15 +52,16 @@ aws cloudformation describe-stacks --stack-name SehatiBackend \
   --query "Stacks[0].Outputs" --output table
 ```
 
-You should see 6 outputs: `ApiUrl`, `UserPoolId`, `UserPoolClientId`,
-`Region`, `CasesTableName`, `AIProvider`. If this list is empty or the stack
-doesn't exist, you haven't deployed yet — go run `./scripts/deploy.sh`.
+You should see 8 outputs: `ApiUrl`, `UserPoolId`, `UserPoolClientId`,
+`Region`, `CasesTableName`, `UsersTableName`, `GroupsTableName`, `AIProvider`.
+If this list is empty or the stack doesn't exist, you haven't deployed yet —
+go run `./scripts/deploy.sh`.
 
 ---
 
-## 2. DynamoDB — 3 tables, all must exist and be `ACTIVE`
+## 2. DynamoDB — 5 tables, all must exist and be `ACTIVE`
 
-The app uses three tables, all encrypted with a customer-managed KMS key
+The app uses five tables, all encrypted with a customer-managed KMS key
 (`alias/sehati`):
 
 | Table | Partition key | Sort key | GSIs |
@@ -68,15 +69,17 @@ The app uses three tables, all encrypted with a customer-managed KMS key
 | `sehati-cases` | `id` | — | `byPatient` (patientId+createdAt), `byPhysician` (assignedPhysicianId+createdAt), `byStatus` (status+createdAt) |
 | `sehati-audit` | `caseId` | `sk` | — |
 | `sehati-feedback` | `caseId` | `sk` | — |
+| `sehati-users` | `sub` | — | — |
+| `sehati-groups` | `id` | — | — |
 
 ```bash
-for t in sehati-cases sehati-audit sehati-feedback; do
+for t in sehati-cases sehati-audit sehati-feedback sehati-users sehati-groups; do
   echo "== $t =="
   aws dynamodb describe-table --table-name $t --query "Table.TableStatus" --output text
 done
 ```
 
-**Expect:** `ACTIVE` for all three. Then confirm the GSIs on the cases table
+**Expect:** `ACTIVE` for all five. Then confirm the GSIs on the cases table
 specifically (this is the #1 cause of "list is empty" / "case doesn't show
 up"):
 
@@ -163,6 +166,31 @@ the app — an already-issued token won't pick up the new group until it's
 reissued (refresh does re-fetch claims from Cognito, but a stale in-memory
 session in an open tab won't unless you trigger it).
 
+### 4b′. CLI-created users also need a `sehati-users` row, or every permission check fails
+
+This app added a second, admin-editable permission layer (permission groups
+in `sehati-users`/`sehati-groups`, on top of the 4 Cognito groups — see
+[`ARCHITECTURE.md`](./ARCHITECTURE.md) §5). Cognito group membership alone is
+no longer enough: at request time the Lambda looks up the caller's `sub` in
+`sehati-users` to compute their permission set, and **a missing row means an
+empty permission set** — the user is authenticated, is in the right Cognito
+group, but every permission-gated action (add note, order test, propose
+diagnosis, …) 403s anyway.
+
+- Users created **through the `/admin` panel** get this row automatically.
+- Users created **by hand via `aws cognito-idp admin-create-user`** (as in
+  §4 above) do **not** — either use the admin panel instead going forward, or
+  run `python -m scripts.bootstrap_admin` once to get an initial admin account,
+  then create everyone else through `/admin`.
+
+```bash
+aws dynamodb get-item --table-name sehati-users --key '{"sub":{"S":"<their-sub>"}}'
+```
+
+**Expect:** an item back. Empty response = this is your problem, not a group
+membership issue — the Cognito checks in §4/§4a can all pass while this still
+silently blocks every clinical action.
+
 ### 4b. Confirm the token actually carries groups
 
 ```bash
@@ -248,7 +276,9 @@ aws lambda get-function-configuration --function-name sehati-orchestrator \
 ```
 
 **Expect:** `CASES_TABLE=sehati-cases`, `AUDIT_TABLE=sehati-audit`,
-`FEEDBACK_TABLE=sehati-feedback`, `DOCUMENTS_BUCKET=...`, `AUDIT_BUCKET=...`,
+`FEEDBACK_TABLE=sehati-feedback`, `USERS_TABLE=sehati-users`,
+`GROUPS_TABLE=sehati-groups`, `USER_POOL_ID=...` (needed for the admin
+panel's Cognito `Admin*` calls), `DOCUMENTS_BUCKET=...`, `AUDIT_BUCKET=...`,
 `LOG_LEVEL=INFO`.
 
 ---
@@ -368,6 +398,7 @@ an already-deployed site.
 | Blank page before login | Missing/wrong `.env` | §8 |
 | Login fails outright | No Cognito user, or wrong `VITE_COGNITO_CLIENT_ID` | §4, §8 |
 | Logged in, `GET /cases` returns `[]` | User in no group, or no data seeded, or GSI key missing on the rows | §4a, §2, §10 |
+| Specific action 403s despite correct Cognito group | Missing `sehati-users` row (CLI-created user, not admin-panel-created) | §4b′ |
 | Specific action 403s | Group membership, or case ownership | §4a, §6 |
 | Specific action 500s | Real bug — read the traceback | §6 |
 | AI-driven action fails only | Bedrock not enabled / no model access | §7 |

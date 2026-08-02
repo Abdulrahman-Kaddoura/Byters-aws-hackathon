@@ -11,6 +11,7 @@ import { PatientMode } from '@/pages/PatientMode';
 import { KnowledgeBase } from '@/pages/KnowledgeBase';
 import { CompletedCases } from '@/pages/CompletedCases';
 import { Settings } from '@/pages/Settings';
+import { AdminPanel } from '@/pages/admin/AdminPanel';
 import NotFound from '@/pages/not-found';
 
 function App() {
@@ -31,6 +32,7 @@ function App() {
               <Route path="/completed" component={CompletedCases} />
               <Route path="/knowledge" component={KnowledgeBase} />
               <Route path="/settings" component={Settings} />
+              <Route path="/admin/:tab?" component={AdminPanel} />
               <Route component={NotFound} />
             </Switch>
           </AppLayout>

@@ -30,8 +30,14 @@ class AuthContext:
     username: str
     groups: frozenset[str] = field(default_factory=frozenset)
     claims: dict[str, Any] = field(default_factory=dict)
+    # Fine-grained permissions from the admin-editable custom-group system
+    # (permissions.py / db/users_repo.py), attached by handler.py after
+    # from_apigw_claims() via a data-layer lookup — never derived from the
+    # JWT itself. Empty until that enrichment step runs (fails closed).
+    permissions: frozenset[str] = field(default_factory=frozenset)
 
-    # --- Role predicates ---
+    # --- Role predicates (coarse identity — drives row-level security only,
+    # not admin-editable; see permissions.py for the fine-grained system) ---
     @property
     def is_patient(self) -> bool:
         return GROUP_PATIENT in self.groups
@@ -53,13 +59,13 @@ class AuthContext:
         """Anyone permitted to see across patients within the hospital tenant."""
         return self.is_physician or self.is_admin or self.is_compliance
 
-    def require_physician(self) -> None:
-        if not (self.is_physician or self.is_admin):
-            raise ForbiddenError("This action requires a physician role.")
+    # --- Fine-grained permissions (admin-editable custom groups) ---
+    def has_permission(self, permission: str) -> bool:
+        return permission in self.permissions
 
-    def require_clinical_staff(self) -> None:
-        if not self.is_clinical_staff:
-            raise ForbiddenError("This action requires clinical staff privileges.")
+    def require_permission(self, permission: str) -> None:
+        if not self.has_permission(permission):
+            raise ForbiddenError(f"This action requires the '{permission}' permission.")
 
 
 def from_apigw_claims(claims: dict[str, Any] | None) -> AuthContext:

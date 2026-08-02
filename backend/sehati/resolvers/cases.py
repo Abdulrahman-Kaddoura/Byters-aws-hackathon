@@ -78,7 +78,7 @@ def submit_intake(ctx: AuthContext, args: dict[str, Any]) -> PatientCase:
 
 def set_case_state(ctx: AuthContext, args: dict[str, Any]) -> PatientCase:
     """Explicit lifecycle transition (design doc section 7). Physician-driven."""
-    ctx.require_clinical_staff()
+    ctx.require_permission("cases.manage_state")
     case = cases_repo.get_case(_require(args, "caseId"), ctx)
     target = _require(args, "state")
     _apply_state(case, target)
@@ -92,7 +92,7 @@ def set_case_state(ctx: AuthContext, args: dict[str, Any]) -> PatientCase:
 
 
 def add_note(ctx: AuthContext, args: dict[str, Any]) -> PatientCase:
-    ctx.require_clinical_staff()
+    ctx.require_permission("cases.add_note")
     case = cases_repo.get_case(_require(args, "caseId"), ctx)
     text = _require(args, "text")
     case.setdefault("notes", []).append(
