@@ -19,7 +19,7 @@ Tablet / Web (frontend team)
   → Amazon API Gateway ...... REST API (Cognito authorizer, Lambda proxy integration)
   → AWS Lambda (Python) ..... orchestration; the authorization boundary
         ├─ AIService seam ... stub (default) | Amazon Bedrock (Claude) + Guardrails + KB
-        ├─ Amazon DynamoDB .. cases · audit · feedback  (KMS-encrypted, on-demand)
+        ├─ Amazon DynamoDB .. cases · audit · feedback · users · groups (KMS-encrypted, on-demand)
         └─ Amazon S3 + KMS .. documents/audio/images · immutable WORM audit (Object Lock)
   Observability ............ CloudWatch Logs + API Gateway access logs + X-ray
 ```
@@ -83,6 +83,44 @@ raise `StateTransitionError`.
   and retrieved documents are framed as **untrusted data, never instructions**
   (OWASP LLM01), via the system > physician > retrieved-docs hierarchy in
   `ai/prompts.py`.
+
+### Two-tier authorization: Cognito groups vs. admin-editable permission groups
+
+Access control is deliberately split into two layers that answer different
+questions:
+
+1. **Cognito's 4 groups** (`patient`/`physician`/`admin`/`compliance`) — the
+   coarse **identity** layer. `AuthContext.is_patient` / `is_clinical_staff`
+   derive straight from these and drive the row-level-security predicate in
+   `db/cases_repo.py` (a patient sees only their own case; clinical staff see
+   the tenant). This is fixed by design — not admin-editable — because
+   patient-vs-staff is a data-isolation boundary, not a permission to toggle.
+2. **Custom permission groups** (`permissions.py`, `db/groups_repo.py`,
+   `db/users_repo.py`) — a separate, fully admin-CRUD'd concept for
+   fine-grained **capability**. Each group is a name plus a subset of a fixed
+   permission catalog (one key per real gated action: `cases.manage_state`,
+   `exams.manage`, `diagnoses.manage`, `final_diagnosis.accept`,
+   `tests.manage`, `assistant.chat`, `recommendations.record`, `audit.view`,
+   `cases.add_note`, plus `users.manage` for the admin panel itself). A user
+   belongs to one or more custom groups, with optional per-user permission
+   overrides on top; effective permission = union of group permissions, with
+   overrides applied last. Stored in two new DynamoDB tables (`sehati-users`,
+   `sehati-groups`) — see [`DATA_MODEL.md`](./DATA_MODEL.md) Part C.
+
+At request time, `handler.py` builds the base `AuthContext` from the verified
+JWT claims (`context.from_apigw_claims` — untouched, still pure), then a
+separate enrichment step looks up the caller's `sehati-users` record and
+attaches their computed permission set (`AuthContext.permissions`). Every
+call site that used to gate on `ctx.require_clinical_staff()` /
+`ctx.require_physician()` now calls `ctx.require_permission("the.key")`
+instead; `db/audit_repo.py`'s compliance/admin check is now
+`ctx.require_permission("audit.view")`. The 4 system permission groups
+(seeded by `scripts/bootstrap_admin.py`, one per Cognito role) reproduce
+today's exact behavior by default, so this is additive — a hospital that
+never touches the Groups tab in `/admin` sees no behavior change; one that
+does gets real, server-enforced fine-grained control (e.g. a "Triage Nurse"
+custom group that can add notes and manage exams but can't touch diagnoses,
+regardless of their Cognito role).
 
 ### Threat model mapping (design doc §10.3)
 

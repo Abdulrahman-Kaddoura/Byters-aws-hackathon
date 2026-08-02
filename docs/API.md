@@ -45,6 +45,20 @@ is in [`WORKFLOW.md`](./WORKFLOW.md).
 If a user calls something they're not allowed to, they get a `403 Forbidden`
 error (see [Errors](#errors) at the bottom).
 
+**This table is enforced, not just descriptive.** Under the hood, each
+clinical action above checks a specific fine-grained **permission**
+(`cases.manage_state`, `exams.manage`, `diagnoses.manage`,
+`final_diagnosis.accept`, `tests.manage`, `assistant.chat`,
+`recommendations.record`, `audit.view`) rather than the role name directly. A
+user's effective permissions come from the admin-editable permission
+**groups** they belong to (see the `/admin` endpoints below), seeded by
+default so every role above starts out with exactly this table's behavior —
+an admin can then create custom groups to grant a narrower or different set
+of permissions to specific users, independent of their Cognito role.
+Row-level access (a patient only ever seeing their own case) is separate and
+is **not** part of this permission system — it's Cognito-role-based and
+enforced in the data layer, unaffected by permission-group changes.
+
 ---
 
 # ENDPOINTS
@@ -297,6 +311,76 @@ error (see [Errors](#errors) at the bottom).
   curl -X POST "$API_URL/cases/AUR-1042/recommendations/dx-pe/reject" -H "Authorization: $TOKEN" \
     -H "Content-Type: application/json" -d '{"reason":"Low Wells score; prefer to wait."}'
   ```
+
+---
+
+# Admin panel — users + permission groups
+
+Everything below requires the **`users.manage`** permission (only the
+"Administrator" system group has it by default). These are not part of the
+clinical role table above — they're how an admin actually manages accounts
+and the permission groups that back it. See `docs/ARCHITECTURE.md` §5 for the
+two-tier model (Cognito groups = coarse identity, these groups = fine-grained
+permissions).
+
+## `GET /admin/users` — list every hospital account
+- **Sends back:** a JSON array of *AppUser* (`sub`, `username`, `email`,
+  `name`, `cognitoGroup`, `customGroups`, `permissionOverrides`, `status`,
+  `createdAt`, `updatedAt`).
+
+## `POST /admin/users` — provision a new account
+- **Wants (JSON body):**
+  | Field | Required | Description |
+  |-------|:--:|-------------|
+  | `username` | **yes** | Cognito sign-in username. |
+  | `email` | **yes** | Used for the Cognito `email` attribute (marked pre-verified). |
+  | `name` | no | Display name. |
+  | `cognitoGroup` | **yes** | One of `patient`, `physician`, `admin`, `compliance`. |
+  | `customGroups` | no | Permission-group ids to assign; defaults to the system group matching `cognitoGroup`. |
+- **Sends back:** `{ user, temporaryPassword }` — the temp password is
+  generated server-side and shown **only in this one response**; the account
+  is left in Cognito's `FORCE_CHANGE_PASSWORD` state, so the user sets their
+  own permanent password on first sign-in (the existing `NEW_PASSWORD_REQUIRED`
+  flow).
+- **Errors:** `409 Conflict` if the username already exists.
+
+## `GET /admin/users/{userId}` — get one account
+- `userId` is the Cognito `sub`. Sends back one *AppUser*.
+
+## `PUT /admin/users/{userId}` — update an account
+- **Wants (JSON body, all optional):** `cognitoGroup`, `customGroups`,
+  `permissionOverrides` (`{ "permission.key": true|false }`), `status`
+  (`"active"` or `"disabled"`).
+- Changing `cognitoGroup` moves the user between Cognito groups; changing
+  `status` to `"disabled"` calls Cognito's `AdminDisableUser` (blocks sign-in
+  entirely, separate from permissions).
+- **Sends back:** the updated *AppUser*.
+
+## `GET /admin/groups` — list permission groups
+- **Sends back:** a JSON array of *PermissionGroup* (`id`, `name`,
+  `description`, `permissions`, `isSystem`, `createdAt`, `updatedAt`). The 4
+  system groups (`isSystem: true`) back the 4 Cognito roles.
+
+## `POST /admin/groups` — create a custom permission group
+- **Wants (JSON body):** `name` (**yes**), `description` (no), `permissions`
+  (no — list of permission keys from the catalog below).
+- **Sends back:** the created *PermissionGroup*.
+
+## `PUT /admin/groups/{groupId}` — edit a group
+- **Wants (JSON body, all optional):** `name`, `description`, `permissions`.
+  Permissions can be edited on system groups too (that's how you'd loosen or
+  tighten a role's defaults); only deleting a system group is blocked.
+- **Sends back:** the updated *PermissionGroup*.
+
+## `DELETE /admin/groups/{groupId}` — delete a custom group
+- **Sends back:** `{ deleted: true }`.
+- **Errors:** `409 Conflict` if the group is a system group.
+
+## `GET /admin/permissions` — the fixed permission catalog
+- **Sends back:** a JSON array of `{ key, label }` — every permission key
+  that's actually checked somewhere in the backend (see the table above),
+  plus `users.manage` itself. This is what the admin UI's permission
+  checklists are built from; it is not admin-extensible.
 
 ---
 

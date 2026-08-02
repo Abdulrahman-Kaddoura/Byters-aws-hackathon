@@ -15,6 +15,7 @@ Task Set 8 (update) and occasionally Task Set 9 (teardown).
 | **3** | Deploy the backend | once, then on updates |
 | **4** | Save the connection details (outputs) | after each deploy |
 | **5** | Create login users (Cognito) | once (add more anytime) |
+| **5b** | Bootstrap the admin panel | once, then create everyone else via `/admin` |
 | **6** | Load the 7 sample cases | once (optional) |
 | **7** | Verify it works | after first deploy |
 | **8** | Bedrock prerequisites & troubleshooting | read before first deploy |
@@ -24,8 +25,9 @@ Task Set 8 (update) and occasionally Task Set 9 (teardown).
 
 **What you're building:** one CloudFormation stack called `SehatiBackend` in the
 **us-east-1 (N. Virginia)** region, containing API Gateway (the REST API),
-Lambda (the logic), DynamoDB (3 tables), Cognito (logins), S3 + KMS (files,
-audit, encryption).
+Lambda (the logic), DynamoDB (5 tables — cases, audit, feedback, plus the
+admin panel's users and permission groups), Cognito (logins), S3 + KMS
+(files, audit, encryption).
 
 **Cost:** ~$150–500/month at pilot scale, dominated by AI tokens; **near-zero
 when idle**. There is no offline/no-cost mode — every deploy talks to real

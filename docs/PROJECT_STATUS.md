@@ -320,3 +320,58 @@ without grounding/retrieval evidence until `BEDROCK_KNOWLEDGE_BASE_ID` is set �
 those two env vars remain hand-set only, not CDK-managed). The AI team's
 separate pipeline (§2) is still fully disconnected — none of this used their
 Agent, Lambdas, or Knowledge Bases.
+
+---
+
+## 8. Admin panel + fuller patient intake (2026-08-02)
+
+Previously, hospital accounts could only be created by hand via
+`aws cognito-idp admin-create-user`/`admin-add-user-to-group` (documented in
+`AWS_DEPLOYMENT.md` Task Set 5), and access control was entirely the 4 fixed
+Cognito groups baked into hardcoded resolver checks — no way to see who had
+an account, no way to grant anything more precise than "is this a physician."
+New Case intake also only collected the patient's name.
+
+**Changes made:**
+
+1. **A real `/admin` panel** (Users + Groups tabs) — only an account with the
+   new `users.manage` permission (granted to the "Administrator" system group
+   by default) can create accounts, assign a Cognito role, assign
+   fine-grained permission groups, and set per-user permission overrides.
+2. **A second, admin-editable permission layer, decoupled from Cognito's 4
+   groups.** Cognito's groups stay the coarse identity/row-level-security
+   boundary (unchanged — still drives `is_patient`/`is_clinical_staff` in
+   `context.py` and case ownership in `cases_repo.py`). A new pair of
+   DynamoDB tables (`sehati-users`, `sehati-groups`) carries fine-grained
+   permissions from a fixed 10-key catalog (`permissions.py`); the **9**
+   backend call sites that used to gate on `ctx.require_clinical_staff()` /
+   `ctx.require_physician()` (plus one inline check in `db/audit_repo.py`)
+   now gate on `ctx.require_permission("the.key")` instead, computed at
+   request time in `handler.py` from the caller's group memberships +
+   overrides. 4 system groups (seeded by the new
+   `scripts/bootstrap_admin.py`) reproduce today's exact role behavior by
+   default, so this is additive, not a behavior change, until an admin
+   actually creates/edits a custom group. Full model:
+   [`ARCHITECTURE.md`](./ARCHITECTURE.md) §5; endpoints:
+   [`API.md`](./API.md)'s admin section; table shapes:
+   [`DATA_MODEL.md`](./DATA_MODEL.md) Part C.
+3. **New users get a server-generated one-time temp password** shown once in
+   the admin UI (Cognito never returns an auto-generated one, so it's
+   generated server-side and passed explicitly), left in
+   `FORCE_CHANGE_PASSWORD` state — first sign-in goes through the existing
+   `NEW_PASSWORD_REQUIRED` flow the frontend already had.
+4. **New Case now collects the full patient record** (name, age, gender,
+   weight, height, blood type, occupation — all required) instead of just
+   the name, before creating the case and entering Patient Mode. No backend
+   schema change — `submitIntake` already accepted arbitrary fields on
+   `patient`, only `name` was ever validated.
+5. Added `backend/tests/test_admin.py` (permission computation, admin CRUD,
+   and an end-to-end test proving a restrictive custom group actually blocks
+   a Cognito-`physician`-role user from a clinical action) — full existing
+   suite still passes unmodified against the rewired permission checks.
+
+**Not yet done:** wiring the fine-grained permission system into the
+patient-facing intake/interview/conversations/document-upload endpoints —
+those are intentionally ungated today (any authenticated user, scoped only
+by case ownership) and were left untouched by design, since gating them
+wasn't part of this change and touches the patient-access model directly.

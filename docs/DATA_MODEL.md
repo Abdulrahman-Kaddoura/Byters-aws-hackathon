@@ -310,9 +310,11 @@ interrogate it.
 
 ## Part C — The database tables (where this lives on AWS)
 
-All data is stored in **Amazon DynamoDB**, a serverless database. There are **three
-tables**. Every table is encrypted with a dedicated key and bills only for what you
-use (near-zero when idle).
+All data is stored in **Amazon DynamoDB**, a serverless database. There are **five
+tables**: three for clinical cases (below), plus two more for the admin panel's
+account/permission management (`sehati-users`, `sehati-groups` — see the end of
+this section). Every table is encrypted with a dedicated key and bills only for
+what you use (near-zero when idle).
 
 ### Table 1 — `sehati-cases` (the cases)
 
@@ -345,6 +347,32 @@ use (near-zero when idle).
   **version**, and the **evidence** at the time.
 - This is the dataset used later to safely improve the AI (without changing the
   model now — see [`ARCHITECTURE.md`](./ARCHITECTURE.md) §6).
+
+---
+
+### Table 4 — `sehati-users` (hospital-provisioned accounts)
+
+- **One row = one account's app-level permission data** — Cognito remains the
+  identity store (sign-in, password, the 4 coarse groups); this table only
+  carries what Cognito has no concept of.
+- **Primary key:** `sub` (the Cognito subject — same id used as `patientId`/
+  `assignedPhysicianId` elsewhere).
+- Fields: `username`, `email`, `name`, `cognitoGroup` (their Cognito role),
+  `customGroups` (list of `sehati-groups` ids they belong to),
+  `permissionOverrides` (`{ "permission.key": true|false }`, beats group
+  membership either way), `status` (`active`/`disabled`), `createdAt`/`updatedAt`.
+- Looked up once per request (by `sub`) to compute the caller's effective
+  permission set — see [`ARCHITECTURE.md`](./ARCHITECTURE.md) §5.
+
+### Table 5 — `sehati-groups` (admin-defined permission groups)
+
+- **One row = one named bundle of permissions** — decoupled from Cognito's 4
+  groups; an admin can create/edit/delete these from the `/admin` panel.
+- **Primary key:** `id`.
+- Fields: `name`, `description`, `permissions` (list of keys from the fixed
+  catalog — see `GET /admin/permissions` in [`API.md`](./API.md)), `isSystem`
+  (the 4 groups matching Cognito roles are marked `true` and can't be
+  deleted, but their `permissions` can still be edited), `createdAt`/`updatedAt`.
 
 ---
 

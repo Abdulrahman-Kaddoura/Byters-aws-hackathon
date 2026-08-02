@@ -201,6 +201,12 @@ checks it before acting.
 The golden rule: **a patient can never see another patient's case.** This is
 enforced by the database access layer, not by the AI. See [`ARCHITECTURE.md`](./ARCHITECTURE.md) §5.
 
+This table is each role's **default** — an admin can narrow or customize it
+per user from the `/admin` panel's permission groups (e.g. a "Triage Nurse"
+custom group that can add notes but not sign off diagnoses, regardless of
+their Cognito role). Only an admin can create accounts at all — there's no
+self-signup. See `docs/API.md`'s admin section for the endpoints.
+
 ---
 
 ## 4. What gets recorded automatically
