@@ -23,6 +23,8 @@ import boto3
 CASES_TABLE = os.environ.get("CASES_TABLE", "sehati-cases")
 AUDIT_TABLE = os.environ.get("AUDIT_TABLE", "sehati-audit")
 FEEDBACK_TABLE = os.environ.get("FEEDBACK_TABLE", "sehati-feedback")
+USERS_TABLE = os.environ.get("USERS_TABLE", "sehati-users")
+GROUPS_TABLE = os.environ.get("GROUPS_TABLE", "sehati-groups")
 
 REGION = os.environ.get("AWS_REGION", "us-east-1")
 
@@ -46,6 +48,14 @@ def audit_table():
 
 def feedback_table():
     return _resource().Table(FEEDBACK_TABLE)
+
+
+def users_table():
+    return _resource().Table(USERS_TABLE)
+
+
+def groups_table():
+    return _resource().Table(GROUPS_TABLE)
 
 
 # --- Decimal <-> JSON number conversion ------------------------------------

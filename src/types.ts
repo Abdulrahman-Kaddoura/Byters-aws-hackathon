@@ -249,3 +249,39 @@ export interface PatientCase {
   associatedConditions?: string[];
   progress: ProgressStep[];
 }
+
+// ---------------------------------------------------------------------------
+// Admin panel — hospital-provisioned accounts and custom permission groups.
+// Cognito's 4 groups (below) stay the coarse identity/row-level-security
+// role; PermissionGroup is a separate, admin-editable concept carrying
+// fine-grained permissions (see docs/API.md and backend/sehati/permissions.py).
+// ---------------------------------------------------------------------------
+export type CognitoGroup = 'patient' | 'physician' | 'admin' | 'compliance';
+
+export interface PermissionCatalogEntry {
+  key: string;
+  label: string;
+}
+
+export interface PermissionGroup {
+  id: string;
+  name: string;
+  description: string;
+  permissions: string[];
+  isSystem: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AppUser {
+  sub: string;
+  username: string;
+  email: string;
+  name: string;
+  cognitoGroup: CognitoGroup;
+  customGroups: string[];
+  permissionOverrides: Record<string, boolean>;
+  status: 'active' | 'disabled';
+  createdAt: string;
+  updatedAt: string;
+}

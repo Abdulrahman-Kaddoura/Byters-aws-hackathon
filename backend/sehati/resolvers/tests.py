@@ -14,7 +14,7 @@ from .helpers import find, touch_progress
 
 def order_test(ctx: AuthContext, args: dict[str, Any]) -> dict[str, Any]:
     """Physician orders a recommended test (recommended -> ordered)."""
-    ctx.require_clinical_staff()
+    ctx.require_permission("tests.manage")
     case = cases_repo.get_case(_require(args, "caseId"), ctx)
     test_id = _require(args, "testId")
     test = find(case.get("tests", []), test_id)
@@ -33,7 +33,7 @@ def order_test(ctx: AuthContext, args: dict[str, Any]) -> dict[str, Any]:
 
 def record_test_result(ctx: AuthContext, args: dict[str, Any]) -> dict[str, Any]:
     """Ingest a test result (text; radiologist reports ingested as text)."""
-    ctx.require_clinical_staff()
+    ctx.require_permission("tests.manage")
     case = cases_repo.get_case(_require(args, "caseId"), ctx)
     test_id = _require(args, "testId")
     test = find(case.get("tests", []), test_id)

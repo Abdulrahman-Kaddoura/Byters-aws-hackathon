@@ -125,6 +125,7 @@ aws cloudformation describe-stacks --stack-name SehatiBackend \
 | `UserPoolClientId` | The app's login client id (for signing in). |
 | `Region` | `us-east-1`. |
 | `CasesTableName` | The cases table name (used by the seed step). |
+| `UsersTableName` / `GroupsTableName` | The admin-panel tables (used by the bootstrap step). |
 
 **Checkpoint:** you have `ApiUrl`, `UserPoolId`, and `UserPoolClientId` saved.
 
@@ -167,6 +168,32 @@ aws cognito-idp admin-get-user --user-pool-id $POOL --username dr.karim \
 ```
 
 **Checkpoint:** `admin-add-user-to-group` returned no error for both users.
+
+---
+
+## Task Set 5b — Bootstrap the admin panel
+
+**Goal:** seed the 4 system permission groups and create the initial hospital
+admin account, so you can sign in and provision every other user from
+`/admin` instead of the AWS CLI from here on.
+
+```bash
+cd ../backend
+pip install -r requirements.txt
+USER_POOL_ID=<UserPoolId> AWS_REGION=us-east-1 python -m scripts.bootstrap_admin
+```
+
+Safe to re-run (every step is idempotent — it syncs the seeded groups and
+leaves an existing admin account alone). By default it creates username
+`admin` with password `Admin@123456` (override with `--username`, `--email`,
+`--password`) as a **permanent** password — no forced first-login change,
+since this is the bootstrap account. Once you've signed in, use the Users
+tab in `/admin` to create everyone else: those accounts get a one-time
+temporary password shown in the UI, and go through the normal
+set-your-own-password flow on first login.
+
+**Checkpoint:** the script prints `Sign in with: username: admin ...` and you
+can log in with those credentials.
 
 ---
 
