@@ -1,11 +1,11 @@
-"""Seed the 4 system permission groups and provision the initial hospital
-admin account. Run once after ``cdk deploy`` (safe to re-run — every step is
-idempotent) so there's an account that can sign in to ``/admin`` and start
-creating real users.
+"""Seed the 4 system permission groups and provision the fixed super-admin
+account (``sehati.models.SUPER_ADMIN_USERNAME``). Run once after ``cdk
+deploy`` (safe to re-run — every step is idempotent) so there's always an
+account that can sign in to ``/admin`` and start creating real users.
 
 Usage:
     USER_POOL_ID=<from CDK output> AWS_REGION=us-east-1 \
-        python -m scripts.bootstrap_admin [--username admin] [--email admin@sehati.local] [--password 'Admin@123456']
+        python -m scripts.bootstrap_admin [--username admin] [--email admin@mail.com] [--password 'Admin@123456']
 
 The default password ("admin123" was requested but rejected by the pool's
 password policy — 12+ chars, upper/lower/digit/symbol are required, and that
@@ -13,6 +13,13 @@ policy protects every account in a system holding patient data, so it isn't
 being weakened) is set as PERMANENT: this bootstrap account is usable
 immediately, with no forced first-login password change. Change it afterward
 from Settings if you'd like a different one.
+
+Leaving ``--username`` at its default provisions the protected super-admin
+account: ``resolvers/admin.py`` and ``handler.py`` refuse to demote, disable,
+or strip user-management access from that exact username, and it always has
+full permissions even if its stored record is missing or corrupted — so the
+hospital can never fully lock itself out of the admin panel. Passing a
+different ``--username`` creates a normal (unprotected) admin instead.
 """
 
 from __future__ import annotations
@@ -27,11 +34,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from sehati import cognito_admin  # noqa: E402
 from sehati.db import groups_repo, users_repo  # noqa: E402
 from sehati.errors import NotFoundError  # noqa: E402
-from sehati.models import GROUP_ADMIN  # noqa: E402
+from sehati.models import GROUP_ADMIN, SUPER_ADMIN_USERNAME  # noqa: E402
 from sehati.permissions import SYSTEM_GROUPS  # noqa: E402
 
-DEFAULT_USERNAME = "admin"
-DEFAULT_EMAIL = "admin@sehati.local"
+DEFAULT_USERNAME = SUPER_ADMIN_USERNAME
+DEFAULT_EMAIL = "admin@mail.com"
 DEFAULT_PASSWORD = "Admin@123456"
 
 
@@ -89,6 +96,13 @@ def main() -> None:
     parser.add_argument("--email", default=DEFAULT_EMAIL)
     parser.add_argument("--password", default=DEFAULT_PASSWORD)
     args = parser.parse_args()
+
+    if args.username != SUPER_ADMIN_USERNAME:
+        print(
+            f"WARNING: '--username {args.username}' is not the protected super-admin "
+            f"username ('{SUPER_ADMIN_USERNAME}') — this account can be demoted, "
+            f"disabled, or locked out like any other admin.\n"
+        )
 
     print("==> Seeding system permission groups")
     _seed_system_groups()

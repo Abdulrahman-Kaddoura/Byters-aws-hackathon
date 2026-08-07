@@ -16,21 +16,26 @@ from .. import cognito_admin
 from ..context import AuthContext
 from ..db import groups_repo, users_repo
 from ..errors import ValidationError
-from ..models import GROUP_ADMIN, GROUP_COMPLIANCE, GROUP_PATIENT, GROUP_PHYSICIAN
-from ..permissions import PERMISSION_LABELS, PERMISSIONS, SYSTEM_GROUPS
+from ..models import GROUP_ADMIN, GROUP_COMPLIANCE, GROUP_PATIENT, GROUP_PHYSICIAN, SUPER_ADMIN_USERNAME
+from ..permissions import PERMISSION_LABELS, PERMISSIONS, SYSTEM_GROUPS, USERS_MANAGE
 
 _COGNITO_GROUPS = frozenset({GROUP_PATIENT, GROUP_PHYSICIAN, GROUP_ADMIN, GROUP_COMPLIANCE})
+
+
+def _annotate(user: dict[str, Any]) -> dict[str, Any]:
+    """Flag the fixed super-admin account so the UI can show it as protected."""
+    return {**user, "isSuperAdmin": user["username"] == SUPER_ADMIN_USERNAME}
 
 
 # --- Users --------------------------------------------------------------
 def list_users(ctx: AuthContext, args: dict[str, Any]) -> list[dict[str, Any]]:
     ctx.require_permission("users.manage")
-    return users_repo.list_users()
+    return [_annotate(u) for u in users_repo.list_users()]
 
 
 def get_user(ctx: AuthContext, args: dict[str, Any]) -> dict[str, Any]:
     ctx.require_permission("users.manage")
-    return users_repo.get_user(_require(args, "sub"))
+    return _annotate(users_repo.get_user(_require(args, "sub")))
 
 
 def create_user(ctx: AuthContext, args: dict[str, Any]) -> dict[str, Any]:
@@ -57,13 +62,37 @@ def create_user(ctx: AuthContext, args: dict[str, Any]) -> dict[str, Any]:
         cognito_group=cognito_group,
         custom_groups=custom_groups,
     )
-    return {"user": user, "temporaryPassword": temp_password}
+    return {"user": _annotate(user), "temporaryPassword": temp_password}
+
+
+def _guard_super_admin_changes(args: dict[str, Any]) -> None:
+    """The fixed super-admin account (``models.SUPER_ADMIN_USERNAME``) can't be
+    demoted, disabled, removed from the Administrator group, or stripped of
+    user-management access through this panel — it's the one account
+    guaranteed to always be able to sign in and fix a lockout."""
+    cognito_group = args.get("cognitoGroup")
+    if cognito_group is not None and cognito_group != GROUP_ADMIN:
+        raise ValidationError("The super admin account's role cannot be changed.")
+
+    if args.get("status") == "disabled":
+        raise ValidationError("The super admin account cannot be disabled.")
+
+    custom_groups = args.get("customGroups")
+    if custom_groups is not None and SYSTEM_GROUPS[GROUP_ADMIN]["id"] not in custom_groups:
+        raise ValidationError("The super admin account must stay in the Administrator permission group.")
+
+    overrides = args.get("permissionOverrides")
+    if overrides is not None and overrides.get(USERS_MANAGE) is False:
+        raise ValidationError("The super admin account must always retain user-management access.")
 
 
 def update_user(ctx: AuthContext, args: dict[str, Any]) -> dict[str, Any]:
     ctx.require_permission("users.manage")
     sub = _require(args, "sub")
     existing = users_repo.get_user(sub)
+
+    if existing["username"] == SUPER_ADMIN_USERNAME:
+        _guard_super_admin_changes(args)
 
     cognito_group = args.get("cognitoGroup")
     if cognito_group is not None and cognito_group != existing["cognitoGroup"]:
@@ -79,13 +108,14 @@ def update_user(ctx: AuthContext, args: dict[str, Any]) -> dict[str, Any]:
         elif status == "active":
             cognito_admin.enable_user(existing["username"])
 
-    return users_repo.update_user(
+    updated = users_repo.update_user(
         sub,
         cognito_group=cognito_group,
         custom_groups=args.get("customGroups"),
         permission_overrides=args.get("permissionOverrides"),
         status=status,
     )
+    return _annotate(updated)
 
 
 # --- Custom permission groups --------------------------------------------

@@ -60,7 +60,14 @@ export function AdminUsers() {
                 {users.map((u) => (
                   <TableRow key={u.sub} className="cursor-pointer" onClick={() => setEditing(u)}>
                     <TableCell>
-                      <p className="font-medium">{u.username}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium">{u.username}</p>
+                        {u.isSuperAdmin && (
+                          <Badge variant="outline" className="text-[10px]">
+                            Super admin
+                          </Badge>
+                        )}
+                      </div>
                       <p className="text-xs text-muted-foreground">{u.email}</p>
                     </TableCell>
                     <TableCell>
@@ -308,6 +315,10 @@ function EditUserSheet({
 
   if (!user) return null;
 
+  const isSuperAdmin = user.isSuperAdmin;
+  const ADMIN_GROUP_ID = 'system-admin';
+  const USERS_MANAGE = 'users.manage';
+
   function submit() {
     const permissionOverrides: Record<string, boolean> = {};
     for (const [key, v] of Object.entries(overrides)) {
@@ -325,14 +336,25 @@ function EditUserSheet({
           <SheetDescription>{user.email}</SheetDescription>
         </SheetHeader>
         <div className="flex-1 space-y-5 overflow-y-auto px-6 py-4">
+          {isSuperAdmin && (
+            <p className="rounded-md border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+              This is the protected super admin account. Its status, role, admin group membership, and
+              user-management access can't be changed here.
+            </p>
+          )}
+
           <div className="flex items-center justify-between">
             <Label>Active</Label>
-            <Switch checked={status === 'active'} onCheckedChange={(c) => setStatus(c ? 'active' : 'disabled')} />
+            <Switch
+              checked={status === 'active'}
+              disabled={isSuperAdmin}
+              onCheckedChange={(c) => setStatus(c ? 'active' : 'disabled')}
+            />
           </div>
 
           <div className="space-y-1.5">
             <Label>Role</Label>
-            <Select value={cognitoGroup} onValueChange={(v) => setCognitoGroup(v as CognitoGroup)}>
+            <Select value={cognitoGroup} onValueChange={(v) => setCognitoGroup(v as CognitoGroup)} disabled={isSuperAdmin}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -354,6 +376,7 @@ function EditUserSheet({
                   <span>{g.name}</span>
                   <Switch
                     checked={customGroups.includes(g.id)}
+                    disabled={isSuperAdmin && g.id === ADMIN_GROUP_ID}
                     onCheckedChange={(checked) =>
                       setCustomGroups((prev) => (checked ? [...prev, g.id] : prev.filter((id) => id !== g.id)))
                     }
@@ -372,6 +395,7 @@ function EditUserSheet({
                   <span className="text-sm">{p.label}</span>
                   <Select
                     value={overrides[p.key] ?? 'inherit'}
+                    disabled={isSuperAdmin && p.key === USERS_MANAGE}
                     onValueChange={(v) => setOverrides((prev) => ({ ...prev, [p.key]: v as OverrideState }))}
                   >
                     <SelectTrigger className="h-8 w-36 text-xs">
@@ -380,7 +404,7 @@ function EditUserSheet({
                     <SelectContent>
                       <SelectItem value="inherit">Inherit</SelectItem>
                       <SelectItem value="allow">Always allow</SelectItem>
-                      <SelectItem value="deny">Always deny</SelectItem>
+                      {!(isSuperAdmin && p.key === USERS_MANAGE) && <SelectItem value="deny">Always deny</SelectItem>}
                     </SelectContent>
                   </Select>
                 </div>

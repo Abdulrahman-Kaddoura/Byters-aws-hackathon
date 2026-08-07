@@ -25,6 +25,8 @@ from typing import Any
 from .context import AuthContext, from_apigw_claims
 from .db import users_repo
 from .errors import AppError, NotFoundError
+from .models import SUPER_ADMIN_USERNAME
+from .permissions import PERMISSIONS
 from .router import resolve
 
 logger = logging.getLogger()
@@ -126,11 +128,19 @@ def _enrich_with_permissions(ctx: AuthContext) -> AuthContext:
     """Attach the caller's fine-grained permission set (from the admin-editable
     custom-group system), looked up in the data layer by ``sub`` — never
     trusted from the JWT. A caller with no user record yet (not provisioned
-    in ``sehati-users``) gets an empty permission set: fails closed."""
+    in ``sehati-users``) gets an empty permission set: fails closed.
+
+    The fixed super-admin account (``SUPER_ADMIN_USERNAME``) is the one
+    exception: it always gets the full permission set, regardless of its
+    stored group/override state or even a missing ``sehati-users`` record.
+    That's what makes it safe to promise this account "can always log in and
+    manage the panel" — a stale or corrupted permission record can't lock it
+    out too."""
     user = users_repo.find_user(ctx.sub)
-    if user is None:
-        return ctx
-    return dataclasses.replace(ctx, permissions=users_repo.effective_permissions(user))
+    permissions = users_repo.effective_permissions(user) if user is not None else frozenset()
+    if ctx.username == SUPER_ADMIN_USERNAME:
+        permissions = permissions | frozenset(PERMISSIONS)
+    return dataclasses.replace(ctx, permissions=permissions)
 
 
 def _build_args(event: dict[str, Any], route: _Route) -> dict[str, Any]:
