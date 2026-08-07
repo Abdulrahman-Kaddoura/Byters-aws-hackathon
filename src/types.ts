@@ -284,4 +284,7 @@ export interface AppUser {
   status: 'active' | 'disabled';
   createdAt: string;
   updatedAt: string;
+  /** The fixed super-admin account (see backend SUPER_ADMIN_USERNAME) — the
+   * panel disables the controls that the server would reject anyway. */
+  isSuperAdmin: boolean;
 }

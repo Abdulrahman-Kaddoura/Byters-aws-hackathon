@@ -54,6 +54,14 @@ GROUP_PHYSICIAN = "physician"
 GROUP_ADMIN = "admin"
 GROUP_COMPLIANCE = "compliance"
 
+# The one fixed, always-available admin account, provisioned by
+# scripts/bootstrap_admin.py. See resolvers/admin.py and handler.py: it can't
+# be demoted, disabled, or stripped of user-management access through the
+# admin panel, and always has full permissions regardless of its stored
+# group/override state — so the hospital can never fully lock itself out of
+# /admin.
+SUPER_ADMIN_USERNAME = "admin"
+
 
 # --- TypedDicts (documentation of the JSON document shape) ------------------
 class ChatMessage(TypedDict, total=False):

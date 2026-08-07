@@ -175,9 +175,9 @@ aws cognito-idp admin-get-user --user-pool-id $POOL --username dr.karim \
 
 ## Task Set 5b — Bootstrap the admin panel
 
-**Goal:** seed the 4 system permission groups and create the initial hospital
-admin account, so you can sign in and provision every other user from
-`/admin` instead of the AWS CLI from here on.
+**Goal:** seed the 4 system permission groups and create the fixed,
+always-available **super admin** account, so you can sign in and provision
+every other user from `/admin` instead of the AWS CLI from here on.
 
 ```bash
 cd ../backend
@@ -187,10 +187,20 @@ USER_POOL_ID=<UserPoolId> AWS_REGION=us-east-1 python -m scripts.bootstrap_admin
 
 Safe to re-run (every step is idempotent — it syncs the seeded groups and
 leaves an existing admin account alone). By default it creates username
-`admin` with password `Admin@123456` (override with `--username`, `--email`,
-`--password`) as a **permanent** password — no forced first-login change,
-since this is the bootstrap account. Once you've signed in, use the Users
-tab in `/admin` to create everyone else: those accounts get a one-time
+`admin` (email `admin@mail.com`) with password `Admin@123456` as a
+**permanent** password — no forced first-login change, since this is the
+bootstrap account. Override the email/password with `--email`/`--password`.
+
+**This default username is protected.** Leaving `--username` unset provisions
+the one fixed super-admin account (`sehati.models.SUPER_ADMIN_USERNAME`):
+the admin panel refuses to demote it out of the `admin` role, disable it,
+remove it from the Administrator permission group, or revoke its
+user-management access — and it always has full permissions server-side even
+if its database record is ever missing or corrupted. That's what guarantees
+there's always at least one account that can sign in and fix a lockout.
+Passing a different `--username` creates a normal, unprotected admin instead
+(the script prints a warning if you do). Once you've signed in, use the
+Users tab in `/admin` to create everyone else: those accounts get a one-time
 temporary password shown in the UI, and go through the normal
 set-your-own-password flow on first login.
 

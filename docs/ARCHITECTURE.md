@@ -122,6 +122,39 @@ does gets real, server-enforced fine-grained control (e.g. a "Triage Nurse"
 custom group that can add notes and manage exams but can't touch diagnoses,
 regardless of their Cognito role).
 
+### Admin panel access: frontend guard + fixed super admin
+
+`/admin` is authorized in two independent places:
+
+- **Server-side (authoritative).** Every `/admin/*` resolver calls
+  `ctx.require_permission("users.manage")`, and API Gateway's Cognito
+  authorizer rejects unauthenticated requests before the Lambda even runs.
+  This alone was always enough to stop privilege escalation.
+- **Client-side (`src/components/RequireAdmin.tsx`).** The `/admin/:tab?`
+  route in `src/App.tsx` redirects any signed-in user without the `admin`
+  Cognito group to `/dashboard`. Previously only the sidebar link was
+  hidden from non-admins — the route itself was reachable by URL, so any
+  signed-in user could load the admin UI shell (its API calls would then
+  403). The route guard closes that gap.
+
+A single fixed account (`models.SUPER_ADMIN_USERNAME`, default `"admin"`,
+provisioned by `scripts/bootstrap_admin.py`) is protected from ever being
+locked out of the panel:
+
+- `resolvers/admin.py`'s `update_user` refuses to move that username out of
+  the `admin` Cognito role, disable it, drop it from the `system-admin`
+  permission group, or override `users.manage` to `false`.
+- `handler.py`'s `_enrich_with_permissions` grants that username the full
+  permission set unconditionally — even if its `sehati-users` record is
+  missing or the `system-admin` group's permissions were edited elsewhere.
+  This is a defense-in-depth floor against corrupted/edited state, not just
+  against panel-driven changes to that one account.
+- The frontend (`AdminUsers.tsx`) mirrors this: the account shows a "Super
+  admin" badge and the controls the server would reject are disabled.
+
+Bootstrapping with a different `--username` creates a normal, unprotected
+admin instead — the protection is tied to the one fixed username by design.
+
 ### Threat model mapping (design doc §10.3)
 
 | Threat | Mitigation in this backend |

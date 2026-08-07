@@ -375,3 +375,47 @@ patient-facing intake/interview/conversations/document-upload endpoints —
 those are intentionally ungated today (any authenticated user, scoped only
 by case ownership) and were left untouched by design, since gating them
 wasn't part of this change and touches the patient-access model directly.
+
+---
+
+## 9. Admin panel route guard + fixed super admin (2026-08-07)
+
+The `/admin` API endpoints were always correctly gated server-side (§8), but
+`/admin` itself had no client-side route check — any signed-in user (any
+role) could navigate to it by URL and load the admin UI shell, even though
+every data call on it then 403'd. The sidebar link being hidden for
+non-admins was explicitly cosmetic (see the comment it replaced in
+`AppLayout.tsx`). Separately, nothing stopped an admin from accidentally
+demoting, disabling, or stripping permissions from the only admin account,
+locking the hospital out of `/admin` entirely.
+
+**Changes made:**
+
+1. **Frontend route guard** (`src/components/RequireAdmin.tsx`), wrapping
+   `/admin/:tab?` in `src/App.tsx`: redirects any signed-in user without the
+   `admin` Cognito group to `/dashboard` before the admin components render.
+2. **A fixed, protected super admin account**
+   (`sehati.models.SUPER_ADMIN_USERNAME`, default username `admin`,
+   provisioned by `scripts/bootstrap_admin.py`, default email changed to
+   `admin@mail.com`). `resolvers/admin.py`'s `update_user` refuses to move
+   that account out of the `admin` role, disable it, drop it from the
+   Administrator permission group, or revoke `users.manage` via an override.
+   `handler.py`'s `_enrich_with_permissions` also gives that username the
+   full permission set unconditionally, even with a missing/corrupted
+   `sehati-users` record — defense-in-depth so the panel can never fully
+   lock the hospital out of itself. Bootstrapping with a different
+   `--username` creates a normal, unprotected admin instead.
+3. `AppUser` gained an `isSuperAdmin` field; the admin UI shows a "Super
+   admin" badge on that account and disables the controls the server would
+   reject.
+4. Added `test_super_admin_cannot_be_demoted_disabled_or_stripped` and
+   `test_super_admin_always_has_full_access_even_without_a_user_record` to
+   `backend/tests/test_admin.py`.
+
+Full detail: [`ARCHITECTURE.md`](./ARCHITECTURE.md)'s "Admin panel access"
+subsection; endpoint contract: [`API.md`](./API.md)'s admin section;
+deployment: [`AWS_DEPLOYMENT.md`](./AWS_DEPLOYMENT.md) Task Set 5b.
+
+No infrastructure changes — this is backend + frontend code only, picked up
+by the normal redeploy (`cdk deploy` for the backend,
+`./scripts/deploy-frontend.sh` for the frontend).

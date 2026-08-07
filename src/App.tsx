@@ -12,6 +12,7 @@ import { KnowledgeBase } from '@/pages/KnowledgeBase';
 import { CompletedCases } from '@/pages/CompletedCases';
 import { Settings } from '@/pages/Settings';
 import { AdminPanel } from '@/pages/admin/AdminPanel';
+import { RequireAdmin } from '@/components/RequireAdmin';
 import NotFound from '@/pages/not-found';
 
 function App() {
@@ -32,7 +33,11 @@ function App() {
               <Route path="/completed" component={CompletedCases} />
               <Route path="/knowledge" component={KnowledgeBase} />
               <Route path="/settings" component={Settings} />
-              <Route path="/admin/:tab?" component={AdminPanel} />
+              <Route path="/admin/:tab?">
+                <RequireAdmin>
+                  <AdminPanel />
+                </RequireAdmin>
+              </Route>
               <Route component={NotFound} />
             </Switch>
           </AppLayout>

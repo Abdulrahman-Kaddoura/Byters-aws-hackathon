@@ -9,8 +9,9 @@ import json
 import pytest
 
 from sehati.db import groups_repo, users_repo
-from sehati.errors import ConflictError, ForbiddenError, NotFoundError
+from sehati.errors import ConflictError, ForbiddenError, NotFoundError, ValidationError
 from sehati.handler import handler
+from sehati.models import SUPER_ADMIN_USERNAME
 from sehati.permissions import PERMISSIONS, SYSTEM_GROUPS
 from sehati.router import resolve
 
@@ -172,3 +173,39 @@ def test_custom_group_restricts_access_end_to_end(cognito_pool, admin, physician
     ))
     assert resp2["statusCode"] == 403
     assert json.loads(resp2["body"])["errorType"] == "Forbidden"
+
+
+# --- Super admin lockout protection ------------------------------------------
+def test_super_admin_cannot_be_demoted_disabled_or_stripped(cognito_pool, admin):
+    _seed_system_groups()
+    created = resolve(
+        "adminCreateUser", admin,
+        {"username": SUPER_ADMIN_USERNAME, "email": "super@example.com", "cognitoGroup": "admin"},
+    )["user"]
+    assert created["isSuperAdmin"] is True
+
+    with pytest.raises(ValidationError):
+        resolve("adminUpdateUser", admin, {"sub": created["sub"], "cognitoGroup": "physician"})
+    with pytest.raises(ValidationError):
+        resolve("adminUpdateUser", admin, {"sub": created["sub"], "status": "disabled"})
+    with pytest.raises(ValidationError):
+        resolve("adminUpdateUser", admin, {"sub": created["sub"], "customGroups": []})
+    with pytest.raises(ValidationError):
+        resolve("adminUpdateUser", admin, {"sub": created["sub"], "permissionOverrides": {"users.manage": False}})
+
+    # Unrelated updates still go through, and a normal user isn't flagged.
+    updated = resolve(
+        "adminUpdateUser", admin, {"sub": created["sub"], "permissionOverrides": {"cases.add_note": True}}
+    )
+    assert updated["isSuperAdmin"] is True
+    other = resolve(
+        "adminCreateUser", admin, {"username": "u2", "email": "u2@example.com", "cognitoGroup": "physician"}
+    )["user"]
+    assert other["isSuperAdmin"] is False
+
+
+def test_super_admin_always_has_full_access_even_without_a_user_record(cognito_pool):
+    """Simulates a corrupted/missing sehati-users record for the super admin —
+    the permission floor in handler.py must still let them into the panel."""
+    resp = handler(_event("GET", "/admin/users", sub="ghost-sub", username=SUPER_ADMIN_USERNAME))
+    assert resp["statusCode"] == 200
