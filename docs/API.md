@@ -321,12 +321,13 @@ Everything below requires the **`users.manage`** permission (only the
 clinical role table above — they're how an admin actually manages accounts
 and the permission groups that back it. See `docs/ARCHITECTURE.md` §5 for the
 two-tier model (Cognito groups = coarse identity, these groups = fine-grained
-permissions).
+permissions), and the "Admin panel access" subsection there for the frontend
+route guard and the fixed, un-lockable super admin account.
 
 ## `GET /admin/users` — list every hospital account
 - **Sends back:** a JSON array of *AppUser* (`sub`, `username`, `email`,
   `name`, `cognitoGroup`, `customGroups`, `permissionOverrides`, `status`,
-  `createdAt`, `updatedAt`).
+  `createdAt`, `updatedAt`, `isSuperAdmin`).
 
 ## `POST /admin/users` — provision a new account
 - **Wants (JSON body):**
@@ -355,6 +356,12 @@ permissions).
   `status` to `"disabled"` calls Cognito's `AdminDisableUser` (blocks sign-in
   entirely, separate from permissions).
 - **Sends back:** the updated *AppUser*.
+- **Errors:** `400 Validation` if this targets the fixed super admin account
+  (`isSuperAdmin: true`, username `admin` by default) and the request would
+  change its `cognitoGroup` away from `admin`, set `status` to `"disabled"`,
+  drop the Administrator group from `customGroups`, or override
+  `users.manage` to `false`. That account can't be locked out through this
+  endpoint by design.
 
 ## `GET /admin/groups` — list permission groups
 - **Sends back:** a JSON array of *PermissionGroup* (`id`, `name`,

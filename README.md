@@ -132,8 +132,13 @@ USER_POOL_ID=<UserPoolId from the deploy output> AWS_REGION=us-east-1 \
 Seeds the 4 default permission groups and creates username `admin` / password
 `Admin@123456` (override with `--username`/`--email`/`--password`) as a
 ready-to-use permanent login — safe to re-run. From there, create every other
-account through the Admin panel instead of the AWS CLI. Full detail:
-[`docs/AWS_DEPLOYMENT.md`](docs/AWS_DEPLOYMENT.md) Task Set 5b.
+account through the Admin panel instead of the AWS CLI.
+
+Leaving the username at its default `admin` provisions the **fixed super
+admin** account: the panel won't let it be demoted, disabled, or stripped of
+admin access, and it always has full permissions even if its database record
+is ever missing — so you can never fully lock yourself out of `/admin`. Full
+detail: [`docs/AWS_DEPLOYMENT.md`](docs/AWS_DEPLOYMENT.md) Task Set 5b.
 
 > **Local dev gotcha:** don't create a Python virtualenv inside `backend/`
 > (e.g. `backend/.venv`) — CDK zips the whole `backend/` directory as the
