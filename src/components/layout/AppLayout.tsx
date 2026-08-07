@@ -69,8 +69,8 @@ function Sidebar({ mobileOpen, onClose }: { mobileOpen: boolean; onClose: () => 
     { to: '/completed', label: 'Completed', icon: CheckCircle2, badge: completedCount },
     { to: '/knowledge', label: 'Knowledge Base', icon: BookOpen },
   ];
-  // Cosmetic gate only — every /admin endpoint enforces "users.manage"
-  // server-side regardless of what the sidebar shows.
+  // The route itself is also guarded (see RequireAdmin); every /admin endpoint
+  // additionally enforces "users.manage" server-side regardless of client state.
   if (identity?.groups.includes('admin')) {
     NAV.push({ to: '/admin', label: 'Admin', icon: ShieldCheck });
   }
