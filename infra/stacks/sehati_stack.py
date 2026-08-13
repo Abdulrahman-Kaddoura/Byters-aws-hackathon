@@ -419,7 +419,7 @@ class SehatiStack(Stack):
             removal_policy=RemovalPolicy.DESTROY,
         )
         api = apigatewayv2.HttpApi(
-            self, "Api",
+            self, "HttpApi",
             api_name="sehati-api",
             description="SEHATI-AI clinical decision-support HTTP API",
             create_default_stage=False,
@@ -451,7 +451,7 @@ class SehatiStack(Stack):
             ),
         )
         authorizer = apigatewayv2_authorizers.HttpJwtAuthorizer(
-            "ApiAuthorizer",
+            "JwtAuthorizer",
             f"https://cognito-idp.{self.region}.amazonaws.com/{user_pool.user_pool_id}",
             jwt_audience=[user_pool_client.user_pool_client_id],
         )
