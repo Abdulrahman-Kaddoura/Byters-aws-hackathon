@@ -64,7 +64,7 @@ In plain terms:
 
 | Part | AWS service | Its one job |
 |------|-------------|-------------|
-| **Front door** | Amazon API Gateway (a REST API) | Receives every request from the app and routes it. |
+| **Front door** | Amazon API Gateway (an HTTP API) | Receives every request from the app and routes it. |
 | **Login & roles** | Amazon Cognito | Confirms who the user is and which group they belong to (patient / physician / admin / compliance). |
 | **The brain** | AWS Lambda (Python) | Runs the actual logic for every request. This is where our code lives. |
 | **The AI plug** | The "AI seam" inside Lambda | Where AI answers come from. A stand-in today; Amazon Bedrock (Claude) when switched on. |

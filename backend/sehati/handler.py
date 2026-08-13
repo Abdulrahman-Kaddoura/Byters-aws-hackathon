@@ -77,6 +77,10 @@ _ROUTES = [
     _Route("POST", "/cases/{caseId}/recommendations/{targetId}/accept", "acceptRecommendation"),
     _Route("POST", "/cases/{caseId}/recommendations/{targetId}/reject", "rejectRecommendation"),
     _Route("POST", "/cases/{caseId}/documents", "uploadCaseDocument"),
+    _Route("POST", "/cases/{caseId}/audio", "uploadCaseAudio"),
+    _Route("POST", "/cases/{caseId}/transcribe", "startTranscription"),
+    _Route("GET", "/cases/{caseId}/transcribe/{jobName}", "transcriptionStatus"),
+    _Route("POST", "/cases/{caseId}/feedback", "submitFeedback"),
     _Route("GET", "/admin/users", "adminListUsers"),
     _Route("POST", "/admin/users", "adminCreateUser"),
     _Route("GET", "/admin/users/{userId}", "adminGetUser", path_arg_map={"userId": "sub"}),
@@ -106,7 +110,7 @@ def handler(event: dict[str, Any], context: Any = None) -> dict[str, Any]:  # no
         if route is None:
             raise NotFoundError(f"No route for {method} {resource}.")
 
-        claims = ((event.get("requestContext") or {}).get("authorizer") or {}).get("claims")
+        claims = _extract_claims(event)
         ctx = from_apigw_claims(claims)
         ctx = _enrich_with_permissions(ctx)
         args = _build_args(event, route)
@@ -122,6 +126,20 @@ def handler(event: dict[str, Any], context: Any = None) -> dict[str, Any]:  # no
             json.dumps({"errorType": "InternalError", "message": "An internal error occurred."}),
             cors,
         )
+
+
+def _extract_claims(event: dict[str, Any]) -> dict[str, Any] | None:
+    """Pull the verified JWT claims out of the authorizer context.
+
+    HTTP API's JWT authorizer (Cognito used as issuer) nests claims one level
+    deeper — ``requestContext.authorizer.jwt.claims`` — than REST API's
+    COGNITO_USER_POOLS authorizer, which put them directly under
+    ``requestContext.authorizer.claims``. Checking both keeps this working
+    across either API Gateway type without the caller needing to know which
+    one is in front of it.
+    """
+    authorizer = (event.get("requestContext") or {}).get("authorizer") or {}
+    return (authorizer.get("jwt") or {}).get("claims") or authorizer.get("claims")
 
 
 def _enrich_with_permissions(ctx: AuthContext) -> AuthContext:

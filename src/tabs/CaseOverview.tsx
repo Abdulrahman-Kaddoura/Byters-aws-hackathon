@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { SectionHeading, TagList } from '@/components/common';
 import { ProgressTracker } from '@/components/ProgressTracker';
 import { InsightCard } from '@/components/InsightCard';
+import { DocumentUploadCard, AudioTranscriptionCard, FeedbackCard } from '@/components/DoctorTools';
 import { STAGE_ORDER } from '@/data/helpers';
 import { cn } from '@/lib/utils';
 
@@ -221,6 +222,14 @@ export function CaseOverview({ caseData: c, isClinician }: { caseData: PatientCa
               </ul>
             </CardContent>
           </Card>
+        )}
+
+        {isClinician && (
+          <>
+            <AudioTranscriptionCard caseId={c.id} />
+            <DocumentUploadCard caseId={c.id} />
+            <FeedbackCard caseId={c.id} />
+          </>
         )}
       </div>
     </div>

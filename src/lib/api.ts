@@ -38,7 +38,10 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   const res = await fetch(`${config.apiUrl}${path}`, {
     method,
     headers: {
-      Authorization: token,
+      // HTTP API's JWT authorizer (Cognito as issuer) requires the bearer
+      // scheme on the Authorization header, unlike the old REST API's
+      // COGNITO_USER_POOLS authorizer, which accepted the raw ID token.
+      Authorization: `Bearer ${token}`,
       ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
     },
     body: body === undefined ? undefined : JSON.stringify(body),
@@ -239,4 +242,50 @@ export function adminDeleteGroup(id: string): Promise<{ deleted: boolean }> {
 
 export function adminListPermissions(): Promise<PermissionCatalogEntry[]> {
   return request('GET', '/admin/permissions');
+}
+
+// --- Documents, audio + transcription ----------------------------------------
+export function uploadCaseDocument(
+  caseId: string,
+  payload: { fileBase64: string; fileExtension?: string; contentType?: string }
+): Promise<CaseEnvelope & { documentS3Uri: string }> {
+  return request('POST', `/cases/${enc(caseId)}/documents`, payload);
+}
+
+export function uploadCaseAudio(
+  caseId: string,
+  payload: { fileBase64: string; fileExtension?: string; contentType?: string }
+): Promise<CaseEnvelope & { s3Key: string; bucket: string }> {
+  return request('POST', `/cases/${enc(caseId)}/audio`, payload);
+}
+
+export function startTranscription(
+  caseId: string,
+  payload: { s3Key?: string; audioS3Uri?: string }
+): Promise<{ jobName: string; status: string }> {
+  return request('POST', `/cases/${enc(caseId)}/transcribe`, payload);
+}
+
+export interface TranscriptionStatus {
+  status: 'IN_PROGRESS' | 'COMPLETED' | 'FAILED';
+  summary?: {
+    chief_complaint: string | null;
+    history_of_present_illness: string | null;
+    review_of_systems: string | null;
+    past_medical_history: string | null;
+  };
+  reason?: string;
+}
+
+export function transcriptionStatus(caseId: string, jobName: string): Promise<TranscriptionStatus> {
+  return request('GET', `/cases/${enc(caseId)}/transcribe/${enc(jobName)}`);
+}
+
+// --- Doctor feedback ----------------------------------------------------------
+export function submitFeedback(
+  caseId: string,
+  feedback: string,
+  category?: string
+): Promise<{ status: string; data: unknown }> {
+  return request('POST', `/cases/${enc(caseId)}/feedback`, { feedback, category });
 }

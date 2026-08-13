@@ -52,6 +52,22 @@ export function timeAgo(iso: string | undefined): string {
   return d.toLocaleDateString();
 }
 
+/** Reads a File into the base64 payload the upload endpoints expect (the
+ * data: URL prefix stripped, extension lowercased without the leading dot). */
+export function fileToBase64(file: File): Promise<{ base64: string; extension: string }> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(reader.error ?? new Error('Failed to read file.'));
+    reader.onload = () => {
+      const result = reader.result as string;
+      const base64 = result.slice(result.indexOf(',') + 1);
+      const extension = file.name.includes('.') ? file.name.split('.').pop()!.toLowerCase() : '';
+      resolve({ base64, extension });
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 export function formatDateTime(iso: string | undefined): string {
   if (!iso) return '—';
   const d = new Date(iso);

@@ -194,3 +194,35 @@ export function useRejectRecommendation(caseId: string) {
     onSuccess: (res) => applyCase(qc, res.case),
   });
 }
+
+// --- Documents, audio + transcription --------------------------------------
+export function useUploadCaseDocument(caseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { fileBase64: string; fileExtension?: string; contentType?: string }) =>
+      api.uploadCaseDocument(caseId, vars),
+    onSuccess: (res) => applyCase(qc, res.case),
+  });
+}
+
+export function useUploadCaseAudio(caseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { fileBase64: string; fileExtension?: string; contentType?: string }) =>
+      api.uploadCaseAudio(caseId, vars),
+    onSuccess: (res) => applyCase(qc, res.case),
+  });
+}
+
+export function useStartTranscription(caseId: string) {
+  return useMutation({
+    mutationFn: (vars: { s3Key?: string; audioS3Uri?: string }) => api.startTranscription(caseId, vars),
+  });
+}
+
+// --- Doctor feedback ---------------------------------------------------------
+export function useSubmitFeedback(caseId: string) {
+  return useMutation({
+    mutationFn: (vars: { feedback: string; category?: string }) => api.submitFeedback(caseId, vars.feedback, vars.category),
+  });
+}

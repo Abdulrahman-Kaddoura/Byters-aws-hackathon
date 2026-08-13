@@ -24,7 +24,7 @@ Task Set 8 (update) and occasionally Task Set 9 (teardown).
 | **11** | Host the frontend on AWS (S3 + CloudFront) | once, then on frontend updates |
 
 **What you're building:** one CloudFormation stack called `SehatiBackend` in the
-**us-east-1 (N. Virginia)** region, containing API Gateway (the REST API),
+**us-east-1 (N. Virginia)** region, containing API Gateway (the HTTP API),
 Lambda (the logic), DynamoDB (5 tables — cases, audit, feedback, plus the
 admin panel's users and permission groups), Cognito (logins), S3 + KMS
 (files, audit, encryption).
@@ -308,9 +308,10 @@ Check CloudWatch logs on `sehati-orchestrator` for the underlying Bedrock error:
 aws logs tail /aws/lambda/sehati-orchestrator --since 15m --region us-east-1 --format short
 ```
 
-**API Gateway's 29-second hard timeout.** REST API Lambda integrations cannot be
-configured past 29 seconds — this is an AWS ceiling, not something this stack
-can raise. The Lambda's own timeout is 60s, so a slow Bedrock call can finish
+**API Gateway's ~30-second hard timeout.** HTTP API Lambda proxy integrations
+cannot be configured past 30 seconds — this is an AWS ceiling, not something
+this stack can raise (REST API's equivalent ceiling was 29s; switching API
+types doesn't meaningfully change this). The Lambda's own timeout is 60s, so a slow Bedrock call can finish
 successfully server-side (visible in CloudWatch as a normal, non-error
 `REPORT` line) while the physician-facing request already failed client-side
 with a generic error a second earlier. `ai/bedrock.py`'s `answer()` (case chat)

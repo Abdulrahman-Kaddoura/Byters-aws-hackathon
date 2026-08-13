@@ -16,7 +16,7 @@ CDN/CloudFront is out of scope for now.
 ```
 Tablet / Web (frontend team)
   → Amazon Cognito .......... AuthN + groups (patient/physician/admin/compliance)
-  → Amazon API Gateway ...... REST API (Cognito authorizer, Lambda proxy integration)
+  → Amazon API Gateway ...... HTTP API (Cognito JWT authorizer, Lambda proxy integration)
   → AWS Lambda (Python) ..... orchestration; the authorization boundary
         ├─ AIService seam ... stub (default) | Amazon Bedrock (Claude) + Guardrails + KB
         ├─ Amazon DynamoDB .. cases · audit · feedback · users · groups (KMS-encrypted, on-demand)

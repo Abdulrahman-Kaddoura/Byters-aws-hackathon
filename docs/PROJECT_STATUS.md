@@ -110,7 +110,7 @@ building blocks, but not yet a case-aware or auth-protected pipeline.
 
 ## 3. Where things stand now
 
-- **`SehatiBackend`** (auth, case data, clinical workflow, REST API) is
+- **`SehatiBackend`** (auth, case data, clinical workflow, HTTP API) is
   **live and deployed**, running on the stub AI. Independent of the AI team's
   pipeline — no resource collisions, both exist side by side in the same
   account/region.
