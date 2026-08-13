@@ -209,7 +209,19 @@ self-signup. See `docs/API.md`'s admin section for the endpoints.
 
 ---
 
-## 4. What gets recorded automatically
+## 4. Side actions (don't drive the state machine, usable at any stage)
+
+These are additive — a doctor can do them at any point in a case's lifecycle;
+none of them move `lifecycleState`.
+
+| Action | Endpoint(s) | What happens |
+|---|---|---|
+| Side conversation | `createConversation`, `postConversationMessage` | An extra chat thread layered on top of the main `interview` — for a return visit or follow-up question, without touching the original transcript. |
+| Upload a document | `uploadCaseDocument` | A doctor attaches a PDF/DOCX/text file; its text is extracted into `documentContext`, which every subsequent AI call sees as grounding. |
+| Audio transcription | `uploadCaseAudio` → `startTranscription` → poll `transcriptionStatus` | A doctor uploads an audio recording; AWS HealthScribe turns it into a structured clinical summary (chief complaint, HPI, review of systems, past medical history) once the job completes. |
+| Leave feedback | `submitFeedback` | Free-text feedback on how the AI did on this case — separate from the accept/reject flywheel below, stored per doctor. |
+
+## 5. What gets recorded automatically
 
 You don't have to do anything for these — they happen on every relevant action:
 

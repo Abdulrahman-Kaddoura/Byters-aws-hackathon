@@ -1,10 +1,10 @@
 """AWS HealthScribe transcription — separate concern from the reasoning agent.
 
-NOT WIRED YET — see docs/PROJECT_STATUS.md. The Lambda execution role (CDK
-stack) grants no `transcribe:*` permissions, no `iam:PassRole` for
-HEALTHSCRIBE_ROLE_ARN below, and no access to HEALTHSCRIBE_BUCKET — none of
-that is provisioned as code. Landed here as-is (from the live Lambda) so the
-work is version-controlled instead of living only in the console.
+Wired in via ``resolvers/transcribe.py`` (``startTranscription`` /
+``transcriptionStatus``). ``infra/stacks/sehati_stack.py`` provisions the
+data-access IAM role, the `transcribe:*` + `iam:PassRole` grants, and the
+HEALTHSCRIBE_ROLE_ARN / HEALTHSCRIBE_BUCKET env vars below — see
+``docs/ARCHITECTURE.md`` §6.
 """
 
 from __future__ import annotations

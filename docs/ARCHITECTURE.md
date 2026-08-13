@@ -8,7 +8,7 @@ deviates, and what is intentionally left to other teams / future work.
 This repository's backend owns: the **API**, the **clinical workflow + state
 machine**, the **data model + persistence**, **security/authorization**, the
 **audit trail**, and the **feedback flywheel**. It exposes a clean seam for the
-**AI team** (model/prompts/RAG) and a REST contract for the **frontend team**.
+**AI team** (model/prompts/RAG) and an HTTP API contract for the **frontend team**.
 CDN/CloudFront is out of scope for now.
 
 ## 2. System design (design doc §5)
@@ -18,16 +18,17 @@ Tablet / Web (frontend team)
   → Amazon Cognito .......... AuthN + groups (patient/physician/admin/compliance)
   → Amazon API Gateway ...... HTTP API (Cognito JWT authorizer, Lambda proxy integration)
   → AWS Lambda (Python) ..... orchestration; the authorization boundary
-        ├─ AIService seam ... stub (default) | Amazon Bedrock (Claude) + Guardrails + KB
-        ├─ Amazon DynamoDB .. cases · audit · feedback · users · groups (KMS-encrypted, on-demand)
+        ├─ AIService seam ... Amazon Bedrock (Claude) + Guardrails + KB (both optional)
+        ├─ AWS HealthScribe . doctor-uploaded audio → structured clinical summary
+        ├─ Amazon DynamoDB .. cases · audit · feedback · doctor feedback · users · groups (KMS-encrypted, on-demand)
         └─ Amazon S3 + KMS .. documents/audio/images · immutable WORM audit (Object Lock)
   Observability ............ CloudWatch Logs + API Gateway access logs + X-ray
 ```
 
 Region: **us-east-1 (N. Virginia)** — chosen to match the region the AI team's
-Bedrock/Lambda pipeline already runs in, overriding the design doc's original
-EU-region recommendation (see [`AWS_CURRENT_STATE.md`](./AWS_CURRENT_STATE.md)
-for why). Revisit if a real data-residency requirement is confirmed later.
+original Bedrock/Lambda exploration already ran in, overriding the design
+doc's original EU-region recommendation. Revisit if a real data-residency
+requirement is confirmed later.
 
 ## 3. Requirements coverage (design doc §3)
 
@@ -185,10 +186,25 @@ The backend never hard-codes model behavior. `ai/base.AIService` is the contract
 (reasoning, `whyNot100`, `confidenceExplanation`, trend) — an honest band, not a
 spurious validated probability.
 
-**Learning from doctors** (design doc §13): implemented as the **feedback flywheel**
-(`db/feedback_repo.py`) — every accept/reject/edit captured with reason, model
-version and retrieved context — not RLHF. This is the dataset for a future offline
-eval harness and DPO path, and it structurally avoids the sycophancy failure mode.
+**Learning from doctors** (design doc §13): two separate mechanisms, both in
+`db/feedback_repo.py`. The **feedback flywheel** (`record`/`list_for_case`) —
+every accept/reject/edit captured with reason, model version and retrieved
+context, not RLHF — is the dataset for a future offline eval harness and DPO
+path, and it structurally avoids the sycophancy failure mode. Separately,
+**free-text doctor feedback** (`save_doctor_feedback`/
+`get_doctor_feedback_history`, `POST /cases/{caseId}/feedback`) is a "leave a
+note" feature stored per doctor rather than per case; `ai/bedrock.py` folds a
+doctor's recent feedback back into their own future prompts as a lightweight
+preference signal.
+
+**Transcription** (design doc §12, partial): `ai/healthscribe.py` +
+`resolvers/transcribe.py` wrap AWS HealthScribe (built on Amazon Transcribe
+Medical). `startTranscription` kicks off a medical-scribe job against a
+doctor-uploaded audio recording and returns immediately — a job can run
+minutes past any API Gateway integration timeout, so the Lambda never blocks
+waiting for it. The frontend polls `transcriptionStatus` until the job
+completes, then gets back a structured clinical summary (chief complaint,
+HPI, review of systems, past medical history).
 
 ## 7. Deliberate deviation: DynamoDB instead of Aurora
 
@@ -211,9 +227,11 @@ cohort/similar-case retrieval (design doc §10.4: Comprehend Medical de-identifi
   versioned corpus (design doc §11: PMC OA + ClinicalTrials.gov + openFDA/RxNorm +
   WHO/CDC + ICD-10-CM), ingested via Bedrock Knowledge Bases → S3 Vectors, with
   section-aware chunking, hybrid retrieval + rerank, and grounding checks.
-- **Multilingual/voice pipeline** (design doc §12): Amazon Transcribe → Translate →
-  Comprehend Medical (English pivot for clinical NLP) + Polly TTS. The backend
-  accepts already-transcribed text today; add these as pre-processing Lambdas.
+- **Multilingual voice pipeline** (design doc §12): audio → clinical summary is
+  now implemented (AWS HealthScribe, §6 above), but English-only and one-way —
+  **Translate** and **Comprehend Medical** (non-English pivot for clinical NLP)
+  and **Polly TTS** are still not wired in; add these as pre/post-processing
+  steps around the existing HealthScribe call.
 - **Medical imaging** (design doc §12.3): attach/view DICOM (S3 or HealthImaging);
   ingest the **radiologist's report text** — no LLM image diagnosis, by design.
 - **Aurora + pgvector** cohort search, and **HealthLake/FHIR** for interop

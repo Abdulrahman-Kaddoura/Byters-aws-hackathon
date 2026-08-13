@@ -92,8 +92,9 @@ Bedrock (see Task Set 8 before your first deploy).
 
 ## Task Set 3 — Deploy the backend
 
-**Goal:** create the whole stack in your account. The default AI is the **stub**, so
-this works immediately with nothing else to enable.
+**Goal:** create the whole stack in your account. There is no offline/stub AI
+mode — every deploy talks to real Amazon Bedrock from the start (see Task Set
+8 before your first deploy if you haven't already).
 
 1. From `infra/` (venv still active):
    ```bash
@@ -241,8 +242,8 @@ TOKEN=$(aws cognito-idp initiate-auth --auth-flow USER_PASSWORD_AUTH \
   --auth-parameters USERNAME=dr.karim,PASSWORD='Passw0rd!Demo' \
   --query "AuthenticationResult.IdToken" --output text)
 
-# 2) call the API — note: the raw ID token, no "Bearer " prefix
-curl -s "<ApiUrl>cases" -H "Authorization: $TOKEN"
+# 2) call the API — note: HTTP API's JWT authorizer requires the Bearer scheme
+curl -s "<ApiUrl>cases" -H "Authorization: Bearer $TOKEN"
 ```
 
 Now sign in as **`layla`** (patient) the same way and call `GET /cases` again —
@@ -425,10 +426,12 @@ Cognito User Pool Id  = <UserPoolId>
 Cognito App Client Id = <UserPoolClientId>
 ```
 
-They log the user in with Cognito and send the resulting **ID token** (raw, no
-`Bearer ` prefix) in the `Authorization` header on every request to the API base
-URL. All endpoints and shapes are in [`API.md`](./API.md); every case they
-receive matches the frontend's existing `PatientCase` type.
+They log the user in with Cognito and send the resulting **ID token** in the
+`Authorization` header, **with the `Bearer ` prefix** (`Authorization: Bearer
+<token>`) — HTTP API's JWT authorizer requires the bearer scheme — on every
+request to the API base URL. All endpoints and shapes are in
+[`API.md`](./API.md); every case they receive matches the frontend's existing
+`PatientCase` type.
 
 ---
 
@@ -437,13 +440,14 @@ receive matches the frontend's existing `PatientCase` type.
 | Symptom | Cause / fix |
 |---|---|
 | `cdk deploy` says "bootstrap" | Do Task Set 2 for this account/region. |
-| `Unauthorized` from the API | Login token missing/expired — get a fresh one (Task Set 7). |
+| `Unauthorized` from the API | Login token missing/expired — get a fresh one (Task Set 7) — or missing the `Bearer ` prefix on the `Authorization` header (HTTP API's JWT authorizer requires it). |
 | Patient gets `Forbidden` on another case | Correct behaviour — patients only see their own. |
 | `listCases` is empty | Run the seed step (Task Set 6), and check you're in `us-east-1`. |
 | Bedrock `ValidationException: ... isn't supported ... inference profile` | Bare model id used instead of an inference profile id — see Task Set 8, step 2. |
 | Bedrock `ResourceNotFoundException: ... marked by provider as Legacy` | That model id is retired; pick a currently-active one (Task Set 8, step 2). |
 | Bedrock `AccessDeniedException: ... not available for this account` | Newest model gated behind Anthropic's one-time use-case form, or genuinely not enabled — see Task Set 8's intro, or fall back to an already-active model. |
-| Chat works a couple of times then a generic "internal error" for no CloudWatch error | API Gateway's 29s hard timeout beat a slow-but-successful Bedrock call — see Task Set 8's timeout note. Not the same as a genuine Bedrock error, which does show up in CloudWatch as a real exception (there is no fallback to mask it). |
+| Chat works a couple of times then a generic "internal error" for no CloudWatch error | API Gateway's ~30s hard timeout beat a slow-but-successful Bedrock call — see Task Set 8's timeout note. Not the same as a genuine Bedrock error, which does show up in CloudWatch as a real exception (there is no fallback to mask it). |
+| `startTranscription` returns fine but `transcriptionStatus` never reaches `COMPLETED` | Check CloudWatch for the HealthScribe job itself (`aws transcribe get-medical-scribe-job`) — the Lambda only starts/polls it, it doesn't retry a stuck job. |
 | Frontend site shows a blank page / old content after redeploy | Hard-refresh (CloudFront may still be serving a stale edge cache for a few seconds after invalidation) or re-run `deploy-frontend.sh`. |
 | Browser console shows a CORS error calling the API from the deployed site | The backend's origin allowlist doesn't include your `SiteUrl` yet — see Task Set 11's CORS note. |
 | Changed code but AWS didn't update | Re-run Task Set 9 (`cdk deploy`). |

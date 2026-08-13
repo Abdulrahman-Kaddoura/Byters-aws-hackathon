@@ -1,10 +1,11 @@
-"""Legacy AgentCore invocation seam — superseded by BedrockAIService.
+"""Shared AI-invocation error type, plus a legacy, unimplemented invocation seam.
 
-Originally the low-level `invoke_agent` call lived here, with
-`ai/service.py` as the AIService implementation on top of it. That path was
-never wired in (see docs/PROJECT_STATUS.md); `ai/bedrock.py` now owns the
-AgentCore invocation directly. This file is kept only so `ai/service.py` and
-`ai/healthscribe.py` (also unwired) still import cleanly.
+`AgentInvokeError` is load-bearing — `ai/healthscribe.py` (wired in, see its
+own docstring) raises it on every HealthScribe/Transcribe failure. `invoke_agent`
+itself is not: it originally backed `ai/service.py`'s `AIService` implementation,
+but that path was never wired in — `ai/bedrock.py` (`BedrockAIService`) is the
+one implementation `ai/factory.py` actually selects. `invoke_agent` and
+`ai/service.py` are kept in the repo as real, unfinished work, not deleted.
 """
 
 from __future__ import annotations

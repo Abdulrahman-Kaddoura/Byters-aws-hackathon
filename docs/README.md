@@ -12,8 +12,7 @@ in this order:
 | 4 | [`API.md`](./API.md) | Every endpoint: what it **wants** (inputs) and what it **sends back** (outputs), with examples. |
 | 5 | [`AWS_DEPLOYMENT.md`](./AWS_DEPLOYMENT.md) | How to put it on AWS, as separate **task sets** you do one at a time. |
 | 6 | [`ARCHITECTURE.md`](./ARCHITECTURE.md) | Deeper mapping to the original design document + design decisions. |
-| 7 | [`AWS_CURRENT_STATE.md`](./AWS_CURRENT_STATE.md) | What already exists by hand in the shared AWS account (the AI team's pipeline) — a point-in-time audit, since none of it is code. |
-| 8 | [`PROJECT_STATUS.md`](./PROJECT_STATUS.md) | Plain-language summary: what changed in this branch, what the AI team already built, and where things stand right now. |
+| 7 | [`VERIFY_CHECKLIST.md`](./VERIFY_CHECKLIST.md) | End-to-end verification: touch every AWS service and confirm it's configured the way the code expects. |
 
 There is also a [`../backend/README.md`](../backend/README.md) (how to run it on
 your laptop) and [`../infra/README.md`](../infra/README.md) (the deployment code).
@@ -42,9 +41,9 @@ offers an API for the app screens to call.
 
 **It does NOT own (handled by other teams / plugged in later):**
 - The **screens/UI** — that's the frontend team. This backend just feeds them data.
-- The **actual AI model** — that's the AI team. The backend calls the AI through a
-  small "plug" (see §5). Out of the box it ships with a **built-in stand-in AI** so
-  everything works today with no model and no cost.
+- **Tuning the AI model itself** (prompts, RAG corpus, guardrails) — that's the AI
+  team's territory. The backend calls the AI through a small "plug" (see §5); there
+  is no offline/stand-in mode — every deploy talks to real Amazon Bedrock.
 
 ## 3. The moving parts (what runs where on AWS)
 
@@ -53,11 +52,12 @@ Think of a request flowing left to right:
 ```mermaid
 flowchart LR
     App["📱 App screen<br/>(frontend)"] --> Cognito["🔑 Cognito<br/>logs the user in,<br/>knows their role"]
-    Cognito --> ApiGw["🌐 API Gateway<br/>the API front door<br/>(REST)"]
+    Cognito --> ApiGw["🌐 API Gateway<br/>the API front door<br/>(HTTP API)"]
     ApiGw --> Lambda["⚙️ Lambda<br/>the brain:<br/>runs the workflow"]
-    Lambda --> AI["🧠 AI seam<br/>stub today,<br/>Bedrock/Claude ready"]
+    Lambda --> AI["🧠 AI seam<br/>Amazon Bedrock<br/>(Claude)"]
+    Lambda --> Transcribe["🎙️ HealthScribe<br/>audio → clinical<br/>summary"]
     Lambda --> DDB["🗄️ DynamoDB<br/>stores cases,<br/>audit, feedback"]
-    Lambda --> S3["📦 S3 + KMS<br/>files & the<br/>unchangeable audit"]
+    Lambda --> S3["📦 S3 + KMS<br/>files, audio &<br/>the unchangeable audit"]
 ```
 
 In plain terms:
@@ -67,9 +67,10 @@ In plain terms:
 | **Front door** | Amazon API Gateway (an HTTP API) | Receives every request from the app and routes it. |
 | **Login & roles** | Amazon Cognito | Confirms who the user is and which group they belong to (patient / physician / admin / compliance). |
 | **The brain** | AWS Lambda (Python) | Runs the actual logic for every request. This is where our code lives. |
-| **The AI plug** | The "AI seam" inside Lambda | Where AI answers come from. A stand-in today; Amazon Bedrock (Claude) when switched on. |
+| **The AI plug** | The "AI seam" inside Lambda | Where AI answers come from: Amazon Bedrock (Claude). No stand-in mode. |
+| **Transcription** | AWS HealthScribe (via Amazon Transcribe) | Turns a doctor-uploaded audio recording into a structured clinical summary. |
 | **The database** | Amazon DynamoDB (6 tables) | Stores cases, the audit log, doctor feedback (both the accept/reject dataset and free-text notes), plus admin-panel accounts and permission groups. |
-| **Files & WORM audit** | Amazon S3 + KMS | Stores documents/images and a permanent, tamper-proof copy of the audit. |
+| **Files & WORM audit** | Amazon S3 + KMS | Stores documents/audio/images and a permanent, tamper-proof copy of the audit. |
 
 Everything is **serverless** — there are no servers to manage, it costs almost
 nothing when idle, and it scales automatically.
@@ -87,6 +88,7 @@ nothing when idle, and it scales automatically.
 | **The AI seam** | The single connection point to the AI: Amazon Bedrock. No stand-in/offline mode. |
 | **Audit trail** | A permanent, append-only log: who did what, when, with which AI version, and what evidence was used. For medico-legal safety. |
 | **Feedback flywheel** | Every time a doctor accepts or rejects an AI suggestion, we save it (with the reason). This becomes training data later — safely, without changing the model now. |
+| **Doctor feedback** | A separate, free-text "leave a note" feature (`POST /cases/{caseId}/feedback`) — distinct from the feedback flywheel above. Stored per doctor, and folded back into that doctor's future AI prompts as a preference history. |
 
 ## 5. The AI seam (why the AI team isn't blocked, and you're not blocked either)
 

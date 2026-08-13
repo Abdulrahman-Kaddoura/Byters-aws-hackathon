@@ -1,9 +1,13 @@
 """AIService — implements every AI capability the resolvers depend on.
 
-NOT WIRED YET — see docs/PROJECT_STATUS.md. Imports `.client` and `.result`,
-neither of which exist in this repo; `factory.py` does not select this
-implementation. Landed here as-is (from the live Lambda) so the work is
-version-controlled instead of living only in the console.
+NOT WIRED YET. `factory.get_ai_service()` always returns `BedrockAIService`
+(`ai/bedrock.py`); this alternative implementation is never selected, so its
+`from .result import AIResult` below — a module that doesn't exist anywhere in
+this repo — never actually gets exercised. Finishing this would mean pointing
+it at `ai/base.py`'s `AIResult` instead and implementing `invoke_agent`
+(`ai/client.py`, currently `raise NotImplementedError`). Kept in the repo as
+real, unfinished work rather than deleted; see `docs/ARCHITECTURE.md` §6 for
+what's actually wired.
 """
 
 from __future__ import annotations
