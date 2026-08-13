@@ -1,10 +1,15 @@
-"""AWS Lambda entry point for API Gateway (REST API, Lambda proxy integration).
+"""AWS Lambda entry point for API Gateway (HTTP API, Lambda proxy integration,
+payload format version 1.0).
 
-API Gateway invokes this handler for every request. The event carries the
-matched ``resource`` template (e.g. ``"/cases/{caseId}/tests/{testId}/order"``)
-and ``httpMethod``, plus ``pathParameters``, ``queryStringParameters``, a JSON
-``body``, and — once the Cognito authorizer has verified the caller's ID
-token — the verified claims under ``requestContext.authorizer.claims``.
+API Gateway invokes this handler for every request. Payload format 1.0 keeps
+the event shape identical to the old REST API proxy integration this replaced:
+the matched ``resource`` template (e.g.
+``"/cases/{caseId}/tests/{testId}/order"``) and ``httpMethod``, plus
+``pathParameters``, ``queryStringParameters``, a JSON ``body``, and — once the
+Cognito JWT authorizer has verified the caller's ID token — the verified
+claims under ``requestContext.authorizer.jwt.claims`` (see
+:func:`_extract_claims`, which also accepts the old REST API authorizer's
+``requestContext.authorizer.claims`` shape).
 
 We look up the ``(method, resource)`` pair in the route table below to find
 which internal field to dispatch, build the resolver's ``args`` from the path

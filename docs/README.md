@@ -68,7 +68,7 @@ In plain terms:
 | **Login & roles** | Amazon Cognito | Confirms who the user is and which group they belong to (patient / physician / admin / compliance). |
 | **The brain** | AWS Lambda (Python) | Runs the actual logic for every request. This is where our code lives. |
 | **The AI plug** | The "AI seam" inside Lambda | Where AI answers come from. A stand-in today; Amazon Bedrock (Claude) when switched on. |
-| **The database** | Amazon DynamoDB (5 tables) | Stores cases, the audit log, doctor feedback, plus admin-panel accounts and permission groups. |
+| **The database** | Amazon DynamoDB (6 tables) | Stores cases, the audit log, doctor feedback (both the accept/reject dataset and free-text notes), plus admin-panel accounts and permission groups. |
 | **Files & WORM audit** | Amazon S3 + KMS | Stores documents/images and a permanent, tamper-proof copy of the audit. |
 
 Everything is **serverless** — there are no servers to manage, it costs almost

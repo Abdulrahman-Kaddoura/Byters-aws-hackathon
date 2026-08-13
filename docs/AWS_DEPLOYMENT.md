@@ -25,9 +25,9 @@ Task Set 8 (update) and occasionally Task Set 9 (teardown).
 
 **What you're building:** one CloudFormation stack called `SehatiBackend` in the
 **us-east-1 (N. Virginia)** region, containing API Gateway (the HTTP API),
-Lambda (the logic), DynamoDB (5 tables — cases, audit, feedback, plus the
-admin panel's users and permission groups), Cognito (logins), S3 + KMS
-(files, audit, encryption).
+Lambda (the logic), DynamoDB (6 tables — cases, audit, feedback, doctor
+feedback, plus the admin panel's users and permission groups), Cognito
+(logins), S3 + KMS (files, audit, encryption).
 
 **Cost:** ~$150–500/month at pilot scale, dominated by AI tokens; **near-zero
 when idle**. There is no offline/no-cost mode — every deploy talks to real

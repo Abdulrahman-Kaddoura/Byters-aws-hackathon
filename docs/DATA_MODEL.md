@@ -74,6 +74,8 @@ plain numbers on a 0–100 scale (pain is 0–10). Higher = more/stronger.
 | `timeline` | list of *TimelineEvent* | Chronological history of the case (entity 13). |
 | `notes` | list of *DoctorNote* | Free-text notes the doctor wrote (entity 14). |
 | `insights` | list of *AIInsight* | AI "heads-up" cards, e.g. a safety flag (entity 15). |
+| `documentContext` | text, optional | Text extracted from a doctor-uploaded document (`POST /cases/{caseId}/documents`), folded in as grounding for every subsequent AI step. |
+| `documentS3Uri` | text, optional | Where that document actually lives in S3 (`s3://` URI). The extracted text above, not this URI, is what the AI seam sees. |
 | `nextSteps` | list of text | Suggested next actions, shown as a checklist. |
 | `recentUpdates` | list | Short "what just happened" feed items. |
 | `assistantThread` | list of *ChatMessage* | The case-level chat with the AI assistant panel. |
@@ -310,11 +312,11 @@ interrogate it.
 
 ## Part C — The database tables (where this lives on AWS)
 
-All data is stored in **Amazon DynamoDB**, a serverless database. There are **five
-tables**: three for clinical cases (below), plus two more for the admin panel's
-account/permission management (`sehati-users`, `sehati-groups` — see the end of
-this section). Every table is encrypted with a dedicated key and bills only for
-what you use (near-zero when idle).
+All data is stored in **Amazon DynamoDB**, a serverless database. There are **six
+tables**: three for clinical cases (below) plus doctor feedback, and two more
+for the admin panel's account/permission management (`sehati-users`,
+`sehati-groups` — see the end of this section). Every table is encrypted with a
+dedicated key and bills only for what you use (near-zero when idle).
 
 ### Table 1 — `sehati-cases` (the cases)
 
@@ -348,9 +350,21 @@ what you use (near-zero when idle).
 - This is the dataset used later to safely improve the AI (without changing the
   model now — see [`ARCHITECTURE.md`](./ARCHITECTURE.md) §6).
 
+### Table 4 — `sehati-doctor-feedback` (free-text feedback)
+
+- **One row = one piece of free-text feedback** a doctor left on a case (`POST
+  /cases/{caseId}/feedback`) — distinct from Table 3's structured accept/
+  reject/edit dataset.
+- **Key:** `doctorId` + `timestamp`, so it's keyed by *doctor* rather than by
+  case — a doctor's own feedback history is a single query.
+- Fields: `doctorId`, `timestamp`, `caseId`, `feedback` (the text), `category`
+  (`general`/`diagnosis`/`summary`/… — free text, not enforced).
+- Doubles as a per-doctor preference history: the AI seam can read a doctor's
+  recent feedback back into its prompts.
+
 ---
 
-### Table 4 — `sehati-users` (hospital-provisioned accounts)
+### Table 5 — `sehati-users` (hospital-provisioned accounts)
 
 - **One row = one account's app-level permission data** — Cognito remains the
   identity store (sign-in, password, the 4 coarse groups); this table only
@@ -364,7 +378,7 @@ what you use (near-zero when idle).
 - Looked up once per request (by `sub`) to compute the caller's effective
   permission set — see [`ARCHITECTURE.md`](./ARCHITECTURE.md) §5.
 
-### Table 5 — `sehati-groups` (admin-defined permission groups)
+### Table 6 — `sehati-groups` (admin-defined permission groups)
 
 - **One row = one named bundle of permissions** — decoupled from Cognito's 4
   groups; an admin can create/edit/delete these from the `/admin` panel.

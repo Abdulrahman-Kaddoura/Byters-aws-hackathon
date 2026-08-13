@@ -487,7 +487,7 @@ needs is `POST /cases` + `POST /cases/{caseId}/interview/messages` (+
 `GET /cases/{caseId}` / `GET /cases` for their own case).
 
 > **No real-time channel today.** The previous AppSync-based design had
-> `onCaseUpdated`/`onNewMessage` subscriptions; a plain REST API has no
-> equivalent. Multi-viewer sync is short-polling `GET /cases/{caseId}` for now —
-> a WebSocket API (API Gateway) is the documented next step if live push is
-> needed later.
+> `onCaseUpdated`/`onNewMessage` subscriptions; a plain REST-style API (REST
+> or HTTP) has no equivalent. Multi-viewer sync is short-polling
+> `GET /cases/{caseId}` for now — a WebSocket API (API Gateway) is the
+> documented next step if live push is needed later.
