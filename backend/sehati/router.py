@@ -20,6 +20,7 @@ from .resolvers import (
     exams,
     feedback,
     interview,
+    resources,
     tests,
     transcribe,
 )
@@ -65,6 +66,10 @@ ROUTES: dict[str, Resolver] = {
     "transcriptionStatus": transcribe.transcription_status,
     # Doctor feedback
     "submitFeedback": feedback.submit_feedback,
+    # Shared reference-document library (AI grounding evidence)
+    "listResources": resources.list_resources,
+    "uploadResource": resources.upload_resource,
+    "deleteResource": resources.delete_resource,
     # Admin panel — users + custom permission groups
     "adminListUsers": admin.list_users,
     "adminCreateUser": admin.create_user,

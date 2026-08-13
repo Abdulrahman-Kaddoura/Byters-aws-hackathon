@@ -59,9 +59,9 @@ go run `./scripts/deploy.sh`.
 
 ---
 
-## 2. DynamoDB — 6 tables, all must exist and be `ACTIVE`
+## 2. DynamoDB — 7 tables, all must exist and be `ACTIVE`
 
-The app uses six tables, all encrypted with a customer-managed KMS key
+The app uses seven tables, all encrypted with a customer-managed KMS key
 (`alias/sehati`):
 
 | Table | Partition key | Sort key | GSIs |
@@ -70,11 +70,12 @@ The app uses six tables, all encrypted with a customer-managed KMS key
 | `sehati-audit` | `caseId` | `sk` | — |
 | `sehati-feedback` | `caseId` | `sk` | — |
 | `sehati-doctor-feedback` | `doctorId` | `timestamp` | — |
+| `sehati-resources` | `id` | — | — |
 | `sehati-users` | `sub` | — | — |
 | `sehati-groups` | `id` | — | — |
 
 ```bash
-for t in sehati-cases sehati-audit sehati-feedback sehati-doctor-feedback sehati-users sehati-groups; do
+for t in sehati-cases sehati-audit sehati-feedback sehati-doctor-feedback sehati-resources sehati-users sehati-groups; do
   echo "== $t =="
   aws dynamodb describe-table --table-name $t --query "Table.TableStatus" --output text
 done
@@ -292,10 +293,10 @@ aws lambda get-function-configuration --function-name sehati-orchestrator \
 
 **Expect:** `CASES_TABLE=sehati-cases`, `AUDIT_TABLE=sehati-audit`,
 `FEEDBACK_TABLE=sehati-feedback`, `DOCTOR_FEEDBACK_TABLE=sehati-doctor-feedback`,
-`USERS_TABLE=sehati-users`, `GROUPS_TABLE=sehati-groups`, `USER_POOL_ID=...`
-(needed for the admin panel's Cognito `Admin*` calls), `DOCUMENTS_BUCKET=...`,
-`AUDIT_BUCKET=...`, `HEALTHSCRIBE_BUCKET=...`, `HEALTHSCRIBE_ROLE_ARN=...`,
-`LOG_LEVEL=INFO`.
+`RESOURCES_TABLE=sehati-resources`, `USERS_TABLE=sehati-users`,
+`GROUPS_TABLE=sehati-groups`, `USER_POOL_ID=...` (needed for the admin panel's
+Cognito `Admin*` calls), `DOCUMENTS_BUCKET=...`, `AUDIT_BUCKET=...`,
+`HEALTHSCRIBE_BUCKET=...`, `HEALTHSCRIBE_ROLE_ARN=...`, `LOG_LEVEL=INFO`.
 
 ---
 

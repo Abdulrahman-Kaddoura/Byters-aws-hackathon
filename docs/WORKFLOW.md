@@ -220,6 +220,7 @@ none of them move `lifecycleState`.
 | Upload a document | `uploadCaseDocument` | A doctor attaches a PDF/DOCX/text file; its text is extracted into `documentContext`, which every subsequent AI call sees as grounding. |
 | Audio transcription | `uploadCaseAudio` → `startTranscription` → poll `transcriptionStatus` | A doctor uploads an audio recording; AWS HealthScribe turns it into a structured clinical summary (chief complaint, HPI, review of systems, past medical history) once the job completes. |
 | Leave feedback | `submitFeedback` | Free-text feedback on how the AI did on this case — separate from the accept/reject flywheel below, stored per doctor. |
+| Manage the reference library | `listResources`, `uploadResource`, `deleteResource` | Not tied to any one case: clinical staff upload/remove tagged guideline documents (e.g. "diabetes") from the Knowledge Base page. The AI seam keyword-matches them against *any* case's chief complaint or a doctor's question and folds matches in as grounding evidence automatically — no per-case action needed. |
 
 ## 5. What gets recorded automatically
 

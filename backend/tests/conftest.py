@@ -40,17 +40,19 @@ def aws(monkeypatch):
         # calls hit real AWS instead of moto.
         from sehati import cognito_admin
         from sehati.db import tables
-        from sehati.resolvers import documents
+        from sehati.resolvers import documents, resources
 
         tables._resource.cache_clear()  # noqa: SLF001
         cognito_admin._client.cache_clear()  # noqa: SLF001
         documents._s3_client.cache_clear()  # noqa: SLF001
+        resources._s3_client.cache_clear()  # noqa: SLF001
 
         _create_tables(tables)
         yield tables
         tables._resource.cache_clear()  # noqa: SLF001
         cognito_admin._client.cache_clear()  # noqa: SLF001
         documents._s3_client.cache_clear()  # noqa: SLF001
+        resources._s3_client.cache_clear()  # noqa: SLF001
 
 
 def _create_tables(tables) -> None:
@@ -105,6 +107,12 @@ def _create_tables(tables) -> None:
     )
     client.create_table(
         TableName=tables.GROUPS_TABLE,
+        BillingMode="PAY_PER_REQUEST",
+        AttributeDefinitions=[{"AttributeName": "id", "AttributeType": "S"}],
+        KeySchema=[{"AttributeName": "id", "KeyType": "HASH"}],
+    )
+    client.create_table(
+        TableName=tables.RESOURCES_TABLE,
         BillingMode="PAY_PER_REQUEST",
         AttributeDefinitions=[{"AttributeName": "id", "AttributeType": "S"}],
         KeySchema=[{"AttributeName": "id", "KeyType": "HASH"}],

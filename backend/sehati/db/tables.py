@@ -26,6 +26,7 @@ FEEDBACK_TABLE = os.environ.get("FEEDBACK_TABLE", "sehati-feedback")
 DOCTOR_FEEDBACK_TABLE = os.environ.get("DOCTOR_FEEDBACK_TABLE", "sehati-doctor-feedback")
 USERS_TABLE = os.environ.get("USERS_TABLE", "sehati-users")
 GROUPS_TABLE = os.environ.get("GROUPS_TABLE", "sehati-groups")
+RESOURCES_TABLE = os.environ.get("RESOURCES_TABLE", "sehati-resources")
 
 REGION = os.environ.get("AWS_REGION", "us-east-1")
 
@@ -68,6 +69,13 @@ def users_table():
 
 def groups_table():
     return _resource().Table(GROUPS_TABLE)
+
+
+def resources_table():
+    """The shared reference-document library — clinical staff upload PDFs/DOCX
+    (e.g. a guideline for a specific condition); the AI seam pulls matching
+    ones in as grounding evidence (see ``ai/bedrock.py``'s ``_retrieve``)."""
+    return _resource().Table(RESOURCES_TABLE)
 
 
 # --- Decimal <-> JSON number conversion ------------------------------------

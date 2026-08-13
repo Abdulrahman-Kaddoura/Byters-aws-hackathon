@@ -9,6 +9,7 @@ import type {
   ExamRecommendation,
   Flag,
   FinalDiagnosis,
+  KnowledgeResource,
   PatientCase,
   PermissionCatalogEntry,
   PermissionGroup,
@@ -288,4 +289,23 @@ export function submitFeedback(
   category?: string
 ): Promise<{ status: string; data: unknown }> {
   return request('POST', `/cases/${enc(caseId)}/feedback`, { feedback, category });
+}
+
+// --- Shared reference-document library (AI grounding evidence) ---------------
+export function listResources(): Promise<KnowledgeResource[]> {
+  return request('GET', '/resources');
+}
+
+export function uploadResource(payload: {
+  title: string;
+  tags: string[];
+  fileBase64: string;
+  fileExtension?: string;
+  contentType?: string;
+}): Promise<KnowledgeResource> {
+  return request('POST', '/resources', payload);
+}
+
+export function deleteResource(id: string): Promise<{ deleted: boolean }> {
+  return request('DELETE', `/resources/${enc(id)}`);
 }

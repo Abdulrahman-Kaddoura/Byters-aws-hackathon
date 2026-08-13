@@ -180,6 +180,20 @@ class SehatiStack(Stack):
             removal_policy=RemovalPolicy.DESTROY,
         )
 
+        # Shared reference-document library: clinical staff upload guideline/
+        # reference docs (resolvers/resources.py, gated behind the
+        # resources.manage permission); the AI seam keyword-matches them in
+        # as grounding evidence for any case (ai/bedrock.py's _retrieve).
+        resources = dynamodb.Table(
+            self, "ResourcesTable",
+            table_name="sehati-resources",
+            partition_key=dynamodb.Attribute(name="id", type=dynamodb.AttributeType.STRING),
+            billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+            encryption=dynamodb.TableEncryption.CUSTOMER_MANAGED,
+            encryption_key=key,
+            removal_policy=RemovalPolicy.DESTROY,
+        )
+
         # --- S3 buckets -----------------------------------------------------
         # Documents / audio / images (KMS-encrypted, private).
         documents = s3.Bucket(
@@ -288,6 +302,7 @@ class SehatiStack(Stack):
                 "DOCUMENTS_BUCKET": documents.bucket_name,
                 "AUDIT_BUCKET": audit_bucket.bucket_name,
                 "DOCTOR_FEEDBACK_TABLE": doctor_feedback.table_name,
+                "RESOURCES_TABLE": resources.table_name,
                 "HEALTHSCRIBE_BUCKET": documents.bucket_name,
                 "HEALTHSCRIBE_ROLE_ARN": healthscribe_role.role_arn,
                 "BEDROCK_MODEL_ID": bedrock_model_id,
@@ -303,6 +318,7 @@ class SehatiStack(Stack):
         doctor_feedback.grant_read_write_data(fn)
         users.grant_read_write_data(fn)
         groups.grant_read_write_data(fn)
+        resources.grant_read_write_data(fn)
         documents.grant_read_write(fn)
         audit_bucket.grant_write(fn)
         key.grant_encrypt_decrypt(fn)
@@ -478,6 +494,11 @@ class SehatiStack(Stack):
         secured("/cases/{caseId}/assistant", [apigatewayv2.HttpMethod.POST])
         secured("/cases/{caseId}/recommendations/{targetId}/accept", [apigatewayv2.HttpMethod.POST])
         secured("/cases/{caseId}/recommendations/{targetId}/reject", [apigatewayv2.HttpMethod.POST])
+
+        # Shared reference-document library (gated server-side by the
+        # "resources.manage" permission).
+        secured("/resources", [apigatewayv2.HttpMethod.GET, apigatewayv2.HttpMethod.POST])
+        secured("/resources/{resourceId}", [apigatewayv2.HttpMethod.DELETE])
 
         # /admin — user + custom-group management (all gated server-side by
         # the "users.manage" permission, regardless of Cognito role).

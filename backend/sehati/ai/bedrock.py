@@ -3,7 +3,12 @@
 This is the file the **AI team owns and tunes**. It wires the workflow to:
   * Bedrock **Converse API** (Claude) for reasoning,
   * Bedrock **Guardrails** for prompt-attack / PII / grounding defense,
-  * Bedrock **Knowledge Bases** (``retrieve``) for the curated, versioned corpus.
+  * Bedrock **Knowledge Bases** (``retrieve``) for the curated, versioned corpus,
+  * the shared reference-document library (``db/resources_repo.py``) — a
+    lighter-weight alternative/complement to a Knowledge Base: clinical staff
+    upload a doc (e.g. a guideline for a specific condition) via
+    ``resolvers/resources.py``, tagged with the topics it covers, and it's
+    keyword-matched in here alongside any Knowledge Base results.
 
 It implements the :class:`~sehati.ai.base.AIService` contract. Where the model
 returns free text that must become a structured object (summary, differential
@@ -80,6 +85,12 @@ class BedrockAIService(AIService):
 
     # --- Bedrock plumbing ---------------------------------------------------
     def _retrieve(self, query: str, k: int = 5) -> list[dict[str, Any]]:
+        """Grounding passages for ``query``: Knowledge Base hits (if
+        configured) plus keyword-matched entries from the shared reference
+        library (always checked — no separate opt-in)."""
+        return self._retrieve_kb(query, k) + self._retrieve_resources(query, k)
+
+    def _retrieve_kb(self, query: str, k: int) -> list[dict[str, Any]]:
         """Retrieve grounding passages from the Knowledge Base (curated corpus)."""
         if not self._agent or not KNOWLEDGE_BASE_ID:
             return []
@@ -103,6 +114,26 @@ class BedrockAIService(AIService):
                 }
             )
         return out
+
+    def _retrieve_resources(self, query: str, k: int) -> list[dict[str, Any]]:
+        """Keyword-matched passages from the shared reference-document
+        library (``resolvers/resources.py``). Degrades to no evidence on any
+        failure — an unreachable/misconfigured table must never block
+        reasoning that doesn't strictly need it."""
+        from ..db import resources_repo
+
+        try:
+            matches = resources_repo.search_resources(query, limit=k)
+        except Exception:  # noqa: BLE001
+            return []
+        return [
+            {
+                "text": r["text"] + (" [...truncated]" if r.get("truncated") else ""),
+                "source": {"title": r.get("title"), "resourceId": r.get("id")},
+                "score": None,
+            }
+            for r in matches
+        ]
 
     def _converse(
         self,

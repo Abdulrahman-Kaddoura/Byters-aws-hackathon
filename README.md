@@ -43,7 +43,11 @@ open-ended collaboration. On the case overview tab, clinicians also get three
 side tools (`src/components/DoctorTools.tsx`): **upload a document** (PDF/DOCX,
 extracted as context for every AI step), **upload audio** (transcribed by AWS
 HealthScribe into a structured clinical summary), and **leave feedback**
-(free-text notes on how the AI did on this case).
+(free-text notes on how the AI did on this case). Separately, the **Knowledge
+Base** page lets clinicians build a shared, tagged reference library (e.g. a
+diabetes guideline tagged "diabetes") that Aura automatically pulls in as
+grounding evidence for any case whose chief complaint or a doctor's question
+matches — no per-case action needed.
 
 ### 🔐 Admin panel
 

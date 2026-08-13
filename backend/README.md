@@ -45,12 +45,14 @@ sehati/
   errors.py           # Typed, client-safe errors
   permissions.py      # Fine-grained permission catalog (admin-editable groups)
   cognito_admin.py     # Cognito Admin* API wrapper (admin panel account provisioning)
+  text_extract.py      # Shared PDF/DOCX/text extraction (documents.py + resources.py)
   resolvers/          # cases · interview · conversations · exams · diagnosis ·
-                       # tests · collab · documents · transcribe · feedback · admin
+                       # tests · collab · documents · transcribe · feedback ·
+                       # resources · admin
   ai/                 # base (contract) · bedrock (shipped impl) · healthscribe ·
                        # prompts · factory · client/service (unfinished, see docstrings)
   db/                 # tables · cases_repo (RLS) · audit_repo · feedback_repo ·
-                       # users_repo · groups_repo
+                       # users_repo · groups_repo · resources_repo
   data/seed_cases.json# 7 sample cases generated from ../src/data/cases.ts
 tests/                # pytest (moto-mocked DynamoDB)
 scripts/              # seed_cases.py · local_invoke.py · bootstrap_admin.py
@@ -119,7 +121,7 @@ and reverts hand-set vars on the next `cdk deploy`).
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `CASES_TABLE` / `AUDIT_TABLE` / `FEEDBACK_TABLE` / `DOCTOR_FEEDBACK_TABLE` / `USERS_TABLE` / `GROUPS_TABLE` | `sehati-*` | DynamoDB table names |
+| `CASES_TABLE` / `AUDIT_TABLE` / `FEEDBACK_TABLE` / `DOCTOR_FEEDBACK_TABLE` / `RESOURCES_TABLE` / `USERS_TABLE` / `GROUPS_TABLE` | `sehati-*` | DynamoDB table names |
 | `DOCUMENTS_BUCKET` / `AUDIT_BUCKET` | – | S3 buckets for uploaded files/audio and the WORM audit mirror |
 | `USER_POOL_ID` | – | Cognito user pool id (admin panel's `Admin*` API calls) |
 | `AWS_REGION` | `us-east-1` | Region |

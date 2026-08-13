@@ -42,6 +42,7 @@ is in [`WORKFLOW.md`](./WORKFLOW.md).
 | exams, differential, tests, chat, propose dx | — | ✓ | ✓ | ✓ |
 | accept final diagnosis (sign-off) | — | ✓ | ✓ | — |
 | audit trail (`GET /cases/{caseId}/audit`) | — | — | ✓ | ✓ |
+| reference library (`/resources`) | — | ✓ | ✓ | ✓ |
 
 If a user calls something they're not allowed to, they get a `403 Forbidden`
 error (see [Errors](#errors) at the bottom).
@@ -373,6 +374,41 @@ enforced in the data layer, unaffected by permission-group changes.
   | `feedback` | **yes** | The feedback text. |
   | `category` | no | `general` (default), `diagnosis`, `summary`, etc. |
 - **Sends back:** `{ status: "success", data }`.
+
+---
+
+## `GET /resources` — list the shared reference-document library
+- **Purpose:** Browse the guideline/reference documents clinical staff have
+  uploaded (not case-scoped — shared across every case). Metadata only; the
+  extracted text is never sent to the client.
+- **Who:** requires the **`resources.manage`** permission (physician, admin,
+  or compliance by default).
+- **Sends back:** a JSON array of resource metadata objects (`id`, `title`,
+  `tags[]`, `s3Uri`, `fileExtension`, `uploadedBy`, `uploadedByUsername`,
+  `createdAt`, `truncated`).
+
+## `POST /resources` — upload a reference document
+- **Purpose:** Add a document (e.g. a guideline for a specific condition) to
+  the shared library. Its text is extracted and stored; `ai/bedrock.py`
+  keyword-matches it against a case's chief complaint or a doctor's question
+  and folds matching documents in as grounding evidence — no separate step
+  needed once uploaded.
+- **Who:** requires the **`resources.manage`** permission.
+- **Wants (JSON body):**
+  | Field | Required | Description |
+  |-------|:--:|-------------|
+  | `title` | **yes** | Display title, e.g. `"Type 2 Diabetes Guideline"`. |
+  | `fileBase64` | **yes** | The file, base64-encoded. |
+  | `tags` | no | Array of topic keywords, e.g. `["diabetes", "endocrine"]` — matched against a case's chief complaint/question, case-insensitive. |
+  | `fileExtension` | no | `pdf` (default), `docx`, or any text extension. |
+  | `contentType` | no | MIME type stored on the S3 object. |
+- **Sends back:** the created resource's metadata (same shape as the list above).
+
+## `DELETE /resources/{resourceId}` — remove a reference document
+- **Purpose:** Take a document out of the library; it stops being considered
+  for future AI grounding.
+- **Who:** requires the **`resources.manage`** permission.
+- **Sends back:** `{ deleted: true }`.
 
 ---
 

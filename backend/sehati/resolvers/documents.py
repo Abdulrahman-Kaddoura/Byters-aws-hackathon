@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import base64
-import io
 import os
 import uuid
 from functools import lru_cache
@@ -15,6 +14,7 @@ from ..context import AuthContext
 from ..db import audit_repo, cases_repo
 from ..errors import ValidationError
 from ..models import recent_update
+from ..text_extract import extract_document_text
 
 
 @lru_cache(maxsize=1)
@@ -40,7 +40,7 @@ def upload_case_document(ctx: AuthContext, args: dict[str, Any]) -> dict[str, An
     )
     document_s3_uri = f"s3://{bucket}/{key}"
 
-    document_text = _extract_document_text(raw_bytes, file_ext)
+    document_text = extract_document_text(raw_bytes, file_ext)
 
     case["documentContext"] = document_text
     case["documentS3Uri"] = document_s3_uri
@@ -83,30 +83,6 @@ def upload_case_audio(ctx: AuthContext, args: dict[str, Any]) -> dict[str, Any]:
         output={"s3Key": key},
     )
     return {"case": case, "s3Key": key, "bucket": bucket}
-
-
-def _extract_document_text(raw_bytes: bytes, ext: str) -> str:
-    ext = ext.lower()
-    if ext == "pdf":
-        return _extract_pdf_text(raw_bytes)
-    elif ext == "docx":
-        return _extract_docx_text(raw_bytes)
-    else:
-        return raw_bytes.decode("utf-8", errors="ignore")
-
-
-def _extract_pdf_text(raw_bytes: bytes) -> str:
-    from pypdf import PdfReader
-
-    reader = PdfReader(io.BytesIO(raw_bytes))
-    return "\n".join(page.extract_text() or "" for page in reader.pages)
-
-
-def _extract_docx_text(raw_bytes: bytes) -> str:
-    from docx import Document
-
-    doc = Document(io.BytesIO(raw_bytes))
-    return "\n".join(p.text for p in doc.paragraphs)
 
 
 def _require(args: dict[str, Any], key: str) -> Any:

@@ -288,3 +288,21 @@ export interface AppUser {
    * panel disables the controls that the server would reject anyway. */
   isSuperAdmin: boolean;
 }
+
+// ---------------------------------------------------------------------------
+// Shared reference-document library — clinical staff upload guideline/reference
+// docs (e.g. "Type 2 Diabetes Guideline", tagged "diabetes"); the AI seam
+// keyword-matches them in as grounding evidence for any case. See
+// backend/sehati/db/resources_repo.py and docs/ARCHITECTURE.md §6.
+// ---------------------------------------------------------------------------
+export interface KnowledgeResource {
+  id: string;
+  title: string;
+  tags: string[];
+  s3Uri: string;
+  fileExtension: string;
+  uploadedBy: string;
+  uploadedByUsername: string;
+  createdAt: string;
+  truncated: boolean;
+}

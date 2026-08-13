@@ -1,7 +1,7 @@
 # SEHATI-AI — Infrastructure (AWS CDK, Python)
 
 This CDK app provisions two CloudFormation stacks in **us-east-1**:
-- `SehatiBackend` — API Gateway (HTTP API), Lambda, DynamoDB (×6), Cognito, S3
+- `SehatiBackend` — API Gateway (HTTP API), Lambda, DynamoDB (×7), Cognito, S3
   (documents/audio + WORM audit), the AWS HealthScribe data-access IAM role,
   and a KMS key.
 - `SehatiFrontend` — S3 + CloudFront static hosting for the built React app.

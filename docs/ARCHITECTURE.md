@@ -20,7 +20,7 @@ Tablet / Web (frontend team)
   → AWS Lambda (Python) ..... orchestration; the authorization boundary
         ├─ AIService seam ... Amazon Bedrock (Claude) + Guardrails + KB (both optional)
         ├─ AWS HealthScribe . doctor-uploaded audio → structured clinical summary
-        ├─ Amazon DynamoDB .. cases · audit · feedback · doctor feedback · users · groups (KMS-encrypted, on-demand)
+        ├─ Amazon DynamoDB .. cases · audit · feedback · doctor feedback · users · groups · resources (KMS-encrypted, on-demand)
         └─ Amazon S3 + KMS .. documents/audio/images · immutable WORM audit (Object Lock)
   Observability ............ CloudWatch Logs + API Gateway access logs + X-ray
 ```
@@ -102,7 +102,8 @@ questions:
    permission catalog (one key per real gated action: `cases.manage_state`,
    `exams.manage`, `diagnoses.manage`, `final_diagnosis.accept`,
    `tests.manage`, `assistant.chat`, `recommendations.record`, `audit.view`,
-   `cases.add_note`, plus `users.manage` for the admin panel itself). A user
+   `cases.add_note`, `resources.manage`, plus `users.manage` for the admin
+   panel itself). A user
    belongs to one or more custom groups, with optional per-user permission
    overrides on top; effective permission = union of group permissions, with
    overrides applied last. Stored in two new DynamoDB tables (`sehati-users`,
@@ -173,7 +174,13 @@ The backend never hard-codes model behavior. `ai/base.AIService` is the contract
 `ai/factory.get_ai_service()` constructs the one shipped implementation.
 
 - **`BedrockAIService`** (AI team owns; the only implementation): Amazon Bedrock
-  **Converse** (Claude) + **Guardrails** + **Knowledge Bases** retrieval. Prompt
+  **Converse** (Claude) + **Guardrails** + **Knowledge Bases** retrieval, plus
+  the **shared reference-document library** (`db/resources_repo.py`) —
+  clinical staff upload a tagged document (e.g. a guideline for a specific
+  condition, `resolvers/resources.py`, gated behind `resources.manage`);
+  `_retrieve` keyword-matches its tags against the query (chief complaint or
+  physician question) and folds matches in as evidence alongside any
+  Knowledge Base results, with no separate ingestion step. Prompt
   architecture (§9.3): system prompt fixes the CDS-not-diagnostician role, the
   instruction hierarchy is system > physician > retrieved-docs, and every
   structured method requests strict JSON. Failures (model access, throttling,
@@ -226,7 +233,11 @@ cohort/similar-case retrieval (design doc §10.4: Comprehend Medical de-identifi
 - **Real model/prompt/RAG tuning** — AI team owns `ai/bedrock.py` + the curated,
   versioned corpus (design doc §11: PMC OA + ClinicalTrials.gov + openFDA/RxNorm +
   WHO/CDC + ICD-10-CM), ingested via Bedrock Knowledge Bases → S3 Vectors, with
-  section-aware chunking, hybrid retrieval + rerank, and grounding checks.
+  section-aware chunking, hybrid retrieval + rerank, and grounding checks. The
+  shared reference-document library (§6 above) is a deliberately lightweight
+  stand-in for this — tag-based keyword matching, not embeddings/vector
+  search — good for a curated handful of documents per topic, not a
+  replacement for a real Knowledge Base at corpus scale.
 - **Multilingual voice pipeline** (design doc §12): audio → clinical summary is
   now implemented (AWS HealthScribe, §6 above), but English-only and one-way —
   **Translate** and **Comprehend Medical** (non-English pivot for clinical NLP)

@@ -69,7 +69,7 @@ In plain terms:
 | **The brain** | AWS Lambda (Python) | Runs the actual logic for every request. This is where our code lives. |
 | **The AI plug** | The "AI seam" inside Lambda | Where AI answers come from: Amazon Bedrock (Claude). No stand-in mode. |
 | **Transcription** | AWS HealthScribe (via Amazon Transcribe) | Turns a doctor-uploaded audio recording into a structured clinical summary. |
-| **The database** | Amazon DynamoDB (6 tables) | Stores cases, the audit log, doctor feedback (both the accept/reject dataset and free-text notes), plus admin-panel accounts and permission groups. |
+| **The database** | Amazon DynamoDB (7 tables) | Stores cases, the audit log, doctor feedback (both the accept/reject dataset and free-text notes), the shared reference-document library, plus admin-panel accounts and permission groups. |
 | **Files & WORM audit** | Amazon S3 + KMS | Stores documents/audio/images and a permanent, tamper-proof copy of the audit. |
 
 Everything is **serverless** — there are no servers to manage, it costs almost
