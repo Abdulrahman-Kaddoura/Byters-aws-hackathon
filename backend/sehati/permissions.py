@@ -27,6 +27,7 @@ ASSISTANT_CHAT = "assistant.chat"  # resolvers/collab.py: assistant_chat
 RECOMMENDATIONS_RECORD = "recommendations.record"  # resolvers/collab.py: accept_recommendation, reject_recommendation
 AUDIT_VIEW = "audit.view"  # db/audit_repo.py: list_for_case
 USERS_MANAGE = "users.manage"  # resolvers/admin.py: everything (this panel itself)
+RESOURCES_MANAGE = "resources.manage"  # resolvers/resources.py: list/upload/delete the shared reference library
 
 PERMISSIONS: tuple[str, ...] = (
     CASES_MANAGE_STATE,
@@ -39,6 +40,7 @@ PERMISSIONS: tuple[str, ...] = (
     RECOMMENDATIONS_RECORD,
     AUDIT_VIEW,
     USERS_MANAGE,
+    RESOURCES_MANAGE,
 )
 
 # Human-readable labels for the admin UI's permission checklist.
@@ -53,6 +55,7 @@ PERMISSION_LABELS: dict[str, str] = {
     RECOMMENDATIONS_RECORD: "Accept/reject AI recommendations (feedback)",
     AUDIT_VIEW: "Read a case's audit trail",
     USERS_MANAGE: "Manage user accounts and permission groups (this admin panel)",
+    RESOURCES_MANAGE: "Upload/delete reference documents in the shared knowledge base",
 }
 
 _PERMISSION_SET = frozenset(PERMISSIONS)
@@ -71,6 +74,7 @@ _CLINICAL_STAFF_PERMISSIONS = (
     TESTS_MANAGE,
     ASSISTANT_CHAT,
     RECOMMENDATIONS_RECORD,
+    RESOURCES_MANAGE,
 )
 
 # Keyed by Cognito group name (models.GROUP_*) — the system group a newly

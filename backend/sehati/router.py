@@ -18,8 +18,11 @@ from .resolvers import (
     diagnosis,
     documents,
     exams,
+    feedback,
     interview,
+    resources,
     tests,
+    transcribe,
 )
 
 Resolver = Callable[[AuthContext, dict[str, Any]], Any]
@@ -57,6 +60,16 @@ ROUTES: dict[str, Resolver] = {
     "rejectRecommendation": collab.reject_recommendation,
     # Documents
     "uploadCaseDocument": documents.upload_case_document,
+    "uploadCaseAudio": documents.upload_case_audio,
+    # Transcription (AWS HealthScribe)
+    "startTranscription": transcribe.transcribe_audio,
+    "transcriptionStatus": transcribe.transcription_status,
+    # Doctor feedback
+    "submitFeedback": feedback.submit_feedback,
+    # Shared reference-document library (AI grounding evidence)
+    "listResources": resources.list_resources,
+    "uploadResource": resources.upload_resource,
+    "deleteResource": resources.delete_resource,
     # Admin panel — users + custom permission groups
     "adminListUsers": admin.list_users,
     "adminCreateUser": admin.create_user,

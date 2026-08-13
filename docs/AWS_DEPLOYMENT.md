@@ -24,10 +24,10 @@ Task Set 8 (update) and occasionally Task Set 9 (teardown).
 | **11** | Host the frontend on AWS (S3 + CloudFront) | once, then on frontend updates |
 
 **What you're building:** one CloudFormation stack called `SehatiBackend` in the
-**us-east-1 (N. Virginia)** region, containing API Gateway (the REST API),
-Lambda (the logic), DynamoDB (5 tables — cases, audit, feedback, plus the
-admin panel's users and permission groups), Cognito (logins), S3 + KMS
-(files, audit, encryption).
+**us-east-1 (N. Virginia)** region, containing API Gateway (the HTTP API),
+Lambda (the logic), DynamoDB (7 tables — cases, audit, feedback, doctor
+feedback, the shared reference-document library, plus the admin panel's users
+and permission groups), Cognito (logins), S3 + KMS (files, audit, encryption).
 
 **Cost:** ~$150–500/month at pilot scale, dominated by AI tokens; **near-zero
 when idle**. There is no offline/no-cost mode — every deploy talks to real
@@ -92,8 +92,9 @@ Bedrock (see Task Set 8 before your first deploy).
 
 ## Task Set 3 — Deploy the backend
 
-**Goal:** create the whole stack in your account. The default AI is the **stub**, so
-this works immediately with nothing else to enable.
+**Goal:** create the whole stack in your account. There is no offline/stub AI
+mode — every deploy talks to real Amazon Bedrock from the start (see Task Set
+8 before your first deploy if you haven't already).
 
 1. From `infra/` (venv still active):
    ```bash
@@ -241,8 +242,8 @@ TOKEN=$(aws cognito-idp initiate-auth --auth-flow USER_PASSWORD_AUTH \
   --auth-parameters USERNAME=dr.karim,PASSWORD='Passw0rd!Demo' \
   --query "AuthenticationResult.IdToken" --output text)
 
-# 2) call the API — note: the raw ID token, no "Bearer " prefix
-curl -s "<ApiUrl>cases" -H "Authorization: $TOKEN"
+# 2) call the API — note: HTTP API's JWT authorizer requires the Bearer scheme
+curl -s "<ApiUrl>cases" -H "Authorization: Bearer $TOKEN"
 ```
 
 Now sign in as **`layla`** (patient) the same way and call `GET /cases` again —
@@ -308,9 +309,10 @@ Check CloudWatch logs on `sehati-orchestrator` for the underlying Bedrock error:
 aws logs tail /aws/lambda/sehati-orchestrator --since 15m --region us-east-1 --format short
 ```
 
-**API Gateway's 29-second hard timeout.** REST API Lambda integrations cannot be
-configured past 29 seconds — this is an AWS ceiling, not something this stack
-can raise. The Lambda's own timeout is 60s, so a slow Bedrock call can finish
+**API Gateway's ~30-second hard timeout.** HTTP API Lambda proxy integrations
+cannot be configured past 30 seconds — this is an AWS ceiling, not something
+this stack can raise (REST API's equivalent ceiling was 29s; switching API
+types doesn't meaningfully change this). The Lambda's own timeout is 60s, so a slow Bedrock call can finish
 successfully server-side (visible in CloudWatch as a normal, non-error
 `REPORT` line) while the physician-facing request already failed client-side
 with a generic error a second earlier. `ai/bedrock.py`'s `answer()` (case chat)
@@ -424,10 +426,12 @@ Cognito User Pool Id  = <UserPoolId>
 Cognito App Client Id = <UserPoolClientId>
 ```
 
-They log the user in with Cognito and send the resulting **ID token** (raw, no
-`Bearer ` prefix) in the `Authorization` header on every request to the API base
-URL. All endpoints and shapes are in [`API.md`](./API.md); every case they
-receive matches the frontend's existing `PatientCase` type.
+They log the user in with Cognito and send the resulting **ID token** in the
+`Authorization` header, **with the `Bearer ` prefix** (`Authorization: Bearer
+<token>`) — HTTP API's JWT authorizer requires the bearer scheme — on every
+request to the API base URL. All endpoints and shapes are in
+[`API.md`](./API.md); every case they receive matches the frontend's existing
+`PatientCase` type.
 
 ---
 
@@ -436,13 +440,14 @@ receive matches the frontend's existing `PatientCase` type.
 | Symptom | Cause / fix |
 |---|---|
 | `cdk deploy` says "bootstrap" | Do Task Set 2 for this account/region. |
-| `Unauthorized` from the API | Login token missing/expired — get a fresh one (Task Set 7). |
+| `Unauthorized` from the API | Login token missing/expired — get a fresh one (Task Set 7) — or missing the `Bearer ` prefix on the `Authorization` header (HTTP API's JWT authorizer requires it). |
 | Patient gets `Forbidden` on another case | Correct behaviour — patients only see their own. |
 | `listCases` is empty | Run the seed step (Task Set 6), and check you're in `us-east-1`. |
 | Bedrock `ValidationException: ... isn't supported ... inference profile` | Bare model id used instead of an inference profile id — see Task Set 8, step 2. |
 | Bedrock `ResourceNotFoundException: ... marked by provider as Legacy` | That model id is retired; pick a currently-active one (Task Set 8, step 2). |
 | Bedrock `AccessDeniedException: ... not available for this account` | Newest model gated behind Anthropic's one-time use-case form, or genuinely not enabled — see Task Set 8's intro, or fall back to an already-active model. |
-| Chat works a couple of times then a generic "internal error" for no CloudWatch error | API Gateway's 29s hard timeout beat a slow-but-successful Bedrock call — see Task Set 8's timeout note. Not the same as a genuine Bedrock error, which does show up in CloudWatch as a real exception (there is no fallback to mask it). |
+| Chat works a couple of times then a generic "internal error" for no CloudWatch error | API Gateway's ~30s hard timeout beat a slow-but-successful Bedrock call — see Task Set 8's timeout note. Not the same as a genuine Bedrock error, which does show up in CloudWatch as a real exception (there is no fallback to mask it). |
+| `startTranscription` returns fine but `transcriptionStatus` never reaches `COMPLETED` | Check CloudWatch for the HealthScribe job itself (`aws transcribe get-medical-scribe-job`) — the Lambda only starts/polls it, it doesn't retry a stuck job. |
 | Frontend site shows a blank page / old content after redeploy | Hard-refresh (CloudFront may still be serving a stale edge cache for a few seconds after invalidation) or re-run `deploy-frontend.sh`. |
 | Browser console shows a CORS error calling the API from the deployed site | The backend's origin allowlist doesn't include your `SiteUrl` yet — see Task Set 11's CORS note. |
 | Changed code but AWS didn't update | Re-run Task Set 9 (`cdk deploy`). |

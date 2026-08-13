@@ -10,11 +10,12 @@ is in [`WORKFLOW.md`](./WORKFLOW.md).
 
 ## How the API works (read this first)
 
-- **Amazon API Gateway (REST)**, one Lambda behind it. Every request is a plain
+- **Amazon API Gateway (HTTP API)**, one Lambda behind it. Every request is a plain
   HTTPS call: path parameters for ids, a JSON body for input, JSON back.
 - **Every request must be logged in.** Send the user's Cognito **ID token** in the
-  `Authorization` header — **the raw token, no `Bearer ` prefix** (API Gateway's
-  Cognito authorizer parses the header value as the JWT itself). That token tells
+  `Authorization` header **with the `Bearer ` prefix** (`Authorization: Bearer
+  <token>`) — HTTP API's JWT authorizer requires the bearer scheme, unlike the
+  old REST API's Cognito authorizer which took the raw token. That token tells
   the backend *who* the user is and *which role* they have — you never pass
   identity in the path or body.
 - **Plain JSON in, plain JSON out.** Unlike a GraphQL `AWSJSON` string, request
@@ -41,6 +42,7 @@ is in [`WORKFLOW.md`](./WORKFLOW.md).
 | exams, differential, tests, chat, propose dx | — | ✓ | ✓ | ✓ |
 | accept final diagnosis (sign-off) | — | ✓ | ✓ | — |
 | audit trail (`GET /cases/{caseId}/audit`) | — | — | ✓ | ✓ |
+| reference library (`/resources`) | — | ✓ | ✓ | ✓ |
 
 If a user calls something they're not allowed to, they get a `403 Forbidden`
 error (see [Errors](#errors) at the bottom).
@@ -74,7 +76,7 @@ enforced in the data layer, unaffected by permission-group changes.
 - **Sends back:** a JSON array of **Cases** (each the full Case).
 - **Example:**
   ```bash
-  curl -H "Authorization: $TOKEN" "$API_URL/cases?status=Awaiting%20Tests"
+  curl -H "Authorization: Bearer $TOKEN" "$API_URL/cases?status=Awaiting%20Tests"
   ```
 
 ## `GET /cases/{caseId}` — get one full case
@@ -83,7 +85,7 @@ enforced in the data layer, unaffected by permission-group changes.
 - **Sends back:** the full **Case** object.
 - **Example:**
   ```bash
-  curl -H "Authorization: $TOKEN" "$API_URL/cases/AUR-1042"
+  curl -H "Authorization: Bearer $TOKEN" "$API_URL/cases/AUR-1042"
   ```
 
 ## `GET /cases/{caseId}/audit` — read the permanent audit trail of a case
@@ -93,7 +95,7 @@ enforced in the data layer, unaffected by permission-group changes.
   `ts`, and (where relevant) `modelVersion`, `retrievedContext`, `output`.
 - **Example:**
   ```bash
-  curl -H "Authorization: $TOKEN" "$API_URL/cases/AUR-1042/audit"
+  curl -H "Authorization: Bearer $TOKEN" "$API_URL/cases/AUR-1042/audit"
   ```
 
 ---
@@ -114,7 +116,7 @@ enforced in the data layer, unaffected by permission-group changes.
   greeting already in `interview`).
 - **Example:**
   ```bash
-  curl -X POST "$API_URL/cases" -H "Authorization: $TOKEN" -H "Content-Type: application/json" \
+  curl -X POST "$API_URL/cases" -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
     -d '{"patient":{"name":"Layla","age":54,"gender":"Female"},"chiefComplaint":"Headache 3 days with fever","complaint":{"symptoms":["Headache","Fever"],"painScale":6,"duration":"3 days"}}'
   ```
 
@@ -149,7 +151,7 @@ enforced in the data layer, unaffected by permission-group changes.
   | `complete` | `true` when the interview is done → next call `.../interview/summary`. |
 - **Example:**
   ```bash
-  curl -X POST "$API_URL/cases/AUR-1042/interview/messages" -H "Authorization: $TOKEN" \
+  curl -X POST "$API_URL/cases/AUR-1042/interview/messages" -H "Authorization: Bearer $TOKEN" \
     -H "Content-Type: application/json" -d '{"text":"It started 3 days ago and is worsening."}'
   ```
 
@@ -201,7 +203,7 @@ enforced in the data layer, unaffected by permission-group changes.
 - **Sends back:** `{ case, exam }` — the updated exam.
 - **Example:**
   ```bash
-  curl -X PUT "$API_URL/cases/AUR-1042/exams/e1" -H "Authorization: $TOKEN" \
+  curl -X PUT "$API_URL/cases/AUR-1042/exams/e1" -H "Authorization: Bearer $TOKEN" \
     -H "Content-Type: application/json" -d '{"finding":"Neck stiffness present","flag":"abnormal"}'
   ```
 
@@ -249,7 +251,7 @@ enforced in the data layer, unaffected by permission-group changes.
   `accepted`; the case is `Closed`.
 - **Example:**
   ```bash
-  curl -X PUT "$API_URL/cases/AUR-1042/final-diagnosis" -H "Authorization: $TOKEN" \
+  curl -X PUT "$API_URL/cases/AUR-1042/final-diagnosis" -H "Authorization: Bearer $TOKEN" \
     -H "Content-Type: application/json" -d '{"note":"Agree, treating as bacterial."}'
   ```
 
@@ -273,7 +275,7 @@ enforced in the data layer, unaffected by permission-group changes.
 - **Sends back:** `{ case, test }` — the test now `completed` with the result.
 - **Example:**
   ```bash
-  curl -X PUT "$API_URL/cases/AUR-1042/tests/t1/result" -H "Authorization: $TOKEN" \
+  curl -X PUT "$API_URL/cases/AUR-1042/tests/t1/result" -H "Authorization: Bearer $TOKEN" \
     -H "Content-Type: application/json" -d '{"result":"RLL infiltrate","resultFlag":"abnormal"}'
   ```
 
@@ -308,9 +310,105 @@ enforced in the data layer, unaffected by permission-group changes.
 - **Sends back:** `{ case, accepted: false }`.
 - **Example:**
   ```bash
-  curl -X POST "$API_URL/cases/AUR-1042/recommendations/dx-pe/reject" -H "Authorization: $TOKEN" \
+  curl -X POST "$API_URL/cases/AUR-1042/recommendations/dx-pe/reject" -H "Authorization: Bearer $TOKEN" \
     -H "Content-Type: application/json" -d '{"reason":"Low Wells score; prefer to wait."}'
   ```
+
+---
+
+## `POST /cases/{caseId}/documents` — upload a doctor's document
+- **Purpose:** Attach a PDF/DOCX/text document to a case; its text is extracted
+  and folded into `documentContext` as grounding for every subsequent AI step.
+- **Who:** physician, admin, or compliance.
+- **Wants (JSON body):**
+  | Field | Required | Description |
+  |-------|:--:|-------------|
+  | `fileBase64` | **yes** | The file, base64-encoded. |
+  | `fileExtension` | no | `pdf` (default), `docx`, or any text extension. |
+  | `contentType` | no | MIME type stored on the S3 object. |
+- **Sends back:** `{ case, documentS3Uri }`.
+
+## `POST /cases/{caseId}/audio` — upload a doctor-recorded audio file
+- **Purpose:** Store a case's audio recording in S3 ahead of transcription — no
+  text extraction, unlike `.../documents`. Returns the S3 key to pass straight
+  into `.../transcribe`.
+- **Who:** physician, admin, or compliance.
+- **Wants (JSON body):**
+  | Field | Required | Description |
+  |-------|:--:|-------------|
+  | `fileBase64` | **yes** | The audio file, base64-encoded. |
+  | `fileExtension` | no | `wav` (default), `mp3`, `m4a`, etc. |
+  | `contentType` | no | MIME type stored on the S3 object. |
+- **Sends back:** `{ case, s3Key, bucket }`.
+
+## `POST /cases/{caseId}/transcribe` — start a HealthScribe transcription job
+- **Purpose:** Kick off an AWS HealthScribe medical-scribe job against a case's
+  uploaded audio. Returns immediately — a scribe job can run for minutes, well
+  past any API Gateway integration timeout, so this never blocks waiting for
+  it. Poll `.../transcribe/{jobName}` for the result.
+- **Who:** physician, admin, or compliance.
+- **Wants (JSON body):** one of:
+  | Field | Required | Description |
+  |-------|:--:|-------------|
+  | `s3Key` | one of these | The key returned by `.../audio` (resolved against the configured HealthScribe bucket). |
+  | `audioS3Uri` | one of these | A full `s3://bucket/key` URI, if you already have one. |
+- **Sends back:** `{ jobName, status: "IN_PROGRESS" }`.
+
+## `GET /cases/{caseId}/transcribe/{jobName}` — poll a transcription job
+- **Purpose:** Check a HealthScribe job's status; once complete, returns the
+  structured clinical summary (chief complaint, HPI, review of systems, past
+  medical history) extracted from it.
+- **Who:** physician, admin, or compliance.
+- **Sends back:** `{ status: "IN_PROGRESS" | "COMPLETED" | "FAILED", summary?, reason? }`
+  — `summary` is present only when `status` is `COMPLETED`; `reason` only when `FAILED`.
+
+## `POST /cases/{caseId}/feedback` — leave free-text feedback on a case
+- **Purpose:** A doctor's free-text note on the AI's performance for this case
+  — distinct from the structured accept/reject flywheel above. Stored per
+  doctor, and folded back into that doctor's future AI prompts as a
+  preference history.
+- **Who:** physician, admin, or compliance.
+- **Wants (JSON body):**
+  | Field | Required | Description |
+  |-------|:--:|-------------|
+  | `feedback` | **yes** | The feedback text. |
+  | `category` | no | `general` (default), `diagnosis`, `summary`, etc. |
+- **Sends back:** `{ status: "success", data }`.
+
+---
+
+## `GET /resources` — list the shared reference-document library
+- **Purpose:** Browse the guideline/reference documents clinical staff have
+  uploaded (not case-scoped — shared across every case). Metadata only; the
+  extracted text is never sent to the client.
+- **Who:** requires the **`resources.manage`** permission (physician, admin,
+  or compliance by default).
+- **Sends back:** a JSON array of resource metadata objects (`id`, `title`,
+  `tags[]`, `s3Uri`, `fileExtension`, `uploadedBy`, `uploadedByUsername`,
+  `createdAt`, `truncated`).
+
+## `POST /resources` — upload a reference document
+- **Purpose:** Add a document (e.g. a guideline for a specific condition) to
+  the shared library. Its text is extracted and stored; `ai/bedrock.py`
+  keyword-matches it against a case's chief complaint or a doctor's question
+  and folds matching documents in as grounding evidence — no separate step
+  needed once uploaded.
+- **Who:** requires the **`resources.manage`** permission.
+- **Wants (JSON body):**
+  | Field | Required | Description |
+  |-------|:--:|-------------|
+  | `title` | **yes** | Display title, e.g. `"Type 2 Diabetes Guideline"`. |
+  | `fileBase64` | **yes** | The file, base64-encoded. |
+  | `tags` | no | Array of topic keywords, e.g. `["diabetes", "endocrine"]` — matched against a case's chief complaint/question, case-insensitive. |
+  | `fileExtension` | no | `pdf` (default), `docx`, or any text extension. |
+  | `contentType` | no | MIME type stored on the S3 object. |
+- **Sends back:** the created resource's metadata (same shape as the list above).
+
+## `DELETE /resources/{resourceId}` — remove a reference document
+- **Purpose:** Take a document out of the library; it stops being considered
+  for future AI grounding.
+- **Who:** requires the **`resources.manage`** permission.
+- **Sends back:** `{ deleted: true }`.
 
 ---
 
@@ -425,7 +523,7 @@ needs is `POST /cases` + `POST /cases/{caseId}/interview/messages` (+
 `GET /cases/{caseId}` / `GET /cases` for their own case).
 
 > **No real-time channel today.** The previous AppSync-based design had
-> `onCaseUpdated`/`onNewMessage` subscriptions; a plain REST API has no
-> equivalent. Multi-viewer sync is short-polling `GET /cases/{caseId}` for now —
-> a WebSocket API (API Gateway) is the documented next step if live push is
-> needed later.
+> `onCaseUpdated`/`onNewMessage` subscriptions; a plain REST-style API (REST
+> or HTTP) has no equivalent. Multi-viewer sync is short-polling
+> `GET /cases/{caseId}` for now — a WebSocket API (API Gateway) is the
+> documented next step if live push is needed later.

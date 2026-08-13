@@ -56,8 +56,8 @@ def build_messages(
 
 
 # --- Bedrock Agent prompt builders (for ai/service.py) ----------------------
-# Not yet wired to a working AIService implementation — see
-# docs/PROJECT_STATUS.md for status. Kept alongside build_messages/SYSTEM_PROMPT
+# Not yet wired to a working AIService implementation — see ai/service.py's
+# own docstring for status. Kept alongside build_messages/SYSTEM_PROMPT
 # above, which BedrockAIService still depends on.
 
 

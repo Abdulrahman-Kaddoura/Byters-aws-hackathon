@@ -1,10 +1,15 @@
-"""AWS Lambda entry point for API Gateway (REST API, Lambda proxy integration).
+"""AWS Lambda entry point for API Gateway (HTTP API, Lambda proxy integration,
+payload format version 1.0).
 
-API Gateway invokes this handler for every request. The event carries the
-matched ``resource`` template (e.g. ``"/cases/{caseId}/tests/{testId}/order"``)
-and ``httpMethod``, plus ``pathParameters``, ``queryStringParameters``, a JSON
-``body``, and — once the Cognito authorizer has verified the caller's ID
-token — the verified claims under ``requestContext.authorizer.claims``.
+API Gateway invokes this handler for every request. Payload format 1.0 keeps
+the event shape identical to the old REST API proxy integration this replaced:
+the matched ``resource`` template (e.g.
+``"/cases/{caseId}/tests/{testId}/order"``) and ``httpMethod``, plus
+``pathParameters``, ``queryStringParameters``, a JSON ``body``, and — once the
+Cognito JWT authorizer has verified the caller's ID token — the verified
+claims under ``requestContext.authorizer.jwt.claims`` (see
+:func:`_extract_claims`, which also accepts the old REST API authorizer's
+``requestContext.authorizer.claims`` shape).
 
 We look up the ``(method, resource)`` pair in the route table below to find
 which internal field to dispatch, build the resolver's ``args`` from the path
@@ -77,6 +82,13 @@ _ROUTES = [
     _Route("POST", "/cases/{caseId}/recommendations/{targetId}/accept", "acceptRecommendation"),
     _Route("POST", "/cases/{caseId}/recommendations/{targetId}/reject", "rejectRecommendation"),
     _Route("POST", "/cases/{caseId}/documents", "uploadCaseDocument"),
+    _Route("POST", "/cases/{caseId}/audio", "uploadCaseAudio"),
+    _Route("POST", "/cases/{caseId}/transcribe", "startTranscription"),
+    _Route("GET", "/cases/{caseId}/transcribe/{jobName}", "transcriptionStatus"),
+    _Route("POST", "/cases/{caseId}/feedback", "submitFeedback"),
+    _Route("GET", "/resources", "listResources"),
+    _Route("POST", "/resources", "uploadResource"),
+    _Route("DELETE", "/resources/{resourceId}", "deleteResource", path_arg_map={"resourceId": "id"}),
     _Route("GET", "/admin/users", "adminListUsers"),
     _Route("POST", "/admin/users", "adminCreateUser"),
     _Route("GET", "/admin/users/{userId}", "adminGetUser", path_arg_map={"userId": "sub"}),
@@ -106,7 +118,7 @@ def handler(event: dict[str, Any], context: Any = None) -> dict[str, Any]:  # no
         if route is None:
             raise NotFoundError(f"No route for {method} {resource}.")
 
-        claims = ((event.get("requestContext") or {}).get("authorizer") or {}).get("claims")
+        claims = _extract_claims(event)
         ctx = from_apigw_claims(claims)
         ctx = _enrich_with_permissions(ctx)
         args = _build_args(event, route)
@@ -122,6 +134,20 @@ def handler(event: dict[str, Any], context: Any = None) -> dict[str, Any]:  # no
             json.dumps({"errorType": "InternalError", "message": "An internal error occurred."}),
             cors,
         )
+
+
+def _extract_claims(event: dict[str, Any]) -> dict[str, Any] | None:
+    """Pull the verified JWT claims out of the authorizer context.
+
+    HTTP API's JWT authorizer (Cognito used as issuer) nests claims one level
+    deeper — ``requestContext.authorizer.jwt.claims`` — than REST API's
+    COGNITO_USER_POOLS authorizer, which put them directly under
+    ``requestContext.authorizer.claims``. Checking both keeps this working
+    across either API Gateway type without the caller needing to know which
+    one is in front of it.
+    """
+    authorizer = (event.get("requestContext") or {}).get("authorizer") or {}
+    return (authorizer.get("jwt") or {}).get("claims") or authorizer.get("claims")
 
 
 def _enrich_with_permissions(ctx: AuthContext) -> AuthContext:

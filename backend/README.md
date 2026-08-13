@@ -3,7 +3,7 @@
 A doctor-in-the-loop **clinical decision-support (CDS)** backend, built AWS-native
 per the SEHATI-AI design document. It owns the case data, the clinical workflow,
 the API, security and the audit trail. The **AI team** plugs its model/prompt/RAG
-work into a single seam (`sehati/ai/`); the **frontend team** consumes a REST
+work into a single seam (`sehati/ai/`); the **frontend team** consumes an HTTP
 API. AI reasoning always goes through Amazon Bedrock (Claude) — there is no
 offline/fake-AI mode in production; tests substitute a deterministic double
 at the AI seam instead (`backend/tests/fakes/ai_double.py`).
@@ -18,11 +18,12 @@ at the AI seam instead (`backend/tests/fakes/ai_double.py`).
 
 ```
 Cognito (auth, groups)
-   → API Gateway (REST, Cognito authorizer)
+   → API Gateway (HTTP API, Cognito JWT authorizer)
       → Lambda orchestrator (this Python package, Lambda proxy integration)
-         → AIService seam  (Amazon Bedrock + Guardrails + Knowledge Bases)
-         → DynamoDB        (cases · audit · feedback)
-         → S3 + KMS        (documents · immutable WORM audit)
+         → AIService seam  (Amazon Bedrock + Guardrails + Knowledge Bases, both optional)
+         → AWS HealthScribe (doctor-uploaded audio → structured clinical summary)
+         → DynamoDB        (cases · audit · feedback · doctor feedback · users · groups)
+         → S3 + KMS        (documents/audio · immutable WORM audit)
 ```
 
 - **Data store:** DynamoDB (serverless, scale-to-zero). Patient isolation is
@@ -38,16 +39,23 @@ Cognito (auth, groups)
 sehati/
   handler.py          # Lambda entry — routes API Gateway events, shapes errors
   router.py           # API route field name -> resolver function
-  context.py          # AuthContext built from the *signed* Cognito identity
+  context.py          # AuthContext built from the *verified* Cognito JWT claims
   models.py           # Domain model, mirror of ../src/types.ts + factories
   state_machine.py    # Case lifecycle transitions (design doc §7)
   errors.py           # Typed, client-safe errors
-  resolvers/          # cases · interview · exams · diagnosis · tests · collab
-  ai/                 # base (contract) · stub · bedrock · prompts · factory
-  db/                 # tables · cases_repo (RLS) · audit_repo · feedback_repo
+  permissions.py      # Fine-grained permission catalog (admin-editable groups)
+  cognito_admin.py     # Cognito Admin* API wrapper (admin panel account provisioning)
+  text_extract.py      # Shared PDF/DOCX/text extraction (documents.py + resources.py)
+  resolvers/          # cases · interview · conversations · exams · diagnosis ·
+                       # tests · collab · documents · transcribe · feedback ·
+                       # resources · admin
+  ai/                 # base (contract) · bedrock (shipped impl) · healthscribe ·
+                       # prompts · factory · client/service (unfinished, see docstrings)
+  db/                 # tables · cases_repo (RLS) · audit_repo · feedback_repo ·
+                       # users_repo · groups_repo · resources_repo
   data/seed_cases.json# 7 sample cases generated from ../src/data/cases.ts
-tests/                # pytest (moto-mocked DynamoDB) — 28 tests
-scripts/              # seed_cases.py · local_invoke.py
+tests/                # pytest (moto-mocked DynamoDB)
+scripts/              # seed_cases.py · local_invoke.py · bootstrap_admin.py
 ```
 
 ## Local development (no AWS account)
@@ -106,21 +114,31 @@ retrieval.
 
 ## Configuration (environment variables)
 
+All of these are set by the CDK stack (`infra/stacks/sehati_stack.py`) at
+deploy time — this table is for local development / reference, not something
+you hand-set against a live Lambda (CDK owns its environment map wholesale
+and reverts hand-set vars on the next `cdk deploy`).
+
 | Variable | Default | Purpose |
 |---|---|---|
-| `CASES_TABLE` / `AUDIT_TABLE` / `FEEDBACK_TABLE` | `sehati-*` | DynamoDB table names (set by CDK) |
+| `CASES_TABLE` / `AUDIT_TABLE` / `FEEDBACK_TABLE` / `DOCTOR_FEEDBACK_TABLE` / `RESOURCES_TABLE` / `USERS_TABLE` / `GROUPS_TABLE` | `sehati-*` | DynamoDB table names |
+| `DOCUMENTS_BUCKET` / `AUDIT_BUCKET` | – | S3 buckets for uploaded files/audio and the WORM audit mirror |
+| `USER_POOL_ID` | – | Cognito user pool id (admin panel's `Admin*` API calls) |
 | `AWS_REGION` | `us-east-1` | Region |
 | `DYNAMODB_ENDPOINT` | – | Local DynamoDB endpoint override |
-| `BEDROCK_MODEL_ID` | `anthropic.claude-sonnet-4-...` | Claude model (bedrock provider) |
+| `BEDROCK_MODEL_ID` | `us.anthropic.claude-sonnet-4-5-...` | Claude model / inference profile id |
 | `BEDROCK_GUARDRAIL_ID` / `_VERSION` | – | Optional Bedrock Guardrail |
 | `BEDROCK_KNOWLEDGE_BASE_ID` | – | Optional Knowledge Base for RAG |
+| `HEALTHSCRIBE_BUCKET` / `HEALTHSCRIBE_ROLE_ARN` | – | S3 bucket + IAM data-access role for AWS HealthScribe transcription |
 
 ## Security model (design doc §10)
 
 - **AuthN:** Cognito user pool (MFA-capable). **AuthZ:** Cognito groups
-  (`patient`/`physician`/`admin`/`compliance`) → API Gateway's Cognito authorizer
-  (verifies the token) + data-layer ownership/role checks in `db/cases_repo.py`
-  and the resolvers (`ctx.require_*`).
+  (`patient`/`physician`/`admin`/`compliance`) → API Gateway's Cognito JWT
+  authorizer (verifies the token) + data-layer ownership/role checks in
+  `db/cases_repo.py` and the resolvers (`ctx.require_permission`), plus a
+  second, admin-editable fine-grained permission layer (`permissions.py`) —
+  see `../docs/ARCHITECTURE.md` §5.
 - **Patient-facing interview path has no data-access tools** — it can only ever
   see the current case.
 - **Rejections require a reason** (anti-rubber-stamp / anti-automation-bias).

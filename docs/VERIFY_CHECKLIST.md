@@ -59,9 +59,9 @@ go run `./scripts/deploy.sh`.
 
 ---
 
-## 2. DynamoDB — 5 tables, all must exist and be `ACTIVE`
+## 2. DynamoDB — 7 tables, all must exist and be `ACTIVE`
 
-The app uses five tables, all encrypted with a customer-managed KMS key
+The app uses seven tables, all encrypted with a customer-managed KMS key
 (`alias/sehati`):
 
 | Table | Partition key | Sort key | GSIs |
@@ -69,11 +69,13 @@ The app uses five tables, all encrypted with a customer-managed KMS key
 | `sehati-cases` | `id` | — | `byPatient` (patientId+createdAt), `byPhysician` (assignedPhysicianId+createdAt), `byStatus` (status+createdAt) |
 | `sehati-audit` | `caseId` | `sk` | — |
 | `sehati-feedback` | `caseId` | `sk` | — |
+| `sehati-doctor-feedback` | `doctorId` | `timestamp` | — |
+| `sehati-resources` | `id` | — | — |
 | `sehati-users` | `sub` | — | — |
 | `sehati-groups` | `id` | — | — |
 
 ```bash
-for t in sehati-cases sehati-audit sehati-feedback sehati-users sehati-groups; do
+for t in sehati-cases sehati-audit sehati-feedback sehati-doctor-feedback sehati-resources sehati-users sehati-groups; do
   echo "== $t =="
   aws dynamodb describe-table --table-name $t --query "Table.TableStatus" --output text
 done
@@ -210,27 +212,41 @@ is in no group = see 4a.
 
 ## 5. API Gateway — routes, authorizer, CORS
 
+This is an **HTTP API** (`apigatewayv2`), not a REST API — use the `v2`
+CLI commands, not `aws apigateway ...` (that's the REST API family and
+won't find it):
+
 ```bash
-aws apigateway get-rest-apis --query "items[?name=='sehati-api'].id" --output text
+aws apigatewayv2 get-apis --query "Items[?Name=='sehati-api'].ApiId" --output text
 ```
 
-Take that `<ApiId>` and confirm the `prod` stage exists and tracing/logging
-are on (useful for debugging later):
+Take that `<ApiId>` and confirm the `prod` stage exists and auto-deploy is
+on (useful for debugging later):
 
 ```bash
-aws apigateway get-stage --rest-api-id <ApiId> --stage-name prod \
-  --query "{Tracing:tracingEnabled, AccessLog:accessLogSettings.destinationArn}"
+aws apigatewayv2 get-stages --api-id <ApiId> \
+  --query "Items[?StageName=='prod'].{AutoDeploy:AutoDeploy,Throttle:DefaultRouteSettings.ThrottlingRateLimit}"
+```
+
+Confirm the JWT authorizer is wired to the right Cognito user pool as issuer:
+
+```bash
+aws apigatewayv2 get-authorizers --api-id <ApiId> \
+  --query "Items[].{Name:Name,Issuer:JwtConfiguration.Issuer,Audience:JwtConfiguration.Audience}"
 ```
 
 ### 5a. Real end-to-end call (this is the test that matters most)
 
 ```bash
-curl -s -o /dev/null -w "%{http_code}\n" "<ApiUrl>cases" -H "Authorization: $TOKEN"
+curl -s -o /dev/null -w "%{http_code}\n" "<ApiUrl>cases" -H "Authorization: Bearer $TOKEN"
 ```
 
 - **200** → auth + routing + Lambda + DynamoDB read all work. Good.
-- **401** → token missing/expired/malformed, or you forgot the raw token
-  has no `Bearer ` prefix (the frontend sends it raw — see `src/lib/api.ts`).
+- **401** → token missing/expired/malformed, or you forgot the `Bearer `
+  prefix — the HTTP API's JWT authorizer requires it (the frontend sends
+  `Authorization: Bearer <token>` — see `src/lib/api.ts`; this is the
+  opposite of the old REST API's Cognito authorizer, which took the raw
+  token with no prefix).
 - **403** → you're authenticated but the *resolver* rejected you — almost
   always the group problem in step 4a, or (for a specific case) an ownership
   mismatch (patient hitting a case that isn't theirs — that's correct
@@ -242,7 +258,7 @@ curl -s -o /dev/null -w "%{http_code}\n" "<ApiUrl>cases" -H "Authorization: $TOK
 Get the body, not just the status, for anything non-200:
 
 ```bash
-curl -s "<ApiUrl>cases" -H "Authorization: $TOKEN" | python3 -m json.tool
+curl -s "<ApiUrl>cases" -H "Authorization: Bearer $TOKEN" | python3 -m json.tool
 ```
 
 ---
@@ -276,10 +292,11 @@ aws lambda get-function-configuration --function-name sehati-orchestrator \
 ```
 
 **Expect:** `CASES_TABLE=sehati-cases`, `AUDIT_TABLE=sehati-audit`,
-`FEEDBACK_TABLE=sehati-feedback`, `USERS_TABLE=sehati-users`,
-`GROUPS_TABLE=sehati-groups`, `USER_POOL_ID=...` (needed for the admin
-panel's Cognito `Admin*` calls), `DOCUMENTS_BUCKET=...`, `AUDIT_BUCKET=...`,
-`LOG_LEVEL=INFO`.
+`FEEDBACK_TABLE=sehati-feedback`, `DOCTOR_FEEDBACK_TABLE=sehati-doctor-feedback`,
+`RESOURCES_TABLE=sehati-resources`, `USERS_TABLE=sehati-users`,
+`GROUPS_TABLE=sehati-groups`, `USER_POOL_ID=...` (needed for the admin panel's
+Cognito `Admin*` calls), `DOCUMENTS_BUCKET=...`, `AUDIT_BUCKET=...`,
+`HEALTHSCRIBE_BUCKET=...`, `HEALTHSCRIBE_ROLE_ARN=...`, `LOG_LEVEL=INFO`.
 
 ---
 

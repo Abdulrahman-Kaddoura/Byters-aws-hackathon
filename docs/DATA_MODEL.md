@@ -74,6 +74,8 @@ plain numbers on a 0–100 scale (pain is 0–10). Higher = more/stronger.
 | `timeline` | list of *TimelineEvent* | Chronological history of the case (entity 13). |
 | `notes` | list of *DoctorNote* | Free-text notes the doctor wrote (entity 14). |
 | `insights` | list of *AIInsight* | AI "heads-up" cards, e.g. a safety flag (entity 15). |
+| `documentContext` | text, optional | Text extracted from a doctor-uploaded document (`POST /cases/{caseId}/documents`), folded in as grounding for every subsequent AI step. |
+| `documentS3Uri` | text, optional | Where that document actually lives in S3 (`s3://` URI). The extracted text above, not this URI, is what the AI seam sees. |
 | `nextSteps` | list of text | Suggested next actions, shown as a checklist. |
 | `recentUpdates` | list | Short "what just happened" feed items. |
 | `assistantThread` | list of *ChatMessage* | The case-level chat with the AI assistant panel. |
@@ -306,15 +308,36 @@ interrogate it.
 | `label` | text | Human label, e.g. "Tests Ordered". |
 | `status` | text | `done`, `active`, or `pending`. |
 
+### 17. `KnowledgeResource` — an uploaded reference document
+
+Not part of `PatientCase` — this is shared across every case, not owned by
+one. See `GET/POST /resources` in [`API.md`](./API.md).
+
+| Field | Type | Meaning |
+|-------|------|---------|
+| `id` | text | Unique resource id, e.g. `res-a1b2c3d4e5`. |
+| `title` | text | Display title, e.g. "Type 2 Diabetes Guideline". |
+| `tags` | list of text | Topic keywords (lowercased), e.g. `["diabetes", "endocrine"]` — matched against a case's chief complaint/question to decide relevance. |
+| `s3Uri` | text | Where the original file lives in S3. |
+| `fileExtension` | text | `pdf`, `docx`, or a plain-text extension. |
+| `uploadedBy` / `uploadedByUsername` | text | Who uploaded it (Cognito sub / username). |
+| `createdAt` | text | When it was uploaded. |
+| `truncated` | boolean | `true` if the extracted text was cut off at the 50,000-character storage cap. |
+
+> The extracted text itself (`text` in the backend/DynamoDB item) is never
+> sent to the frontend — only used server-side as AI grounding evidence. See
+> [`ARCHITECTURE.md`](./ARCHITECTURE.md) §6.
+
 ---
 
 ## Part C — The database tables (where this lives on AWS)
 
-All data is stored in **Amazon DynamoDB**, a serverless database. There are **five
-tables**: three for clinical cases (below), plus two more for the admin panel's
-account/permission management (`sehati-users`, `sehati-groups` — see the end of
-this section). Every table is encrypted with a dedicated key and bills only for
-what you use (near-zero when idle).
+All data is stored in **Amazon DynamoDB**, a serverless database. There are
+**seven tables**: three for clinical cases (below) plus doctor feedback and
+the shared reference library, and two more for the admin panel's
+account/permission management (`sehati-users`,
+`sehati-groups` — see the end of this section). Every table is encrypted with a
+dedicated key and bills only for what you use (near-zero when idle).
 
 ### Table 1 — `sehati-cases` (the cases)
 
@@ -348,9 +371,21 @@ what you use (near-zero when idle).
 - This is the dataset used later to safely improve the AI (without changing the
   model now — see [`ARCHITECTURE.md`](./ARCHITECTURE.md) §6).
 
+### Table 4 — `sehati-doctor-feedback` (free-text feedback)
+
+- **One row = one piece of free-text feedback** a doctor left on a case (`POST
+  /cases/{caseId}/feedback`) — distinct from Table 3's structured accept/
+  reject/edit dataset.
+- **Key:** `doctorId` + `timestamp`, so it's keyed by *doctor* rather than by
+  case — a doctor's own feedback history is a single query.
+- Fields: `doctorId`, `timestamp`, `caseId`, `feedback` (the text), `category`
+  (`general`/`diagnosis`/`summary`/… — free text, not enforced).
+- Doubles as a per-doctor preference history: the AI seam can read a doctor's
+  recent feedback back into its prompts.
+
 ---
 
-### Table 4 — `sehati-users` (hospital-provisioned accounts)
+### Table 5 — `sehati-users` (hospital-provisioned accounts)
 
 - **One row = one account's app-level permission data** — Cognito remains the
   identity store (sign-in, password, the 4 coarse groups); this table only
@@ -364,7 +399,7 @@ what you use (near-zero when idle).
 - Looked up once per request (by `sub`) to compute the caller's effective
   permission set — see [`ARCHITECTURE.md`](./ARCHITECTURE.md) §5.
 
-### Table 5 — `sehati-groups` (admin-defined permission groups)
+### Table 6 — `sehati-groups` (admin-defined permission groups)
 
 - **One row = one named bundle of permissions** — decoupled from Cognito's 4
   groups; an admin can create/edit/delete these from the `/admin` panel.
@@ -373,6 +408,19 @@ what you use (near-zero when idle).
   catalog — see `GET /admin/permissions` in [`API.md`](./API.md)), `isSystem`
   (the 4 groups matching Cognito roles are marked `true` and can't be
   deleted, but their `permissions` can still be edited), `createdAt`/`updatedAt`.
+
+### Table 7 — `sehati-resources` (the shared reference-document library)
+
+- **One row = one uploaded reference document** (entity 17 above) — not
+  case-scoped; shared across every case.
+- **Primary key:** `id`.
+- Fields: `title`, `tags[]`, `text` (extracted content, capped at 50,000
+  characters — see `truncated`), `s3Uri`, `fileExtension`, `uploadedBy` /
+  `uploadedByUsername`, `createdAt`, `truncated`.
+- `text` is server-side only — `resolvers/resources.py` strips it before
+  returning a resource to the client; it's read back only by
+  `ai/bedrock.py`'s `_retrieve` when a resource's tags match a case's chief
+  complaint or a doctor's question.
 
 ---
 

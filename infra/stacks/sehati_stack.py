@@ -1,6 +1,6 @@
 """The SEHATI-AI backend stack.
 
-    Cognito (auth, groups)  ->  API Gateway (REST, Cognito authorizer)
+    Cognito (auth, groups)  ->  API Gateway (HTTP API, Cognito JWT authorizer)
                                       |
                                 Lambda orchestrator (Python)
                                       |
@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import os
 
+import jsii
 from aws_cdk import (
     CfnOutput,
     Duration,
@@ -23,6 +24,9 @@ from aws_cdk import (
     Stack,
 )
 from aws_cdk import aws_apigateway as apigateway
+from aws_cdk import aws_apigatewayv2 as apigatewayv2
+from aws_cdk import aws_apigatewayv2_authorizers as apigatewayv2_authorizers
+from aws_cdk import aws_apigatewayv2_integrations as apigatewayv2_integrations
 from aws_cdk import aws_cognito as cognito
 from aws_cdk import aws_dynamodb as dynamodb
 from aws_cdk import aws_iam as iam
@@ -34,6 +38,25 @@ from constructs import Construct
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 BACKEND_DIR = os.path.abspath(os.path.join(HERE, "..", "..", "backend"))
+
+
+@jsii.implements(apigatewayv2.IAccessLogSettings)
+class _AccessLogSettings:
+    """``IAccessLogSettings`` is a jsii interface (Protocol), not a struct —
+    a plain dict doesn't deserialize across the jsii boundary, so it needs an
+    actual implementing object."""
+
+    def __init__(self, destination: apigatewayv2.IAccessLogDestination, format: apigateway.AccessLogFormat) -> None:
+        self._destination = destination
+        self._format = format
+
+    @property
+    def destination(self) -> apigatewayv2.IAccessLogDestination:
+        return self._destination
+
+    @property
+    def format(self) -> apigateway.AccessLogFormat:
+        return self._format
 
 
 class SehatiStack(Stack):
@@ -113,6 +136,20 @@ class SehatiStack(Stack):
             removal_policy=RemovalPolicy.DESTROY,
         )
 
+        # Doctor-facing free-text feedback (distinct from the accept/reject
+        # flywheel dataset above), keyed by doctor so it doubles as a
+        # per-doctor preference history the AI seam can read back.
+        doctor_feedback = dynamodb.Table(
+            self, "DoctorFeedbackTable",
+            table_name="sehati-doctor-feedback",
+            partition_key=dynamodb.Attribute(name="doctorId", type=dynamodb.AttributeType.STRING),
+            sort_key=dynamodb.Attribute(name="timestamp", type=dynamodb.AttributeType.NUMBER),
+            billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+            encryption=dynamodb.TableEncryption.CUSTOMER_MANAGED,
+            encryption_key=key,
+            removal_policy=RemovalPolicy.DESTROY,
+        )
+
         # Admin panel: hospital-provisioned accounts (Cognito is the identity
         # store; this table carries app-level custom-group membership and
         # per-user permission overrides) and the admin-editable custom groups
@@ -143,6 +180,20 @@ class SehatiStack(Stack):
             removal_policy=RemovalPolicy.DESTROY,
         )
 
+        # Shared reference-document library: clinical staff upload guideline/
+        # reference docs (resolvers/resources.py, gated behind the
+        # resources.manage permission); the AI seam keyword-matches them in
+        # as grounding evidence for any case (ai/bedrock.py's _retrieve).
+        resources = dynamodb.Table(
+            self, "ResourcesTable",
+            table_name="sehati-resources",
+            partition_key=dynamodb.Attribute(name="id", type=dynamodb.AttributeType.STRING),
+            billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+            encryption=dynamodb.TableEncryption.CUSTOMER_MANAGED,
+            encryption_key=key,
+            removal_policy=RemovalPolicy.DESTROY,
+        )
+
         # --- S3 buckets -----------------------------------------------------
         # Documents / audio / images (KMS-encrypted, private).
         documents = s3.Bucket(
@@ -166,6 +217,21 @@ class SehatiStack(Stack):
             object_lock_default_retention=s3.ObjectLockRetention.governance(Duration.days(1)),
             removal_policy=RemovalPolicy.RETAIN,
         )
+
+        # AWS HealthScribe (via Transcribe's medical-scribe API) assumes this
+        # role to read the doctor-uploaded source audio and write its
+        # clinical-summary output — both live in the documents bucket, under
+        # the case-audio/ and medical-scribe-output/ prefixes respectively.
+        # Previously configured by hand in the console (not provisioned as
+        # code, see ai/healthscribe.py's original docstring); wiring it here
+        # so a `cdk deploy` no longer silently drops it.
+        healthscribe_role = iam.Role(
+            self, "HealthScribeDataAccessRole",
+            assumed_by=iam.ServicePrincipal("transcribe.amazonaws.com"),
+            description="AWS HealthScribe data-access role: reads case audio, writes clinical summaries",
+        )
+        documents.grant_read_write(healthscribe_role)
+        key.grant_encrypt_decrypt(healthscribe_role)
 
         # --- Cognito --------------------------------------------------------
         user_pool = cognito.UserPool(
@@ -235,6 +301,10 @@ class SehatiStack(Stack):
                 "USER_POOL_ID": user_pool.user_pool_id,
                 "DOCUMENTS_BUCKET": documents.bucket_name,
                 "AUDIT_BUCKET": audit_bucket.bucket_name,
+                "DOCTOR_FEEDBACK_TABLE": doctor_feedback.table_name,
+                "RESOURCES_TABLE": resources.table_name,
+                "HEALTHSCRIBE_BUCKET": documents.bucket_name,
+                "HEALTHSCRIBE_ROLE_ARN": healthscribe_role.role_arn,
                 "BEDROCK_MODEL_ID": bedrock_model_id,
                 "BEDROCK_GUARDRAIL_ID": bedrock_guardrail_id,
                 "BEDROCK_GUARDRAIL_VERSION": bedrock_guardrail_version,
@@ -245,11 +315,27 @@ class SehatiStack(Stack):
         cases.grant_read_write_data(fn)
         audit.grant_read_write_data(fn)
         feedback.grant_read_write_data(fn)
+        doctor_feedback.grant_read_write_data(fn)
         users.grant_read_write_data(fn)
         groups.grant_read_write_data(fn)
+        resources.grant_read_write_data(fn)
         documents.grant_read_write(fn)
         audit_bucket.grant_write(fn)
         key.grant_encrypt_decrypt(fn)
+
+        # HealthScribe: the Lambda starts/polls medical-scribe jobs and must be
+        # able to hand Transcribe the data-access role it assumes to read/write
+        # the documents bucket on the Lambda's behalf.
+        fn.add_to_role_policy(
+            iam.PolicyStatement(
+                actions=[
+                    "transcribe:StartMedicalScribeJob",
+                    "transcribe:GetMedicalScribeJob",
+                ],
+                resources=["*"],  # Transcribe has no per-job resource ARN for IAM
+            )
+        )
+        healthscribe_role.grant_pass_role(fn)
 
         # Admin panel: the Lambda provisions/manages hospital accounts via the
         # Cognito Admin* API (never client-side — self_sign_up is disabled and
@@ -313,138 +399,117 @@ class SehatiStack(Stack):
                 )
             )
 
-        # --- API Gateway (REST) ---------------------------------------------
+        # --- API Gateway (HTTP API) ------------------------------------------
+        # HTTP API instead of REST API: lower per-request latency/cost, and a
+        # (marginally) longer hard integration-timeout ceiling for the
+        # HealthScribe transcription routes. Both API types still cap Lambda
+        # proxy integrations at ~30s either way, which is why transcription
+        # itself (resolvers/transcribe.py) starts the HealthScribe job and
+        # returns immediately rather than blocking on it — the frontend polls
+        # transcriptionStatus separately.
+        #
+        # payload_format_version=VERSION_1_0 keeps the Lambda event shape
+        # (httpMethod/resource/pathParameters/body) byte-for-byte compatible
+        # with the old REST API proxy integration, so handler.py's route
+        # table and _build_args didn't need to change.
         api_log_group = logs.LogGroup(
             self, "ApiAccessLogs",
             log_group_name="/aws/apigateway/sehati-api",
             retention=logs.RetentionDays.ONE_MONTH,
             removal_policy=RemovalPolicy.DESTROY,
         )
-        api = apigateway.RestApi(
+        api = apigatewayv2.HttpApi(
             self, "Api",
-            rest_api_name="sehati-api",
-            description="SEHATI-AI clinical decision-support REST API",
-            deploy_options=apigateway.StageOptions(
-                stage_name="prod",
-                logging_level=apigateway.MethodLoggingLevel.ERROR,
-                access_log_destination=apigateway.LogGroupLogDestination(api_log_group),
-                access_log_format=apigateway.AccessLogFormat.json_with_standard_fields(
+            api_name="sehati-api",
+            description="SEHATI-AI clinical decision-support HTTP API",
+            create_default_stage=False,
+            cors_preflight=apigatewayv2.CorsPreflightOptions(
+                allow_origins=["*"],
+                allow_methods=[
+                    apigatewayv2.CorsHttpMethod.GET,
+                    apigatewayv2.CorsHttpMethod.POST,
+                    apigatewayv2.CorsHttpMethod.PUT,
+                    apigatewayv2.CorsHttpMethod.DELETE,
+                    apigatewayv2.CorsHttpMethod.OPTIONS,
+                ],
+                allow_headers=["Content-Type", "Authorization"],
+            ),
+        )
+        stage = apigatewayv2.HttpStage(
+            self, "ApiStage",
+            http_api=api,
+            stage_name="prod",
+            auto_deploy=True,
+            throttle=apigatewayv2.ThrottleSettings(rate_limit=50, burst_limit=100),
+            access_log_settings=_AccessLogSettings(
+                destination=apigatewayv2.LogGroupLogDestination(api_log_group),
+                format=apigateway.AccessLogFormat.json_with_standard_fields(
                     caller=True, http_method=True, ip=True, protocol=True,
                     request_time=True, resource_path=True, response_length=True,
                     status=True, user=True,
                 ),
-                tracing_enabled=True,
-                # Per-client throttling (defense against a single caller flooding the
-                # API); Cognito auth already stops anonymous abuse, this bounds an
-                # authenticated caller too.
-                throttling_rate_limit=50,
-                throttling_burst_limit=100,
             ),
-            default_cors_preflight_options=apigateway.CorsOptions(
-                allow_origins=apigateway.Cors.ALL_ORIGINS,
-                allow_methods=apigateway.Cors.ALL_METHODS,
-                allow_headers=["Content-Type", "Authorization"],
-            ),
-            # Edge-optimized (the default) puts every request through an
-            # AWS-managed CloudFront distribution in front of the API - which
-            # caches responses (including CORS preflight) outside of
-            # CloudFormation's control, so a backend redeploy doesn't bust
-            # stale cached headers there. Regional skips that hidden layer
-            # entirely; the frontend already has its own CloudFront in front
-            # of it, so nothing is lost by dropping the API's own.
-            endpoint_types=[apigateway.EndpointType.REGIONAL],
         )
-        authorizer = apigateway.CognitoUserPoolsAuthorizer(
-            self, "ApiAuthorizer",
-            cognito_user_pools=[user_pool],
+        authorizer = apigatewayv2_authorizers.HttpJwtAuthorizer(
+            "ApiAuthorizer",
+            f"https://cognito-idp.{self.region}.amazonaws.com/{user_pool.user_pool_id}",
+            jwt_audience=[user_pool_client.user_pool_client_id],
         )
-        # scope_permission_to_method=False: grant API Gateway invoke access
-        # via a single wildcard Lambda::Permission for the whole API instead
-        # of one per method - Lambda's resource policy has a hard 20KB
-        # ceiling that a permission-per-route design can outgrow.
-        integration = apigateway.LambdaIntegration(
-            fn, scope_permission_to_method=False,
+        # scope_permission_to_route=False: grant API Gateway invoke access via
+        # a single wildcard Lambda::Permission for the whole API instead of
+        # one per route - Lambda's resource policy has a hard 20KB ceiling
+        # that a permission-per-route design can outgrow.
+        integration = apigatewayv2_integrations.HttpLambdaIntegration(
+            "OrchestratorIntegration", fn,
+            payload_format_version=apigatewayv2.PayloadFormatVersion.VERSION_1_0,
+            scope_permission_to_route=False,
         )
 
-        def secured(resource: apigateway.Resource, method: str) -> None:
-            resource.add_method(
-                method, integration,
-                authorization_type=apigateway.AuthorizationType.COGNITO,
-                authorizer=authorizer,
+        def secured(path: str, methods: list[apigatewayv2.HttpMethod]) -> None:
+            api.add_routes(
+                path=path, methods=methods, integration=integration, authorizer=authorizer,
             )
 
-        # /cases
-        cases_res = api.root.add_resource("cases")
-        secured(cases_res, "GET")   # listCases
-        secured(cases_res, "POST")  # submitIntake
+        secured("/cases", [apigatewayv2.HttpMethod.GET, apigatewayv2.HttpMethod.POST])
+        secured("/cases/{caseId}", [apigatewayv2.HttpMethod.GET, apigatewayv2.HttpMethod.PUT])
+        secured("/cases/{caseId}/audit", [apigatewayv2.HttpMethod.GET])
+        secured("/cases/{caseId}/notes", [apigatewayv2.HttpMethod.POST])
+        secured("/cases/{caseId}/documents", [apigatewayv2.HttpMethod.POST])
+        secured("/cases/{caseId}/audio", [apigatewayv2.HttpMethod.POST])
+        secured("/cases/{caseId}/transcribe", [apigatewayv2.HttpMethod.POST])
+        secured("/cases/{caseId}/transcribe/{jobName}", [apigatewayv2.HttpMethod.GET])
+        secured("/cases/{caseId}/feedback", [apigatewayv2.HttpMethod.POST])
+        secured("/cases/{caseId}/interview/messages", [apigatewayv2.HttpMethod.POST])
+        secured("/cases/{caseId}/interview/summary", [apigatewayv2.HttpMethod.POST])
+        secured("/cases/{caseId}/conversations", [apigatewayv2.HttpMethod.POST])
+        secured("/cases/{caseId}/conversations/{conversationId}/messages", [apigatewayv2.HttpMethod.POST])
+        secured("/cases/{caseId}/exams", [apigatewayv2.HttpMethod.POST])
+        secured("/cases/{caseId}/exams/{examId}", [apigatewayv2.HttpMethod.PUT])
+        secured("/cases/{caseId}/diagnoses", [apigatewayv2.HttpMethod.POST])
+        secured("/cases/{caseId}/diagnoses/ask", [apigatewayv2.HttpMethod.POST])
+        secured("/cases/{caseId}/diagnoses/rerank", [apigatewayv2.HttpMethod.POST])
+        secured("/cases/{caseId}/final-diagnosis", [apigatewayv2.HttpMethod.POST, apigatewayv2.HttpMethod.PUT])
+        secured("/cases/{caseId}/tests/{testId}/order", [apigatewayv2.HttpMethod.POST])
+        secured("/cases/{caseId}/tests/{testId}/result", [apigatewayv2.HttpMethod.PUT])
+        secured("/cases/{caseId}/assistant", [apigatewayv2.HttpMethod.POST])
+        secured("/cases/{caseId}/recommendations/{targetId}/accept", [apigatewayv2.HttpMethod.POST])
+        secured("/cases/{caseId}/recommendations/{targetId}/reject", [apigatewayv2.HttpMethod.POST])
 
-        # /cases/{caseId}
-        case_res = cases_res.add_resource("{caseId}")
-        secured(case_res, "GET")  # getCase
-        secured(case_res, "PUT")  # setCaseState
-
-        secured(case_res.add_resource("audit"), "GET")  # caseAudit
-        secured(case_res.add_resource("notes"), "POST")  # addNote
-        secured(case_res.add_resource("documents"), "POST")  # uploadCaseDocument
-
-        interview_res = case_res.add_resource("interview")
-        secured(interview_res.add_resource("messages"), "POST")  # postInterviewMessage
-        secured(interview_res.add_resource("summary"), "POST")  # generateSummary
-
-        conversations_res = case_res.add_resource("conversations")
-        secured(conversations_res, "POST")  # createConversation
-        secured(
-            conversations_res.add_resource("{conversationId}").add_resource("messages"),
-            "POST",
-        )  # postConversationMessage
-
-        exams_res = case_res.add_resource("exams")
-        secured(exams_res, "POST")  # recommendExams
-        secured(exams_res.add_resource("{examId}"), "PUT")  # recordExamFinding
-
-        diagnoses_res = case_res.add_resource("diagnoses")
-        secured(diagnoses_res, "POST")  # requestRecommendations
-        secured(diagnoses_res.add_resource("ask"), "POST")  # askDiagnosis
-        secured(diagnoses_res.add_resource("rerank"), "POST")  # rerankAfterResults
-
-        final_dx_res = case_res.add_resource("final-diagnosis")
-        secured(final_dx_res, "POST")  # proposeFinalDiagnosis
-        secured(final_dx_res, "PUT")  # acceptFinalDiagnosis
-
-        test_res = case_res.add_resource("tests").add_resource("{testId}")
-        secured(test_res.add_resource("order"), "POST")  # orderTest
-        secured(test_res.add_resource("result"), "PUT")  # recordTestResult
-
-        secured(case_res.add_resource("assistant"), "POST")  # assistantChat
-
-        recommendation_res = case_res.add_resource("recommendations").add_resource("{targetId}")
-        secured(recommendation_res.add_resource("accept"), "POST")  # acceptRecommendation
-        secured(recommendation_res.add_resource("reject"), "POST")  # rejectRecommendation
+        # Shared reference-document library (gated server-side by the
+        # "resources.manage" permission).
+        secured("/resources", [apigatewayv2.HttpMethod.GET, apigatewayv2.HttpMethod.POST])
+        secured("/resources/{resourceId}", [apigatewayv2.HttpMethod.DELETE])
 
         # /admin — user + custom-group management (all gated server-side by
         # the "users.manage" permission, regardless of Cognito role).
-        admin_res = api.root.add_resource("admin")
-
-        admin_users_res = admin_res.add_resource("users")
-        secured(admin_users_res, "GET")   # adminListUsers
-        secured(admin_users_res, "POST")  # adminCreateUser
-
-        admin_user_res = admin_users_res.add_resource("{userId}")
-        secured(admin_user_res, "GET")  # adminGetUser
-        secured(admin_user_res, "PUT")  # adminUpdateUser
-
-        admin_groups_res = admin_res.add_resource("groups")
-        secured(admin_groups_res, "GET")   # adminListGroups
-        secured(admin_groups_res, "POST")  # adminCreateGroup
-
-        admin_group_res = admin_groups_res.add_resource("{groupId}")
-        secured(admin_group_res, "PUT")     # adminUpdateGroup
-        secured(admin_group_res, "DELETE")  # adminDeleteGroup
-
-        secured(admin_res.add_resource("permissions"), "GET")  # adminListPermissions
+        secured("/admin/users", [apigatewayv2.HttpMethod.GET, apigatewayv2.HttpMethod.POST])
+        secured("/admin/users/{userId}", [apigatewayv2.HttpMethod.GET, apigatewayv2.HttpMethod.PUT])
+        secured("/admin/groups", [apigatewayv2.HttpMethod.GET, apigatewayv2.HttpMethod.POST])
+        secured("/admin/groups/{groupId}", [apigatewayv2.HttpMethod.PUT, apigatewayv2.HttpMethod.DELETE])
+        secured("/admin/permissions", [apigatewayv2.HttpMethod.GET])
 
         # --- Outputs --------------------------------------------------------
-        CfnOutput(self, "ApiUrl", value=api.url)
+        CfnOutput(self, "ApiUrl", value=stage.url)
         CfnOutput(self, "UserPoolId", value=user_pool.user_pool_id)
         CfnOutput(self, "UserPoolClientId", value=user_pool_client.user_pool_client_id)
         CfnOutput(self, "Region", value=self.region)

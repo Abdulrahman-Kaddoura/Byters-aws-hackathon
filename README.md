@@ -39,7 +39,15 @@ The prototype walks through the complete clinical workflow:
 9. **Timeline & completion** — a vertical case timeline and read-only archived cases with outcomes and lessons learned.
 
 A persistent, case-aware **Aura Assistant** panel is available throughout for
-open-ended collaboration.
+open-ended collaboration. On the case overview tab, clinicians also get three
+side tools (`src/components/DoctorTools.tsx`): **upload a document** (PDF/DOCX,
+extracted as context for every AI step), **upload audio** (transcribed by AWS
+HealthScribe into a structured clinical summary), and **leave feedback**
+(free-text notes on how the AI did on this case). Separately, the **Knowledge
+Base** page lets clinicians build a shared, tagged reference library (e.g. a
+diabetes guideline tagged "diabetes") that Aura automatically pulls in as
+grounding evidence for any case whose chief complaint or a doctor's question
+matches — no per-case action needed.
 
 ### 🔐 Admin panel
 
@@ -179,20 +187,25 @@ API Gateway for data (`src/lib/api.ts`), with no SDK dependency.
 
 ```
 src/
-  data/          # Type/UI helpers and suggested-prompt labels for the chat panels
-  components/    # Reusable UI: sidebar, cards, chat, charts, drawer, badges…
-  pages/         # Route pages
-    case/        # The per-case workspace (Overview, Interview, Examination,
-                 # Differential, Tests, Final Diagnosis, Timeline)
-  lib/           # Theme hook + UI/color utilities
+  pages/         # Route pages (Dashboard, CasesList, CaseWorkspace, NewCase,
+                 # PatientMode, Login, Settings, admin/…)
+  tabs/          # The per-case workspace's tabs (Overview, Interview,
+                 # Conversations, Examination, Differential, Tests, Diagnosis,
+                 # Timeline), rendered inside CaseWorkspace
+  components/    # Reusable UI: sidebar, cards, chat, charts, doctor tools
+                 # (document/audio upload, feedback), badges…
+  hooks/         # React Query hooks wrapping lib/api.ts (one per endpoint)
+  lib/           # api.ts (fetch client), auth.ts (Cognito), theme, utils
+  data/          # UI helpers (data/helpers.ts) and suggested-prompt labels for
+                 # the chat panels (data/prompts.ts)
   types.ts       # Domain model
 ```
 
 All AI reasoning comes from the backend seam (`backend/sehati/ai/`) — Amazon
-Bedrock (Claude); there is no offline/fake mode.
-`src/data/aiResponder.ts` only holds the clickable suggested-prompt labels
-shown above the chat input (e.g. "Why not the alternatives?") — clicking one
-sends that question through the real API like any typed message.
+Bedrock (Claude); there is no offline/fake mode. `src/data/prompts.ts` only
+holds the clickable suggested-prompt labels shown above the chat input (e.g.
+"Why not the alternatives?") — clicking one sends that question through the
+real API like any typed message.
 
 ---
 
@@ -200,16 +213,17 @@ sends that question through the real API like any typed message.
 
 A real, working backend now lives alongside this prototype. It implements the
 SEHATI-AI clinical decision-support design as an AWS-native serverless stack —
-**API Gateway (REST) + Lambda (Python) + DynamoDB + Cognito**, with a pluggable
-AI seam (a built-in stub today, Amazon Bedrock ready) — and serves the same
-`PatientCase` shape this frontend already uses.
+**API Gateway (HTTP API) + Lambda (Python) + DynamoDB + Cognito**, with AI
+reasoning via **Amazon Bedrock** (no offline/stub mode) and audio
+transcription via **AWS HealthScribe** — and serves the same `PatientCase`
+shape this frontend already uses.
 
 | Where | What |
 |-------|------|
 | [`backend/`](backend/) | The Python backend: workflow, API resolvers, data layer, AI seam, tests. Fully runnable locally with no AWS account (`python backend/scripts/local_invoke.py`). |
 | [`infra/`](infra/) | AWS CDK app (Python) that provisions the whole stack. |
 | [`docs/AWS_DEPLOYMENT.md`](docs/AWS_DEPLOYMENT.md) | Step-by-step runbook to host it on AWS. |
-| [`docs/API.md`](docs/API.md) | REST API reference for wiring up this frontend. |
+| [`docs/API.md`](docs/API.md) | API reference for wiring up this frontend. |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | How it maps to the design document. |
 
 > The backend is a decision-support aid for a licensed physician, not a medical

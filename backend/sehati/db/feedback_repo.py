@@ -9,6 +9,7 @@ offline eval harness and a future DPO/preference-tuning path.
 
 from __future__ import annotations
 
+import time
 import uuid
 from typing import Any
 
@@ -59,3 +60,38 @@ def list_for_case(case_id: str) -> list[dict[str, Any]]:
         ScanIndexForward=True,
     )
     return [tables.from_dynamo(i) for i in resp.get("Items", [])]
+
+
+# --- Doctor-facing free-text feedback ---------------------------------------
+# A separate dataset (``sehati-doctor-feedback``, keyed by doctorId) from the
+# accept/reject flywheel above: this is the "leave a note" feature exposed in
+# the case UI (resolvers/feedback.py), and doubles as a per-doctor preference
+# history that the AI seam can fold back into its prompts.
+def save_doctor_feedback(
+    doctor_id: str,
+    case_id: str,
+    feedback_text: str,
+    category: str = "general",
+) -> dict[str, Any]:
+    """Saves feedback under the doctor's ID."""
+    table = tables.doctor_feedback_table()
+    item = {
+        "doctorId": doctor_id,
+        "timestamp": int(time.time()),
+        "caseId": case_id,
+        "feedback": feedback_text,
+        "category": category,
+    }
+    table.put_item(Item=tables.to_dynamo(item))
+    return item
+
+
+def get_doctor_feedback_history(doctor_id: str, limit: int = 5) -> list[str]:
+    """Gets the most recent feedback entries for a specific doctor."""
+    table = tables.doctor_feedback_table()
+    res = table.query(
+        KeyConditionExpression=Key("doctorId").eq(doctor_id),
+        ScanIndexForward=False,  # Most recent first
+        Limit=limit,
+    )
+    return [tables.from_dynamo(item)["feedback"] for item in res.get("Items", [])]

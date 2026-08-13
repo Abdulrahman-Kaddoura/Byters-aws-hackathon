@@ -23,8 +23,10 @@ import boto3
 CASES_TABLE = os.environ.get("CASES_TABLE", "sehati-cases")
 AUDIT_TABLE = os.environ.get("AUDIT_TABLE", "sehati-audit")
 FEEDBACK_TABLE = os.environ.get("FEEDBACK_TABLE", "sehati-feedback")
+DOCTOR_FEEDBACK_TABLE = os.environ.get("DOCTOR_FEEDBACK_TABLE", "sehati-doctor-feedback")
 USERS_TABLE = os.environ.get("USERS_TABLE", "sehati-users")
 GROUPS_TABLE = os.environ.get("GROUPS_TABLE", "sehati-groups")
+RESOURCES_TABLE = os.environ.get("RESOURCES_TABLE", "sehati-resources")
 
 REGION = os.environ.get("AWS_REGION", "us-east-1")
 
@@ -50,12 +52,30 @@ def feedback_table():
     return _resource().Table(FEEDBACK_TABLE)
 
 
+def doctor_feedback_table():
+    """Free-text feedback a doctor leaves on a case, keyed by doctor (not case).
+
+    Distinct from ``feedback_table`` (the accept/reject flywheel dataset in
+    ``db/feedback_repo.record`` — design doc section 13): this is the
+    doctor-facing "leave a note for the product/AI team" feature, and doubles
+    as a per-doctor preference history the AI seam can read back.
+    """
+    return _resource().Table(DOCTOR_FEEDBACK_TABLE)
+
+
 def users_table():
     return _resource().Table(USERS_TABLE)
 
 
 def groups_table():
     return _resource().Table(GROUPS_TABLE)
+
+
+def resources_table():
+    """The shared reference-document library — clinical staff upload PDFs/DOCX
+    (e.g. a guideline for a specific condition); the AI seam pulls matching
+    ones in as grounding evidence (see ``ai/bedrock.py``'s ``_retrieve``)."""
+    return _resource().Table(RESOURCES_TABLE)
 
 
 # --- Decimal <-> JSON number conversion ------------------------------------
