@@ -7,16 +7,21 @@ from sehati.errors import ForbiddenError, NotFoundError
 from sehati.router import resolve
 
 
-def test_create_and_post_conversation_message(aws, patient, sample_intake):
-    case = resolve("submitIntake", patient, sample_intake)
-    cid = case["id"]
+def _assigned_case(nurse, doctor, sample_intake):
+    case = resolve("submitIntake", nurse, sample_intake)
+    resolve("assignCase", nurse, {"caseId": case["id"], "doctorId": doctor.sub})
+    return case["id"]
 
-    created = resolve("createConversation", patient, {"caseId": cid, "title": "Follow-up"})
+
+def test_create_and_post_conversation_message(aws, nurse, doctor, sample_intake, seeded_users):
+    cid = _assigned_case(nurse, doctor, sample_intake)
+
+    created = resolve("createConversation", doctor, {"caseId": cid, "title": "Follow-up"})
     conv_id = created["conversation"]["id"]
     assert created["conversation"]["title"] == "Follow-up"
     assert created["conversation"]["messages"] == []
 
-    posted = resolve("postConversationMessage", patient, {
+    posted = resolve("postConversationMessage", doctor, {
         "caseId": cid, "conversationId": conv_id, "text": "My symptoms got worse.",
     })
     messages = posted["conversation"]["messages"]
@@ -26,38 +31,39 @@ def test_create_and_post_conversation_message(aws, patient, sample_intake):
     assert posted["aiMessage"]["role"] == "ai"
 
 
-def test_conversation_is_ownership_scoped(aws, patient, other_patient, sample_intake):
-    case = resolve("submitIntake", patient, sample_intake)
-    cid = case["id"]
+def test_conversation_is_assignment_scoped(
+    aws, nurse, doctor, other_doctor, sample_intake, seeded_users
+):
+    cid = _assigned_case(nurse, doctor, sample_intake)
 
     with pytest.raises(ForbiddenError):
-        resolve("createConversation", other_patient, {"caseId": cid, "title": "Nope"})
+        resolve("createConversation", other_doctor, {"caseId": cid, "title": "Nope"})
 
 
-def test_missing_conversation_id_raises_not_found(aws, patient, sample_intake):
-    case = resolve("submitIntake", patient, sample_intake)
-    cid = case["id"]
+def test_missing_conversation_id_raises_not_found(aws, nurse, doctor, sample_intake, seeded_users):
+    cid = _assigned_case(nurse, doctor, sample_intake)
 
     with pytest.raises(NotFoundError):
-        resolve("postConversationMessage", patient, {
+        resolve("postConversationMessage", doctor, {
             "caseId": cid, "conversationId": "does-not-exist", "text": "hi",
         })
 
 
-def test_conversation_activity_does_not_affect_interview_or_lifecycle(aws, patient, sample_intake):
-    case = resolve("submitIntake", patient, sample_intake)
-    cid = case["id"]
-    before = resolve("getCase", patient, {"id": cid})
+def test_conversation_activity_does_not_affect_interview_or_lifecycle(
+    aws, nurse, doctor, sample_intake, seeded_users
+):
+    cid = _assigned_case(nurse, doctor, sample_intake)
+    before = resolve("getCase", doctor, {"id": cid})
     interview_before = list(before["interview"])
     lifecycle_before = before["lifecycleState"]
     status_before = before["status"]
 
-    created = resolve("createConversation", patient, {"caseId": cid})
-    resolve("postConversationMessage", patient, {
+    created = resolve("createConversation", doctor, {"caseId": cid})
+    resolve("postConversationMessage", doctor, {
         "caseId": cid, "conversationId": created["conversation"]["id"], "text": "Quick question.",
     })
 
-    after = resolve("getCase", patient, {"id": cid})
+    after = resolve("getCase", doctor, {"id": cid})
     assert after["interview"] == interview_before
     assert after["lifecycleState"] == lifecycle_before
     assert after["status"] == status_before

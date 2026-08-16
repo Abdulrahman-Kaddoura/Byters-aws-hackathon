@@ -95,14 +95,29 @@ class SehatiStack(Stack):
             ),
             removal_policy=RemovalPolicy.DESTROY,
         )
+        # Retained but no longer written to: patients stopped being account
+        # holders when the nurse-led intake replaced patient self-service, so
+        # nothing sets `patientId` any more. It is left in place because
+        # DynamoDB permits only ONE index creation or deletion per UpdateTable
+        # call — dropping this in the same deploy that adds `byNurse` below
+        # would fail the changeset. Safe to delete in a later, separate deploy.
         cases.add_global_secondary_index(
             index_name="byPatient",
             partition_key=dynamodb.Attribute(name="patientId", type=dynamodb.AttributeType.STRING),
             sort_key=dynamodb.Attribute(name="createdAt", type=dynamodb.AttributeType.STRING),
         )
+        # A doctor's entire case list is a query on this index: assignment is
+        # the access boundary (see db/cases_repo._visible_to), so this is the
+        # only index a doctor's reads ever touch.
         cases.add_global_secondary_index(
             index_name="byPhysician",
             partition_key=dynamodb.Attribute(name="assignedPhysicianId", type=dynamodb.AttributeType.STRING),
+            sort_key=dynamodb.Attribute(name="createdAt", type=dynamodb.AttributeType.STRING),
+        )
+        # The admissions desk: cases a given nurse admitted.
+        cases.add_global_secondary_index(
+            index_name="byNurse",
+            partition_key=dynamodb.Attribute(name="createdByNurseId", type=dynamodb.AttributeType.STRING),
             sort_key=dynamodb.Attribute(name="createdAt", type=dynamodb.AttributeType.STRING),
         )
         cases.add_global_secondary_index(
@@ -194,6 +209,24 @@ class SehatiStack(Stack):
             removal_policy=RemovalPolicy.DESTROY,
         )
 
+        # Hospital-wide settings — a single item (id = "app"). Today it holds
+        # only the hashed patient-interview exit password (db/settings_repo.py),
+        # which is why it is a table rather than a Lambda env var: an admin sets
+        # it at runtime from the panel, and it must be stored hashed, not in the
+        # CDK-owned environment map.
+        settings = dynamodb.Table(
+            self, "SettingsTable",
+            table_name="sehati-settings",
+            partition_key=dynamodb.Attribute(name="id", type=dynamodb.AttributeType.STRING),
+            billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+            encryption=dynamodb.TableEncryption.CUSTOMER_MANAGED,
+            encryption_key=key,
+            point_in_time_recovery_specification=dynamodb.PointInTimeRecoverySpecification(
+                point_in_time_recovery_enabled=True
+            ),
+            removal_policy=RemovalPolicy.DESTROY,
+        )
+
         # --- S3 buckets -----------------------------------------------------
         # Documents / audio / images (KMS-encrypted, private).
         documents = s3.Bucket(
@@ -248,7 +281,14 @@ class SehatiStack(Stack):
             account_recovery=cognito.AccountRecovery.EMAIL_ONLY,
             removal_policy=RemovalPolicy.DESTROY,
         )
-        for group in ("patient", "physician", "admin", "compliance"):
+        # The three kinds of account holder (backend/sehati/models.py ROLES).
+        # Patients never sign in — a nurse admits them and hands over her own
+        # device for the AI interview — so there is no patient group. This
+        # replaces the former patient/physician/admin/compliance set; deploying
+        # it deletes those groups (Cognito allows deleting a group that still
+        # has members), which is why scripts/migrate_roles.py reads each user's
+        # role from DynamoDB and must run *after* the deploy.
+        for group in ("doctor", "nurse", "admin"):
             cognito.CfnUserPoolGroup(
                 self, f"Group{group.capitalize()}",
                 user_pool_id=user_pool.user_pool_id,
@@ -303,6 +343,7 @@ class SehatiStack(Stack):
                 "AUDIT_BUCKET": audit_bucket.bucket_name,
                 "DOCTOR_FEEDBACK_TABLE": doctor_feedback.table_name,
                 "RESOURCES_TABLE": resources.table_name,
+                "SETTINGS_TABLE": settings.table_name,
                 "HEALTHSCRIBE_BUCKET": documents.bucket_name,
                 "HEALTHSCRIBE_ROLE_ARN": healthscribe_role.role_arn,
                 "BEDROCK_MODEL_ID": bedrock_model_id,
@@ -319,6 +360,7 @@ class SehatiStack(Stack):
         users.grant_read_write_data(fn)
         groups.grant_read_write_data(fn)
         resources.grant_read_write_data(fn)
+        settings.grant_read_write_data(fn)
         documents.grant_read_write(fn)
         audit_bucket.grant_write(fn)
         key.grant_encrypt_decrypt(fn)
@@ -470,15 +512,29 @@ class SehatiStack(Stack):
                 path=path, methods=methods, integration=integration, authorizer=authorizer,
             )
 
+        # The caller's own role + effective permissions. The frontend gates
+        # every screen on this rather than on the JWT's group claim, so client
+        # and server can't disagree about what is allowed.
+        secured("/me", [apigatewayv2.HttpMethod.GET])
+        # Who a nurse may route a case to.
+        secured("/doctors", [apigatewayv2.HttpMethod.GET])
+
         secured("/cases", [apigatewayv2.HttpMethod.GET, apigatewayv2.HttpMethod.POST])
         secured("/cases/{caseId}", [apigatewayv2.HttpMethod.GET, apigatewayv2.HttpMethod.PUT])
+        secured("/cases/{caseId}/assign", [apigatewayv2.HttpMethod.POST])
+        secured("/cases/{caseId}/tags", [apigatewayv2.HttpMethod.PUT])
         secured("/cases/{caseId}/audit", [apigatewayv2.HttpMethod.GET])
         secured("/cases/{caseId}/notes", [apigatewayv2.HttpMethod.POST])
-        secured("/cases/{caseId}/documents", [apigatewayv2.HttpMethod.POST])
+        secured("/cases/{caseId}/documents", [apigatewayv2.HttpMethod.GET, apigatewayv2.HttpMethod.POST])
+        secured(
+            "/cases/{caseId}/documents/{documentId}",
+            [apigatewayv2.HttpMethod.GET, apigatewayv2.HttpMethod.DELETE],
+        )
         secured("/cases/{caseId}/audio", [apigatewayv2.HttpMethod.POST])
         secured("/cases/{caseId}/transcribe", [apigatewayv2.HttpMethod.POST])
         secured("/cases/{caseId}/transcribe/{jobName}", [apigatewayv2.HttpMethod.GET])
         secured("/cases/{caseId}/feedback", [apigatewayv2.HttpMethod.POST])
+        secured("/cases/{caseId}/interview", [apigatewayv2.HttpMethod.GET])
         secured("/cases/{caseId}/interview/messages", [apigatewayv2.HttpMethod.POST])
         secured("/cases/{caseId}/interview/summary", [apigatewayv2.HttpMethod.POST])
         secured("/cases/{caseId}/conversations", [apigatewayv2.HttpMethod.POST])
@@ -507,6 +563,15 @@ class SehatiStack(Stack):
         secured("/admin/groups", [apigatewayv2.HttpMethod.GET, apigatewayv2.HttpMethod.POST])
         secured("/admin/groups/{groupId}", [apigatewayv2.HttpMethod.PUT, apigatewayv2.HttpMethod.DELETE])
         secured("/admin/permissions", [apigatewayv2.HttpMethod.GET])
+        secured("/admin/settings", [apigatewayv2.HttpMethod.GET, apigatewayv2.HttpMethod.PUT])
+
+        # Patient-interview (kiosk) lock. GET reports only whether an exit
+        # password exists, so a nurse can be warned before handing the device
+        # over; POST verifies it. The password itself is compared server-side
+        # against a PBKDF2 hash — a check done in the browser would be readable
+        # in the JS bundle.
+        secured("/kiosk", [apigatewayv2.HttpMethod.GET])
+        secured("/kiosk/exit", [apigatewayv2.HttpMethod.POST])
 
         # --- Outputs --------------------------------------------------------
         CfnOutput(self, "ApiUrl", value=stage.url)

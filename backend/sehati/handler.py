@@ -28,7 +28,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from .context import AuthContext, from_apigw_claims
-from .db import users_repo
+from .db import cases_repo, users_repo
 from .errors import AppError, NotFoundError
 from .models import SUPER_ADMIN_USERNAME
 from .permissions import PERMISSIONS
@@ -59,12 +59,17 @@ class _Route:
 
 
 _ROUTES = [
+    _Route("GET", "/me", "me"),
+    _Route("GET", "/doctors", "listDoctors"),
     _Route("GET", "/cases", "listCases"),
     _Route("POST", "/cases", "submitIntake", body_key="input"),
     _Route("GET", "/cases/{caseId}", "getCase", path_arg_map={"caseId": "id"}),
     _Route("PUT", "/cases/{caseId}", "setCaseState"),
+    _Route("POST", "/cases/{caseId}/assign", "assignCase"),
+    _Route("PUT", "/cases/{caseId}/tags", "setCaseTags"),
     _Route("GET", "/cases/{caseId}/audit", "caseAudit", path_arg_map={"caseId": "id"}),
     _Route("POST", "/cases/{caseId}/notes", "addNote"),
+    _Route("GET", "/cases/{caseId}/interview", "getInterview"),
     _Route("POST", "/cases/{caseId}/interview/messages", "postInterviewMessage"),
     _Route("POST", "/cases/{caseId}/interview/summary", "generateSummary"),
     _Route("POST", "/cases/{caseId}/conversations", "createConversation"),
@@ -81,7 +86,10 @@ _ROUTES = [
     _Route("POST", "/cases/{caseId}/assistant", "assistantChat"),
     _Route("POST", "/cases/{caseId}/recommendations/{targetId}/accept", "acceptRecommendation"),
     _Route("POST", "/cases/{caseId}/recommendations/{targetId}/reject", "rejectRecommendation"),
+    _Route("GET", "/cases/{caseId}/documents", "listCaseDocuments"),
     _Route("POST", "/cases/{caseId}/documents", "uploadCaseDocument"),
+    _Route("GET", "/cases/{caseId}/documents/{documentId}", "getCaseDocument"),
+    _Route("DELETE", "/cases/{caseId}/documents/{documentId}", "deleteCaseDocument"),
     _Route("POST", "/cases/{caseId}/audio", "uploadCaseAudio"),
     _Route("POST", "/cases/{caseId}/transcribe", "startTranscription"),
     _Route("GET", "/cases/{caseId}/transcribe/{jobName}", "transcriptionStatus"),
@@ -98,6 +106,10 @@ _ROUTES = [
     _Route("PUT", "/admin/groups/{groupId}", "adminUpdateGroup", path_arg_map={"groupId": "id"}),
     _Route("DELETE", "/admin/groups/{groupId}", "adminDeleteGroup", path_arg_map={"groupId": "id"}),
     _Route("GET", "/admin/permissions", "adminListPermissions"),
+    _Route("GET", "/admin/settings", "adminGetSettings"),
+    _Route("PUT", "/admin/settings", "adminUpdateSettings"),
+    _Route("GET", "/kiosk", "kioskStatus"),
+    _Route("POST", "/kiosk/exit", "kioskExit"),
 ]
 _ROUTE_INDEX: dict[tuple[str, str], _Route] = {(r.method, r.resource): r for r in _ROUTES}
 
@@ -123,7 +135,7 @@ def handler(event: dict[str, Any], context: Any = None) -> dict[str, Any]:  # no
         ctx = _enrich_with_permissions(ctx)
         args = _build_args(event, route)
         result = resolve(route.field, ctx, args)
-        return _response(200, json.dumps(result, default=str), cors)
+        return _response(200, json.dumps(_project_result(result, ctx), default=str), cors)
     except AppError as exc:
         logger.warning("app_error resource=%s type=%s msg=%s", resource, exc.code, exc.message)
         return _response(exc.http_status, json.dumps(exc.to_dict()), cors)
@@ -134,6 +146,28 @@ def handler(event: dict[str, Any], context: Any = None) -> dict[str, Any]:  # no
             json.dumps({"errorType": "InternalError", "message": "An internal error occurred."}),
             cors,
         )
+
+
+def _project_result(result: Any, ctx: AuthContext) -> Any:  # noqa: ANN401
+    """Redact case payloads on their way out — the single outbound choke point.
+
+    Every resolver returns either a bare case, a list of cases, or an envelope
+    with a ``case`` key, so filtering here covers all of them at once and a new
+    resolver cannot forget to redact. It has to happen *after* the resolver has
+    saved its changes: mutation resolvers mutate the same dict they read, so
+    redacting earlier would delete those fields from the database instead.
+    """
+    if isinstance(result, list):
+        return [_project_result(item, ctx) for item in result]
+    if not isinstance(result, dict):
+        return result
+    if "id" in result and "lifecycleState" in result:  # a bare case
+        return cases_repo.project_for_role(result, ctx)
+    if isinstance(result.get("case"), dict):
+        projected = dict(result)
+        projected["case"] = cases_repo.project_for_role(result["case"], ctx)
+        return projected
+    return result
 
 
 def _extract_claims(event: dict[str, Any]) -> dict[str, Any] | None:

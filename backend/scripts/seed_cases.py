@@ -6,9 +6,10 @@ exactly the cases the UI was designed around. This gives the frontend real data
 to talk to immediately after deployment.
 
 Each case is augmented with the backend-only fields (``lifecycleState``,
-``patientId``, ``assignedPhysicianId``) so ownership scoping and the state
-machine work. Ownership is assigned to demo identities you can map to real
-Cognito users.
+``createdByNurseId``, ``assignedPhysicianId``) so the access rules and the state
+machine work. Set ``SEED_DOCTOR_SUB`` to a real doctor's Cognito ``sub`` before
+running, or the seeded cases will be invisible: a doctor reaches only the cases
+assigned to them (see ``db/cases_repo._visible_to``).
 
 Usage:
     # Against a deployed table (uses your AWS credentials + region):
@@ -35,10 +36,11 @@ from sehati.state_machine import LifecycleState  # noqa: E402
 
 DATA_PATH = Path(__file__).resolve().parents[1] / "sehati" / "data" / "seed_cases.json"
 
-# Demo ownership mapping. Replace the physician/patient ids with real Cognito
-# ``sub`` values (or keep these and create matching users) as you prefer.
-DEMO_PATIENT_ID = os.environ.get("SEED_PATIENT_SUB", "demo-patient")
-DEMO_PHYSICIAN_ID = os.environ.get("SEED_PHYSICIAN_SUB", "demo-physician")
+# Demo ownership mapping. Point these at real Cognito ``sub`` values —
+# assignment is the access boundary, so a case assigned to "demo-doctor" is
+# reachable by nobody except an admin.
+DEMO_NURSE_ID = os.environ.get("SEED_NURSE_SUB", "demo-nurse")
+DEMO_DOCTOR_ID = os.environ.get("SEED_DOCTOR_SUB", "demo-doctor")
 
 # Map a frontend stage/status to a lifecycle state for the backend fields.
 _STAGE_TO_STATE = {
@@ -58,8 +60,8 @@ _STAGE_TO_STATE = {
 def _augment(case: dict) -> dict:
     stage = case.get("stage", "intake")
     case.setdefault("lifecycleState", _STAGE_TO_STATE.get(stage, LifecycleState.INTAKE).value)
-    case.setdefault("patientId", DEMO_PATIENT_ID)
-    case.setdefault("assignedPhysicianId", DEMO_PHYSICIAN_ID)
+    case.setdefault("createdByNurseId", DEMO_NURSE_ID)
+    case.setdefault("assignedPhysicianId", DEMO_DOCTOR_ID)
     # createdAt from the sample data is a display string; add a sortable ISO key
     # for the GSIs if missing.
     if "createdAt" not in case or "·" in str(case.get("createdAt", "")):
@@ -79,14 +81,14 @@ def _maybe_create_table() -> None:
         BillingMode="PAY_PER_REQUEST",
         AttributeDefinitions=[
             {"AttributeName": "id", "AttributeType": "S"},
-            {"AttributeName": "patientId", "AttributeType": "S"},
+            {"AttributeName": "createdByNurseId", "AttributeType": "S"},
             {"AttributeName": "assignedPhysicianId", "AttributeType": "S"},
             {"AttributeName": "status", "AttributeType": "S"},
             {"AttributeName": "createdAt", "AttributeType": "S"},
         ],
         KeySchema=[{"AttributeName": "id", "KeyType": "HASH"}],
         GlobalSecondaryIndexes=[
-            _gsi("byPatient", "patientId"),
+            _gsi("byNurse", "createdByNurseId"),
             _gsi("byPhysician", "assignedPhysicianId"),
             _gsi("byStatus", "status"),
         ],
