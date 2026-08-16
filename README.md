@@ -92,14 +92,30 @@ can't disagree with what the backend enforces. The very first admin account is
 created by a one-time bootstrap script — see
 [AWS deployment](#-aws-deployment) below.
 
-### Seeding sample cases (optional)
+### Seeding sample cases (optional, manual)
 
-`scripts/deploy.sh` / `scripts/deploy.ps1` seed 7 sample patients across
-different diseases and workflow stages into DynamoDB so there's something to
-look at right after deploying — see [`backend/sehati/data/seed_cases.json`](backend/sehati/data/seed_cases.json)
-for the full list (community-acquired pneumonia, acute appendicitis,
-decompensated heart failure, uncontrolled asthma, migraine with aura, and two
-completed/archived cases). These are real rows in `sehati-cases`, not
+`scripts/deploy.sh` / `scripts/deploy.ps1` **no longer seed automatically** —
+the sample data's `createdByNurseId`/`assignedPhysicianId` have to be real
+Cognito subs or the cases are invisible to any doctor (assignment is the
+access boundary; see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) §5), so
+seeding before you have real accounts just leaves orphaned rows.
+
+If you want the 7 sample patients (community-acquired pneumonia, acute
+appendicitis, decompensated heart failure, uncontrolled asthma, migraine with
+aura, and two completed/archived cases — see
+[`backend/sehati/data/seed_cases.json`](backend/sehati/data/seed_cases.json)),
+create a nurse and a doctor from `/admin` first, then run:
+
+```bash
+cd backend
+CASES_TABLE=<CasesTableName from the stack output> AWS_REGION=us-east-1 \
+  SEED_NURSE_SUB=<the nurse's sub> SEED_DOCTOR_SUB=<the doctor's sub> \
+  python -m scripts.seed_cases
+```
+
+Get a user's `sub` with `aws cognito-idp admin-get-user --user-pool-id
+<UserPoolId> --username <username> --query "UserAttributes[?Name=='sub']
+.Value" --output text`. These are real rows in `sehati-cases`, not
 frontend-bundled data — delete them from DynamoDB like any other case if you
 don't want them.
 
@@ -127,7 +143,7 @@ npm run preview  # preview the production build
 
 ## ☁️ AWS deployment
 
-One command provisions the stack, seeds the sample cases and writes your `.env`:
+One command provisions the stack and writes your `.env`:
 
 ```bash
 export AWS_ACCESS_KEY_ID=... AWS_SECRET_ACCESS_KEY=...

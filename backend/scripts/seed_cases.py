@@ -122,8 +122,15 @@ def main() -> None:
         table.put_item(Item=tables.to_dynamo(case))
         print(f"  seeded {case['id']:>10}  {case.get('status'):<22}  {case['patient']['name']}")
     print(f"\nSeeded {len(cases)} cases into {tables.CASES_TABLE}.")
-    print(f"Patient owner:   {DEMO_PATIENT_ID}")
-    print(f"Physician owner: {DEMO_PHYSICIAN_ID}")
+    print(f"Nurse (admitted by):  {DEMO_NURSE_ID}")
+    print(f"Doctor (assigned to): {DEMO_DOCTOR_ID}")
+    if DEMO_NURSE_ID == "demo-nurse" or DEMO_DOCTOR_ID == "demo-doctor":
+        print(
+            "\nWarning: one or both of these are placeholder ids, not a real Cognito "
+            "sub. No real doctor account will be able to see these cases (a doctor "
+            "only sees cases whose assignedPhysicianId matches their own sub) until "
+            "you set SEED_NURSE_SUB / SEED_DOCTOR_SUB to real accounts and re-run."
+        )
 
 
 if __name__ == "__main__":

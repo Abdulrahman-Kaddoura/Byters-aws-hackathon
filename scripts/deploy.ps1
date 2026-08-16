@@ -1,10 +1,15 @@
-# Deploy the SEHATI backend, seed sample cases, and write the frontend .env.
+# Deploy the SEHATI backend and write the frontend .env.
 #
 #   .\scripts\deploy.ps1
 #
 # Requires: AWS credentials in the environment (with Bedrock model access
 # enabled for the target model in the target region — there is no offline
 # fallback), aws CLI, node, python.
+#
+# Does not seed sample data: the demo cases' nurse/doctor owners need to be
+# real Cognito subs (a doctor only sees cases assigned to their own sub), so
+# seeding before any accounts exist would just create unreachable rows. See
+# "Seeding sample cases" in the root README for the manual, post-accounts step.
 $ErrorActionPreference = "Stop"
 
 $Stack = "SehatiBackend"
@@ -42,17 +47,6 @@ function Get-StackOutput($Key) {
 $ApiUrl = Get-StackOutput "ApiUrl"
 $UserPoolId = Get-StackOutput "UserPoolId"
 $ClientId = Get-StackOutput "UserPoolClientId"
-$CasesTable = Get-StackOutput "CasesTableName"
-
-Write-Host "==> Seeding sample cases into DynamoDB"
-Push-Location "$Root\backend"
-try {
-    $env:CASES_TABLE = $CasesTable
-    $env:AWS_REGION = $Region
-    python -m scripts.seed_cases
-} finally {
-    Pop-Location
-}
 
 Write-Host "==> Writing $Root\.env"
 $ApiUrlTrimmed = $ApiUrl.TrimEnd("/")
