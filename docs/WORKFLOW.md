@@ -34,7 +34,7 @@ them in sync.
 
 | Lifecycle state | UI status | What it means |
 |-----------------|-----------|---------------|
-| `Intake` | New | Case just created; details captured. |
+| `Intake` | New | Patient admitted; the nurse's details captured. |
 | `AIInterview` | AI Interview | AI is interviewing the patient. |
 | `DoctorReview` | Doctor Review | Summary ready; doctor examines and reviews. |
 | `InProgress` | Awaiting Tests | Tests have been ordered; waiting on results. |
@@ -46,48 +46,78 @@ them in sync.
 
 ## 2. The journey, step by step
 
-Below, **P** = patient, **D** = doctor (physician), **AI** = the AI seam,
+Below, **N** = nurse, **P** = patient, **D** = doctor, **AI** = the AI seam,
 **Sys** = the backend.
 
-### Step 1 — Intake (patient arrives)
-- **Who:** Patient (or a nurse on their behalf).
-- **What:** Staff enter just the patient's name, then hand the device over —
-  Patient Mode (`/cases/:id/patient-mode`), a full-screen chat, gathers
-  everything else conversationally.
-- **Endpoint:** `submitIntake`
-- **Result:** A brand-new **Case** is created, owned by that patient, and it
-  immediately moves **Intake → AIInterview**. The AI's opening greeting is added to
-  the interview.
+### Step 1 — Admission (nurse takes the patient in)
+- **Who:** Nurse.
+- **What:** She records what she can measure — name, age, sex, height, weight,
+  and vitals (BP, HR, temp, SpO₂). Symptoms and history are deliberately *not*
+  on this form; the AI interview asks the patient directly, so a field here
+  would mean asking twice.
+- **Endpoint:** `submitIntake` (requires `cases.create`)
+- **Result:** A new **Case** stamped with `createdByNurseId` from her token —
+  ownership is never read from the request body. It immediately moves
+  **Intake → AIInterview** and the AI's opening greeting is added.
+
+### Step 2 — AI interview (adaptive Q&A, on a locked device)
+- **Who:** Patient ↔ AI, on the nurse's device.
+- **What:** She hands the tablet over and it **locks**: routing is pinned to the
+  interview page, so the URL bar and the back button lead nowhere, and a
+  refresh lands right back in it. The patient answers; the AI asks the next
+  targeted question until it has enough. The AI here has no ability to look at
+  any other case.
+- **Endpoints:** `getInterview` (the kiosk screen's transcript),
+  `postInterviewMessage` (once per patient answer, in a loop).
+- **Result:** Each turn is appended to the case's `interview`. When the AI
+  decides it's done, the response says `complete: true`.
+
+> The transcript is served by its own endpoint rather than read off the case,
+> because the device is authenticated as the *nurse* — and a nurse's case
+> payload has the clinical content stripped out of it (§3).
 
 ```mermaid
 sequenceDiagram
-    participant P as Patient
-    participant Sys as Backend
-    P->>Sys: submitIntake(patient details, chief complaint)
-    Sys-->>P: new Case (state = AIInterview) + first AI greeting
-```
-
-### Step 2 — AI interview (adaptive Q&A)
-- **Who:** Patient ↔ AI.
-- **What:** The patient answers; the AI asks the next targeted question. Repeat
-  until the AI has enough. **This path is locked down** — the AI here has no ability
-  to look at any other case.
-- **Endpoint:** `postInterviewMessage` (called once per patient answer, in a loop).
-- **Result:** Each turn is appended to the case's `interview`. When the AI decides
-  it's done, the response says `complete: true`.
-
-```mermaid
-sequenceDiagram
+    participant N as Nurse
     participant P as Patient
     participant Sys as Backend
     participant AI as AI seam
+    N->>Sys: submitIntake(identity + vitals)
+    Sys-->>N: new Case (state = AIInterview)
+    N->>P: hands over the locked device
     loop until complete = true
         P->>Sys: postInterviewMessage(caseId, answer)
         Sys->>AI: next question given transcript
         AI-->>Sys: next question (or "done")
         Sys-->>P: aiMessage + complete?
     end
+    P->>N: hands the device back
+    N->>Sys: kioskExit(password)
+    Sys-->>N: unlocked
 ```
+
+### Step 2b — Unlocking the device
+- **Who:** Nurse.
+- **What:** The only way out of interview mode is the exit password an admin
+  set in the admin panel. It is compared server-side against a PBKDF2 hash — a
+  check done in the browser would be readable in the shipped JavaScript.
+- **Endpoint:** `kioskExit`
+- **Result:** The lock clears and she is returned to the case.
+
+### Step 2c — Routing the case to a doctor
+- **Who:** Nurse (or admin).
+- **What:** She picks a doctor from `listDoctors` and assigns the case.
+- **Endpoint:** `assignCase` (requires `cases.assign`)
+- **Result:** `assignedPhysicianId`, `assignedAt` and `assignedBy` are set, and
+  the move is audit-logged. **This is the moment access is granted** — before
+  it, no doctor can open the case at all. Reassignment is allowed (any nurse or
+  an admin) and equally logged.
+
+> *Planned, not built:* an AI suggestion for which doctor to route to, based on
+> their schedule and current load, their experience with similar cases, and the
+> urgency of this one. The seam exists (`resolvers/cases.suggest_assignee`) and
+> returns `None` today; filling it in only prefills the nurse's picker — her
+> explicit choice always wins.
 
 ### Step 3 — Summary (hand-off to the doctor)
 - **Who:** Triggered when the interview is complete.
@@ -98,7 +128,8 @@ sequenceDiagram
   The doctor now has a tidy write-up instead of a raw transcript.
 
 ### Step 4 — Doctor review & examination
-- **Who:** Doctor.
+- **Who:** The **assigned** doctor. A colleague who isn't assigned to this case
+  gets a `403` — they cannot see it in any list, or open it by URL.
 - **What:** Opens the case, reads the summary, and does a physical examination. The
   AI can suggest which exams matter; the doctor records findings.
 - **Endpoints:** `getCase` (open it), `recommendExams` (get suggested exams),
@@ -188,24 +219,36 @@ sequenceDiagram
 
 ## 3. Who is allowed to do what (roles)
 
-Every request carries the user's **role** (from their Cognito login). The backend
-checks it before acting.
+There are exactly three kinds of account: **doctor**, **nurse**, **admin**.
+Patients never sign in — they only ever hold a nurse's locked device.
 
 | Role | Can do |
 |------|--------|
-| **patient** | Create their own case, do the interview, read **only their own** cases. |
-| **physician** | Everything clinical: exams, differential, tests, results, propose & **sign off** diagnoses, on any case. |
-| **admin** | Everything a physician can, plus read the audit trail. |
-| **compliance** | Read cases and the **audit trail**; supports clinical steps but cannot sign off a diagnosis. |
+| **nurse** | Admit patients and record vitals, run the interview, attach documents, and route cases to a doctor. Cannot see clinical content. |
+| **doctor** | The whole clinical workflow — exams, differential, tests, results, propose and **sign off** diagnoses — on **the cases assigned to them**. |
+| **admin** | Everything, plus user/group management, hospital settings, and the audit trail. |
 
-The golden rule: **a patient can never see another patient's case.** This is
-enforced by the database access layer, not by the AI. See [`ARCHITECTURE.md`](./ARCHITECTURE.md) §5.
+Two rules do the real work, and neither is the AI's job:
 
-This table is each role's **default** — an admin can narrow or customize it
-per user from the `/admin` panel's permission groups (e.g. a "Triage Nurse"
-custom group that can add notes but not sign off diagnoses, regardless of
-their Cognito role). Only an admin can create accounts at all — there's no
-self-signup. See `docs/API.md`'s admin section for the endpoints.
+**A doctor sees only their own cases.** `assignedPhysicianId` is an access
+boundary, not a filter (`db/cases_repo._visible_to`). An unassigned case is
+invisible to every doctor.
+
+**A nurse never receives clinical content.** She can reach a case in order to
+check her intake and route it, but `interview`, `summary`, `exams`,
+`diagnoses`, `tests`, `finalDiagnosis`, `notes`, `insights`, `assistantThread`,
+`conversations` and `timeline` are stripped from the response before it leaves
+the Lambda (`handler._project_result`). Hiding tabs in the browser would not be
+access control — the payload genuinely does not contain them.
+
+See [`ARCHITECTURE.md`](./ARCHITECTURE.md) §5.
+
+This table is each role's **default** — an admin can narrow or extend it per
+user from the `/admin` panel's permission groups (e.g. a locum doctor who may
+add notes but not sign off). Only an admin can create accounts; there's no
+self-signup. The frontend asks `GET /me` for the caller's effective
+permissions and gates its screens on those, so it can't disagree with what the
+backend enforces.
 
 ---
 
@@ -216,8 +259,9 @@ none of them move `lifecycleState`.
 
 | Action | Endpoint(s) | What happens |
 |---|---|---|
-| Side conversation | `createConversation`, `postConversationMessage` | An extra chat thread layered on top of the main `interview` — for a return visit or follow-up question, without touching the original transcript. |
-| Upload a document | `uploadCaseDocument` | A doctor attaches a PDF/DOCX/text file; its text is extracted into `documentContext`, which every subsequent AI call sees as grounding. |
+| Side conversation | `createConversation`, `postConversationMessage` | An extra chat thread layered on top of the main `interview` — for a return visit or follow-up question, without touching the original transcript. Starting one locks the device the same way admission does. |
+| Attach documents | `uploadCaseDocument`, `listCaseDocuments`, `getCaseDocument`, `deleteCaseDocument` | Any number of files per case. Nurses attach referral letters and prior records at admission; doctors add reports. Extracted text feeds `documentContext` (capped ~40k chars, newest first) as AI grounding; downloads go through a 5-minute presigned URL. Only clinical staff can delete. |
+| Tag a case privately | `setCaseTags` | Personal labels ("follow up monday") stored on **your** user record, not the case, so nobody else can see them. Read back from `getMe`. |
 | Audio transcription | `uploadCaseAudio` → `startTranscription` → poll `transcriptionStatus` | A doctor uploads an audio recording; AWS HealthScribe turns it into a structured clinical summary (chief complaint, HPI, review of systems, past medical history) once the job completes. |
 | Leave feedback | `submitFeedback` | Free-text feedback on how the AI did on this case — separate from the accept/reject flywheel below, stored per doctor. |
 | Manage the reference library | `listResources`, `uploadResource`, `deleteResource` | Not tied to any one case: clinical staff upload/remove tagged guideline documents (e.g. "diabetes") from the Knowledge Base page. The AI seam keyword-matches them against *any* case's chief complaint or a doctor's question and folds matches in as grounding evidence automatically — no per-case action needed. |

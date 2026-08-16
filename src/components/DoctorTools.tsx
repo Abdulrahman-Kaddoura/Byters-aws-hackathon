@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { FileUp, Mic, MessageSquarePlus, CheckCircle2, Loader2, AlertTriangle } from 'lucide-react';
+import { Mic, MessageSquarePlus, CheckCircle2, Loader2, AlertTriangle } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -8,57 +8,11 @@ import { SectionHeading } from '@/components/common';
 import { fileToBase64 } from '@/lib/utils';
 import * as api from '@/lib/api';
 import {
-  useUploadCaseDocument,
   useUploadCaseAudio,
   useStartTranscription,
   useSubmitFeedback,
 } from '@/hooks/useCases';
 import type { TranscriptionStatus } from '@/lib/api';
-
-// ---------------------------------------------------------------------------
-export function DocumentUploadCard({ caseId }: { caseId: string }) {
-  const upload = useUploadCaseDocument(caseId);
-  const [fileName, setFileName] = useState<string | null>(null);
-
-  async function onFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    e.target.value = '';
-    if (!file) return;
-    setFileName(file.name);
-    const { base64, extension } = await fileToBase64(file);
-    upload.mutate({ fileBase64: base64, fileExtension: extension, contentType: file.type });
-  }
-
-  return (
-    <Card>
-      <CardContent className="p-5">
-        <SectionHeading icon={<FileUp className="h-[18px] w-[18px]" />} title="Upload document" subtitle="PDF or DOCX — added as context for every AI step" />
-        <div className="mt-4 space-y-3">
-          <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed p-4 text-sm text-muted-foreground hover:border-primary hover:text-primary">
-            <FileUp className="h-4 w-4" />
-            {fileName ?? 'Choose a file…'}
-            <input type="file" accept=".pdf,.docx,.txt" className="hidden" onChange={onFileChange} disabled={upload.isPending} />
-          </label>
-          {upload.isPending && (
-            <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <Loader2 className="h-3.5 w-3.5 animate-spin" /> Uploading…
-            </p>
-          )}
-          {upload.isSuccess && (
-            <p className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400">
-              <CheckCircle2 className="h-3.5 w-3.5" /> Uploaded — added to case context.
-            </p>
-          )}
-          {upload.isError && (
-            <p className="flex items-center gap-1.5 text-xs text-rose-600 dark:text-rose-400">
-              <AlertTriangle className="h-3.5 w-3.5" /> {(upload.error as Error).message}
-            </p>
-          )}
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
 
 // ---------------------------------------------------------------------------
 const POLL_INTERVAL_MS = 4000;

@@ -20,6 +20,22 @@ export function LoadingState({ label = 'Loading…' }: { label?: string }) {
 }
 
 // --------------------------------------------------------------------------
+/** The standard inline error banner. Was copy-pasted into four pages. */
+export function ErrorNote({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <p
+      className={cn(
+        'rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700',
+        'dark:border-rose-500/25 dark:bg-rose-500/10 dark:text-rose-300',
+        className
+      )}
+    >
+      {children}
+    </p>
+  );
+}
+
+// --------------------------------------------------------------------------
 export function SectionHeading({
   title,
   subtitle,

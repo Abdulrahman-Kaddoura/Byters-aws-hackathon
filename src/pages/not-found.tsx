@@ -12,7 +12,7 @@ export default function NotFound() {
       </span>
       <h1 className="mt-4 text-2xl font-bold">Page not found</h1>
       <p className="mt-1.5 text-sm text-muted-foreground">The page you're looking for doesn't exist.</p>
-      <Button className="mt-5" onClick={() => navigate('/dashboard')}>
+      <Button className="mt-5" onClick={() => navigate('/cases')}>
         Back to dashboard
       </Button>
     </div>

@@ -66,7 +66,7 @@ The app uses seven tables, all encrypted with a customer-managed KMS key
 
 | Table | Partition key | Sort key | GSIs |
 |---|---|---|---|
-| `sehati-cases` | `id` | — | `byPatient` (patientId+createdAt), `byPhysician` (assignedPhysicianId+createdAt), `byStatus` (status+createdAt) |
+| `sehati-cases` | `id` | — | `byNurse` (createdByNurseId+createdAt), `byPhysician` (assignedPhysicianId+createdAt), `byStatus` (status+createdAt), plus the retired `byPatient` |
 | `sehati-audit` | `caseId` | `sk` | — |
 | `sehati-feedback` | `caseId` | `sk` | — |
 | `sehati-doctor-feedback` | `doctorId` | `timestamp` | — |
@@ -90,22 +90,23 @@ aws dynamodb describe-table --table-name sehati-cases \
   --query "Table.GlobalSecondaryIndexes[].{Name:IndexName,Status:IndexStatus}" --output table
 ```
 
-**Expect:** `byPatient`, `byPhysician`, `byStatus`, all `ACTIVE`.
+**Expect:** `byNurse`, `byPhysician`, `byStatus`, all `ACTIVE` (`byPatient` is
+still present but no longer written to — see `DATA_MODEL.md` Part C).
 
-**Why this matters for you specifically:** `listCases` for a patient queries
-the `byPatient` GSI by `patientId == caller's Cognito sub`. If a case in the
-table has no `patientId` (or the wrong one), it will **never** show up for
-that patient — not a bug, just how the query works. Same for physicians and
-`byPhysician`/`assignedPhysicianId`. Spot-check a real row:
+**Why this matters for you specifically:** `listCases` for a doctor queries
+the `byPhysician` GSI by `assignedPhysicianId == caller's Cognito sub`. If a
+case has no `assignedPhysicianId` (or a different one), it will **never** show
+up for that doctor — not a bug, that is the access rule. Same for a nurse's
+"my admissions" view and `byNurse`/`createdByNurseId`. Spot-check a real row:
 
 ```bash
 aws dynamodb scan --table-name sehati-cases --max-items 1
 ```
 
-Confirm the item actually has `patientId` / `assignedPhysicianId` /
-`status` / `createdAt` populated — the code strips empty-string index keys
-on write (DynamoDB rejects empty GSI keys), so a case created without an
-owner assigned will quietly not appear in either "mine" view.
+Confirm the item actually has `createdByNurseId` / `assignedPhysicianId` /
+`status` / `createdAt` populated — the code strips empty-string index keys on
+write (DynamoDB rejects empty GSI keys), so a case that was never assigned is
+simply absent from `byPhysician`, which is exactly why no doctor can see it.
 
 ---
 
@@ -131,8 +132,8 @@ aws cognito-idp describe-user-pool --user-pool-id <UserPoolId> \
 aws cognito-idp list-groups --user-pool-id <UserPoolId> --query "Groups[].GroupName" --output table
 ```
 
-**Expect:** pool name `sehati-users`, and exactly 4 groups: `patient`,
-`physician`, `admin`, `compliance`.
+**Expect:** pool name `sehati-users`, and exactly 3 groups: `doctor`,
+`nurse`, `admin`.
 
 ### 4a. Do you actually have a user, and is it in a group?
 
@@ -147,11 +148,12 @@ aws cognito-idp admin-list-groups-for-user --user-pool-id <UserPoolId> --usernam
 **Expect:** at least one group in the response. **If this list is empty**,
 you can log in and the app will load, but:
 - Every write (create note, order test, submit intake, propose diagnosis...)
-  will 403 with `ForbiddenError` — the backend's `AuthContext.is_patient` /
-  `is_physician` / `is_clinical_staff` are all `False` for a user in no group.
-- `GET /cases` will return an **empty list** for a groupless user (not
-  clinical staff → falls through to "return only own cases" logic → no
-  `patientId` match either).
+  will 403 with `ForbiddenError` — `AuthContext.is_doctor` / `is_nurse` /
+  `is_admin` are all `False` for a user in no group, and `ctx.role` is `None`.
+- `GET /cases` returns an **empty list**: `_visible_to` falls through to
+  `return False` for every row.
+- `GET /me` still works and reports `"role": null` with an empty `permissions`
+  array — the quickest way to confirm this is the problem.
 
 If you followed the README/deploy script, `admin-add-user-to-group` is a
 separate command from `admin-create-user` — it's easy to create the user and
@@ -159,7 +161,7 @@ forget this step. Fix:
 
 ```bash
 aws cognito-idp admin-add-user-to-group --user-pool-id <UserPoolId> \
-  --username <your-username> --group-name physician   # or patient/admin/compliance
+  --username <your-username> --group-name doctor   # or nurse/admin
 ```
 
 **Important:** group membership is baked into the ID token at *login* time.
@@ -381,8 +383,8 @@ no data for any account to see — run:
 ```bash
 cd backend
 export AWS_REGION=us-east-1
-export SEED_PATIENT_SUB=<a real patient sub, from `aws cognito-idp admin-get-user`>
-export SEED_PHYSICIAN_SUB=<a real physician sub>
+export SEED_NURSE_SUB=<a real nurse sub, from `aws cognito-idp admin-get-user`>
+export SEED_DOCTOR_SUB=<a real doctor sub>
 python scripts/seed_cases.py
 ```
 

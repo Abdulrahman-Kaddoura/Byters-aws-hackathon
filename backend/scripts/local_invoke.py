@@ -3,11 +3,12 @@
 Spins up an in-memory DynamoDB with ``moto``, then drives a case through the
 entire clinical lifecycle, printing each resolver's result:
 
-    intake -> interview -> summary -> exams -> differential -> tests
-           -> results -> re-rank -> final diagnosis -> close
+    admit -> interview -> summary -> assign -> exams -> differential -> tests
+          -> results -> re-rank -> final diagnosis -> close
 
-It finishes by demonstrating the data-layer isolation guard: a second patient is
-denied access to the first patient's case.
+It finishes by demonstrating the two access guards: a second doctor is denied
+the case (assignment is the boundary), and the nurse's payload is shown to have
+no clinical content in it.
 
 By default this patches in the same deterministic test-only AI double the
 test suite uses (``tests.fakes.ai_double.FakeAIService``), so it runs free and
@@ -39,7 +40,7 @@ USE_REAL_BEDROCK = "--bedrock" in sys.argv[1:] or os.environ.get("USE_REAL_BEDRO
 
 
 def _create_aux_tables(tables) -> None:
-    """Create the audit + feedback tables (caseId/sk) for local dev."""
+    """Create every non-case table this walkthrough touches, for local dev."""
     client = tables._resource().meta.client  # noqa: SLF001
     existing = client.list_tables().get("TableNames", [])
     for name in (tables.AUDIT_TABLE, tables.FEEDBACK_TABLE):
@@ -56,6 +57,23 @@ def _create_aux_tables(tables) -> None:
                 {"AttributeName": "caseId", "KeyType": "HASH"},
                 {"AttributeName": "sk", "KeyType": "RANGE"},
             ],
+        )
+        client.get_waiter("table_exists").wait(TableName=name)
+
+    # Assignment validates its target against sehati-users, and permissions are
+    # computed from sehati-groups, so both are needed for the walkthrough.
+    for name, key in (
+        (tables.USERS_TABLE, "sub"),
+        (tables.GROUPS_TABLE, "id"),
+        (tables.SETTINGS_TABLE, "id"),
+    ):
+        if name in existing:
+            continue
+        client.create_table(
+            TableName=name,
+            BillingMode="PAY_PER_REQUEST",
+            AttributeDefinitions=[{"AttributeName": key, "AttributeType": "S"}],
+            KeySchema=[{"AttributeName": key, "KeyType": "HASH"}],
         )
         client.get_waiter("table_exists").wait(TableName=name)
 
@@ -87,19 +105,43 @@ def run() -> None:
             factory.get_ai_service.cache_clear()
             factory.get_ai_service = lambda: FakeAIService()  # noqa: E731
 
-        patient = AuthContext(sub="patient-1", username="layla", groups=frozenset({"patient"}))
-        physician = AuthContext(sub="dr-karim", username="dr.karim", groups=frozenset({"physician"}))
-        compliance = AuthContext(sub="dr-nabil", username="dr.nabil", groups=frozenset({"compliance"}))
-        other_patient = AuthContext(sub="patient-2", username="sami", groups=frozenset({"patient"}))
+        from sehati.db import cases_repo, groups_repo, users_repo
+        from sehati.permissions import SYSTEM_GROUPS
 
-        # 1. Patient submits intake --------------------------------------------
-        intake = resolve("submitIntake", patient, {"input": {
-            "patient": {"name": "Layla Haddad", "age": 54, "gender": "Female"},
+        def _ctx(sub, username, role):
+            return AuthContext(
+                sub=sub, username=username, groups=frozenset({role}),
+                permissions=frozenset(SYSTEM_GROUPS[role]["permissions"]),
+            )
+
+        nurse = _ctx("nurse-rima", "nurse.rima", "nurse")
+        doctor = _ctx("dr-karim", "dr.karim", "doctor")
+        other_doctor = _ctx("dr-nabil", "dr.nabil", "doctor")
+        admin = _ctx("admin-1", "admin", "admin")
+
+        # Assignment validates its target against the users table.
+        for role, spec in SYSTEM_GROUPS.items():
+            groups_repo.create_group(
+                name=spec["name"], description=spec["description"],
+                permissions=list(spec["permissions"]), group_id=spec["id"], is_system=True,
+            )
+        for ctx in (nurse, doctor, other_doctor, admin):
+            users_repo.create_user(
+                sub=ctx.sub, username=ctx.username, email=f"{ctx.username}@example.test",
+                name=ctx.username, cognito_group=next(iter(ctx.groups)),
+                custom_groups=[SYSTEM_GROUPS[next(iter(ctx.groups))]["id"]],
+            )
+
+        # 1. Nurse admits the patient ------------------------------------------
+        intake = resolve("submitIntake", nurse, {"input": {
+            "patient": {"name": "Layla Haddad", "age": 54, "gender": "Female",
+                        "height": "165 cm", "weight": "70 kg"},
             "chiefComplaint": "Headache for 3 days with fever",
-            "complaint": {"symptoms": ["Headache", "Fever"], "painScale": 6, "duration": "3 days"},
+            "vitals": {"bloodPressure": "128/82", "heartRate": 88,
+                       "temperature": 38.6, "oxygenSaturation": 97},
         }})
         case_id = intake["id"]
-        _print("1) submitIntake -> case created + AI interview started", {
+        _print("1) submitIntake (nurse) -> case created + AI interview started", {
             "id": case_id, "status": intake["status"], "lifecycleState": intake["lifecycleState"],
             "firstAIMessage": intake["interview"][-1]["text"],
         })
@@ -112,22 +154,29 @@ def run() -> None:
                    "No prior episodes like this."]
         complete = False
         for ans in answers:
-            r = resolve("postInterviewMessage", patient, {"caseId": case_id, "text": ans})
+            r = resolve("postInterviewMessage", nurse, {"caseId": case_id, "text": ans})
             complete = r["complete"]
             if complete:
                 break
         _print("2) postInterviewMessage (looped) -> interview complete", {"complete": complete})
 
         # 3. Generate structured summary ---------------------------------------
-        s = resolve("generateSummary", patient, {"caseId": case_id})
+        s = resolve("generateSummary", nurse, {"caseId": case_id})
         _print("3) generateSummary -> DoctorReview", {
             "status": s["case"]["status"], "summary": s["summary"],
         })
 
-        # 4. Physician: recommend exams + record a finding ---------------------
-        ex = resolve("recommendExams", physician, {"caseId": case_id})
+        # 3b. Nurse routes the case to a doctor --------------------------------
+        assigned = resolve("assignCase", nurse, {"caseId": case_id, "doctorId": doctor.sub})
+        _print("3b) assignCase (nurse -> doctor) — this is what grants access", {
+            "assignedPhysicianId": assigned["assignedPhysicianId"],
+            "assignedBy": assigned["assignedBy"],
+        })
+
+        # 4. Doctor: recommend exams + record a finding ------------------------
+        ex = resolve("recommendExams", doctor, {"caseId": case_id})
         first_exam_id = ex["exams"][0]["id"]
-        resolve("recordExamFinding", physician, {
+        resolve("recordExamFinding", doctor, {
             "caseId": case_id, "examId": first_exam_id,
             "finding": "Temp 38.6°C, neck stiffness present", "flag": "abnormal",
         })
@@ -136,7 +185,7 @@ def run() -> None:
         })
 
         # 5. Differential + recommended tests ----------------------------------
-        rec = resolve("requestRecommendations", physician, {"caseId": case_id})
+        rec = resolve("requestRecommendations", doctor, {"caseId": case_id})
         _print("5) requestRecommendations -> differential + tests", {
             "diagnoses": [d["name"] for d in rec["diagnoses"]],
             "tests": [t["name"] for t in rec["tests"]],
@@ -144,15 +193,15 @@ def run() -> None:
 
         # 6. Explainability chat ------------------------------------------------
         dx_id = rec["diagnoses"][0]["id"]
-        ans = resolve("askDiagnosis", physician, {
+        ans = resolve("askDiagnosis", doctor, {
             "caseId": case_id, "diagnosisId": dx_id, "question": "What would increase your confidence?",
         })
         _print("6) askDiagnosis -> grounded explanation", {"aiMessage": ans["aiMessage"]["text"]})
 
         # 7. Order a test + record its result ----------------------------------
         test_id = rec["tests"][0]["id"]
-        resolve("orderTest", physician, {"caseId": case_id, "testId": test_id})
-        res = resolve("recordTestResult", physician, {
+        resolve("orderTest", doctor, {"caseId": case_id, "testId": test_id})
+        res = resolve("recordTestResult", doctor, {
             "caseId": case_id, "testId": test_id, "result": "WBC 16.4 (neutrophilia)", "resultFlag": "abnormal",
         })
         _print("7) orderTest + recordTestResult -> InProgress", {
@@ -160,33 +209,49 @@ def run() -> None:
         })
 
         # 8. Re-rank after results ---------------------------------------------
-        rr = resolve("rerankAfterResults", physician, {"caseId": case_id})
+        rr = resolve("rerankAfterResults", doctor, {"caseId": case_id})
         _print("8) rerankAfterResults -> ResultsDiscussion", {
             "lifecycleState": rr["case"]["lifecycleState"],
             "topConfidence": rr["diagnoses"][0]["confidence"],
         })
 
         # 9. Propose + accept final diagnosis ----------------------------------
-        pf = resolve("proposeFinalDiagnosis", physician, {"caseId": case_id})
-        af = resolve("acceptFinalDiagnosis", physician, {"caseId": case_id, "note": "Agree, treating as bacterial."})
+        pf = resolve("proposeFinalDiagnosis", doctor, {"caseId": case_id})
+        af = resolve("acceptFinalDiagnosis", doctor, {"caseId": case_id, "note": "Agree, treating as bacterial."})
         _print("9) proposeFinalDiagnosis + acceptFinalDiagnosis -> Closed", {
             "proposed": pf["finalDiagnosis"]["name"],
             "status": af["case"]["status"], "lifecycleState": af["case"]["lifecycleState"],
         })
 
-        # 10. Compliance reads the immutable audit trail -----------------------
-        audit = resolve("caseAudit", compliance, {"id": case_id})
-        _print("10) caseAudit (compliance) -> immutable trail", {
+        # 10. Admin reads the immutable audit trail ----------------------------
+        audit = resolve("caseAudit", admin, {"id": case_id})
+        _print("10) caseAudit (admin) -> immutable trail", {
             "entries": len(audit), "actions": [a["action"] for a in audit],
         })
 
-        # 11. Data-layer isolation: another patient is denied ------------------
+        # 11. Row-level guard: an unassigned doctor is denied ------------------
         try:
-            resolve("getCase", other_patient, {"id": case_id})
-            print("\n[!] SECURITY FAILURE: cross-patient access was allowed!")
+            resolve("getCase", other_doctor, {"id": case_id})
+            print("\n[!] SECURITY FAILURE: an unassigned doctor read the case!")
         except ForbiddenError as exc:
-            _print("11) Isolation guard (patient-2 -> patient-1's case) DENIED", {
+            _print("11) Row guard (dr-nabil -> dr-karim's case) DENIED", {
                 "errorType": "Forbidden", "message": exc.message,
+            })
+
+        # 12. Field-level guard: the nurse's payload has no clinical content ---
+        stored = cases_repo.get_case(case_id, nurse)
+        nurse_view = cases_repo.project_for_role(stored, nurse)
+        leaked = [
+            f for f in ("interview", "summary", "diagnoses", "tests", "finalDiagnosis")
+            if f in nurse_view
+        ]
+        if leaked:
+            print(f"\n[!] SECURITY FAILURE: nurse payload leaked {leaked}")
+        else:
+            _print("12) Field guard (nurse's view of the same case) REDACTED", {
+                "visible": sorted(nurse_view),
+                "patient": nurse_view["patient"]["name"],
+                "vitals": nurse_view["vitals"],
             })
 
         print(f"\n{'='*70}\nEnd-to-end walkthrough complete. Case {case_id} closed.\n{'='*70}")

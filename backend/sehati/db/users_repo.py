@@ -3,9 +3,11 @@ identity: which custom permission groups (see ``groups_repo``) a user
 belongs to, plus any per-user permission overrides.
 
 Cognito remains the identity store (sign-in, password, the coarse
-patient/physician/admin/compliance group). This table never duplicates that;
-it's keyed by the Cognito ``sub`` and only carries what Cognito has no
-concept of.
+doctor/nurse/admin group). This table never duplicates that; it's keyed by the
+Cognito ``sub`` and only carries what Cognito has no concept of — including
+``caseTags``, each user's private labels for cases (see
+``resolvers/cases.set_case_tags``; they live here rather than on the case so
+one user's tags can never appear in another's payload).
 """
 
 from __future__ import annotations
@@ -66,6 +68,7 @@ def create_user(
         "customGroups": custom_groups,
         "permissionOverrides": overrides,
         "status": status,
+        "caseTags": {},
         "createdAt": ts,
         "updatedAt": ts,
     }
@@ -80,6 +83,7 @@ def update_user(
     custom_groups: list[str] | None = None,
     permission_overrides: dict[str, bool] | None = None,
     status: str | None = None,
+    case_tags: dict[str, list[str]] | None = None,
 ) -> dict[str, Any]:
     user = get_user(sub)
     if cognito_group is not None:
@@ -93,6 +97,8 @@ def update_user(
         if status not in ("active", "disabled"):
             raise ValidationError("status must be 'active' or 'disabled'.")
         user["status"] = status
+    if case_tags is not None:
+        user["caseTags"] = case_tags
     user["updatedAt"] = now_iso()
     tables.users_table().put_item(Item=tables.to_dynamo(user))
     return user

@@ -16,10 +16,10 @@ from .. import cognito_admin
 from ..context import AuthContext
 from ..db import groups_repo, users_repo
 from ..errors import ValidationError
-from ..models import GROUP_ADMIN, GROUP_COMPLIANCE, GROUP_PATIENT, GROUP_PHYSICIAN, SUPER_ADMIN_USERNAME
+from ..models import GROUP_ADMIN, ROLES, SUPER_ADMIN_USERNAME
 from ..permissions import PERMISSION_LABELS, PERMISSIONS, SYSTEM_GROUPS, USERS_MANAGE
 
-_COGNITO_GROUPS = frozenset({GROUP_PATIENT, GROUP_PHYSICIAN, GROUP_ADMIN, GROUP_COMPLIANCE})
+_COGNITO_GROUPS = frozenset(ROLES)
 
 
 def _annotate(user: dict[str, Any]) -> dict[str, Any]:

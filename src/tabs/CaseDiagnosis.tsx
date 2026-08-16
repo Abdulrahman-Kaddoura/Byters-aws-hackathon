@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { SectionHeading, ConfidenceRing } from '@/components/common';
 import { useProposeFinalDiagnosis, useAcceptFinalDiagnosis, useSetCaseState, useAddNote } from '@/hooks/useCases';
+import { CaseDifferential } from '@/tabs/CaseDifferential';
 import { cn } from '@/lib/utils';
 
 function ListBlock({ icon, title, items }: { icon: React.ReactNode; title: string; items: string[] }) {
@@ -29,7 +30,25 @@ function ListBlock({ icon, title, items }: { icon: React.ReactNode; title: strin
   );
 }
 
-export function CaseDiagnosis({ caseData: c }: { caseData: PatientCase }) {
+/**
+ * The ranked differential and the final sign-off, on one page.
+ *
+ * They were two tabs, which meant reading the reasoning and acting on it
+ * happened in different places. The differential leads; the sign-off follows
+ * from it.
+ */
+export function CaseDiagnosis({ caseData }: { caseData: PatientCase }) {
+  return (
+    <div className="space-y-10 pb-8">
+      <CaseDifferential caseData={caseData} />
+      <div className="border-t pt-8">
+        <FinalDiagnosisPanel caseData={caseData} />
+      </div>
+    </div>
+  );
+}
+
+function FinalDiagnosisPanel({ caseData: c }: { caseData: PatientCase }) {
   const fd = c.finalDiagnosis;
   const readOnly = c.status === 'Completed' || c.status === 'Archived';
   const propose = useProposeFinalDiagnosis(c.id);
@@ -101,7 +120,7 @@ export function CaseDiagnosis({ caseData: c }: { caseData: PatientCase }) {
           )}
         >
           {fd.status === 'accepted' ? <ShieldCheck className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />}
-          {fd.status === 'accepted' ? 'Diagnosis accepted by physician' : 'Aura proposes a final diagnosis'}
+          {fd.status === 'accepted' ? 'Diagnosis accepted by the doctor' : 'Aura proposes a final diagnosis'}
         </div>
         <CardContent className="p-5 sm:p-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center">

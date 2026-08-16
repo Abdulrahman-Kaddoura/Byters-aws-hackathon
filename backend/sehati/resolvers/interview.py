@@ -3,6 +3,13 @@
 The interview runs on the patient-facing path. Per the design doc it has **no
 data-access tools**: the AI service is called only with the current case's
 transcript, never with a retrieval capability over other records.
+
+The transcript is clinical content, so it is stripped out of any case payload a
+nurse reads (``db/cases_repo.project_for_role``). But the interview itself runs
+on the *nurse's* device while the patient holds it, so the live conversation is
+served by :func:`get_interview` and echoed by :func:`post_interview_message`
+instead — visible on the locked kiosk screen while the patient is answering,
+and gone from the nurse's ordinary case view once she takes the device back.
 """
 
 from __future__ import annotations
@@ -18,11 +25,43 @@ from .cases import _apply_state
 from .helpers import touch_progress
 
 
+def get_interview(ctx: AuthContext, args: dict[str, Any]) -> dict[str, Any]:
+    """The live transcript for the kiosk screen.
+
+    Scoped to one case and returning nothing but the conversation, so it can be
+    served to whoever is running the interview without handing them the rest of
+    the clinical record.
+    """
+    case = cases_repo.get_case(_require(args, "caseId"), ctx)
+    conversation_id = args.get("conversationId")
+    if conversation_id:
+        for conversation in case.get("conversations", []):
+            if conversation.get("id") == conversation_id:
+                return {
+                    "caseId": case["id"],
+                    "title": conversation.get("title", "Follow-up session"),
+                    "messages": conversation.get("messages", []),
+                    "open": True,
+                }
+        raise ValidationError(f"Conversation '{conversation_id}' not found on this case.")
+    return {
+        "caseId": case["id"],
+        "title": "Patient interview",
+        "messages": case.get("interview", []),
+        # The primary interview only accepts answers while the case is still in
+        # the AIInterview state; afterwards the kiosk shows it read-only.
+        "open": case.get("lifecycleState") == "AIInterview",
+        "patientName": (case.get("patient") or {}).get("name", ""),
+    }
+
+
 def post_interview_message(ctx: AuthContext, args: dict[str, Any]) -> dict[str, Any]:
     """Append the patient's turn, then return the AI's next question.
 
-    Returns ``{case, aiMessage, complete}``. When the AI decides the interview
-    is complete, ``complete`` is true and no further question is produced.
+    Returns ``{case, messages, aiMessage, complete}``. When the AI decides the
+    interview is complete, ``complete`` is true and no further question is
+    produced. ``messages`` echoes the full transcript so the kiosk can render it
+    without re-reading the (redacted) case.
     """
     case = cases_repo.get_case(_require(args, "caseId"), ctx)
     patient_text = _require(args, "text")
@@ -53,7 +92,12 @@ def post_interview_message(ctx: AuthContext, args: dict[str, Any]) -> dict[str, 
         model_version=result.model_version,
         output={"complete": complete},
     )
-    return {"case": case, "aiMessage": ai_message, "complete": complete}
+    return {
+        "case": case,
+        "messages": case["interview"],
+        "aiMessage": ai_message,
+        "complete": complete,
+    }
 
 
 def generate_summary(ctx: AuthContext, args: dict[str, Any]) -> dict[str, Any]:

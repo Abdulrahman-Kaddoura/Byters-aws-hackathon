@@ -14,7 +14,9 @@ import { LoadingState, EmptyState, TagList } from '@/components/common';
 import { useUserList, useGroupList, usePermissionCatalog, useCreateUser, useUpdateUser } from '@/hooks/useAdmin';
 import type { AppUser, CognitoGroup, PermissionCatalogEntry, PermissionGroup } from '@/types';
 
-const COGNITO_GROUPS: CognitoGroup[] = ['patient', 'physician', 'admin', 'compliance'];
+// The three kinds of account holder. Patients never sign in — a nurse admits
+// them and hands over her own device for the AI interview.
+const COGNITO_GROUPS: CognitoGroup[] = ['doctor', 'nurse', 'admin'];
 
 export function AdminUsers() {
   const { data: users = [], isLoading } = useUserList();
@@ -145,7 +147,7 @@ function CreateUserSheet({
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
-  const [cognitoGroup, setCognitoGroup] = useState<CognitoGroup>('physician');
+  const [cognitoGroup, setCognitoGroup] = useState<CognitoGroup>('doctor');
   const [customGroups, setCustomGroups] = useState<string[]>([]);
 
   useEffect(() => {
@@ -153,7 +155,7 @@ function CreateUserSheet({
     setUsername('');
     setEmail('');
     setName('');
-    setCognitoGroup('physician');
+    setCognitoGroup('doctor');
     setCustomGroups([]);
   }, [open]);
 
@@ -295,7 +297,7 @@ function EditUserSheet({
     }
   ) => void;
 }) {
-  const [cognitoGroup, setCognitoGroup] = useState<CognitoGroup>('patient');
+  const [cognitoGroup, setCognitoGroup] = useState<CognitoGroup>('doctor');
   const [customGroups, setCustomGroups] = useState<string[]>([]);
   const [status, setStatus] = useState<'active' | 'disabled'>('active');
   const [overrides, setOverrides] = useState<Record<string, OverrideState>>({});

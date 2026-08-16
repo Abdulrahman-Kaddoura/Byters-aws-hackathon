@@ -48,11 +48,14 @@ Flag = Literal["normal", "abnormal", "critical"]
 Speaker = Literal["ai", "patient", "doctor", "system"]
 TestStatus = Literal["recommended", "ordered", "pending", "completed"]
 
-# Cognito groups (design doc section 10.2).
-GROUP_PATIENT = "patient"
-GROUP_PHYSICIAN = "physician"
+# Cognito groups — the three kinds of person who hold an account. Patients
+# never log in: a nurse admits them and hands over her own device for the AI
+# interview, so there is no patient identity to model here.
+GROUP_DOCTOR = "doctor"
+GROUP_NURSE = "nurse"
 GROUP_ADMIN = "admin"
-GROUP_COMPLIANCE = "compliance"
+
+ROLES: tuple[str, ...] = (GROUP_DOCTOR, GROUP_NURSE, GROUP_ADMIN)
 
 # The one fixed, always-available admin account, provisioned by
 # scripts/bootstrap_admin.py. See resolvers/admin.py and handler.py: it can't
@@ -110,10 +113,17 @@ class PatientCase(TypedDict, total=False):
     assistantThread: list[ChatMessage]
     conversations: list[Conversation]
     progress: list[dict[str, Any]]
+    documents: list[dict[str, Any]]
     # --- Backend-only fields (not rendered by the UI) ---
     lifecycleState: str
-    patientId: str
+    # The nurse who admitted this patient. Indexed (byNurse) so the admissions
+    # desk can list its own intake without scanning.
+    createdByNurseId: str
+    # The one doctor this case is routed to. This is an *access boundary*, not
+    # a filter: db/cases_repo._visible_to lets a doctor read only their own.
     assignedPhysicianId: str
+    assignedAt: str
+    assignedBy: str
 
 
 # --- Helpers ----------------------------------------------------------------
@@ -197,7 +207,8 @@ def new_case(
     history: dict[str, Any] | None = None,
     complaint: dict[str, Any] | None = None,
     chief_complaint: str,
-    patient_id: str,
+    vitals: dict[str, Any] | None = None,
+    created_by_nurse_id: str | None = None,
     assigned_physician_id: str | None = None,
     case_id: str | None = None,
 ) -> PatientCase:
@@ -222,31 +233,33 @@ def new_case(
         "primaryImpression": "",
         "interview": [],
         "summary": _empty_summary(chief_complaint),
-        "vitals": {},
+        "vitals": vitals or {},
         "exams": [],
         "diagnoses": [],
         "tests": [],
         "timeline": [
             timeline_event(
-                "Patient submitted symptoms",
-                f"{patient.get('name', 'Patient')} completed intake.",
-                "patient",
+                "Patient admitted",
+                f"{patient.get('name', 'Patient')} was admitted and their details recorded.",
+                "system",
                 "intake",
             )
         ],
         "notes": [],
         "insights": [],
         "nextSteps": [],
-        "recentUpdates": [recent_update("Case created from intake", "patient")],
+        "recentUpdates": [recent_update("Patient admitted at intake", "system")],
         "assistantThread": [],
+        "documents": [],
         "progress": build_progress("intake"),
         # Backend-only:
         "lifecycleState": "Intake",
-        "patientId": patient_id,
     }
-    # Only set the physician index key when one is assigned — DynamoDB rejects
-    # empty strings on a GSI key attribute (an unassigned case is simply absent
-    # from the byPhysician index).
+    # Only set index keys when they have a value — DynamoDB rejects empty
+    # strings on a GSI key attribute (an unassigned case is simply absent from
+    # the byPhysician index until a nurse routes it).
+    if created_by_nurse_id:
+        case["createdByNurseId"] = created_by_nurse_id
     if assigned_physician_id:
         case["assignedPhysicianId"] = assigned_physician_id
     return case

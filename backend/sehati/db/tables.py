@@ -27,6 +27,7 @@ DOCTOR_FEEDBACK_TABLE = os.environ.get("DOCTOR_FEEDBACK_TABLE", "sehati-doctor-f
 USERS_TABLE = os.environ.get("USERS_TABLE", "sehati-users")
 GROUPS_TABLE = os.environ.get("GROUPS_TABLE", "sehati-groups")
 RESOURCES_TABLE = os.environ.get("RESOURCES_TABLE", "sehati-resources")
+SETTINGS_TABLE = os.environ.get("SETTINGS_TABLE", "sehati-settings")
 
 REGION = os.environ.get("AWS_REGION", "us-east-1")
 
@@ -76,6 +77,13 @@ def resources_table():
     (e.g. a guideline for a specific condition); the AI seam pulls matching
     ones in as grounding evidence (see ``ai/bedrock.py``'s ``_retrieve``)."""
     return _resource().Table(RESOURCES_TABLE)
+
+
+def settings_table():
+    """Hospital-wide settings — a single item (``id = "app"``) holding things
+    an admin sets once for everyone, currently the hashed patient-interview
+    exit password. See ``db/settings_repo.py``."""
+    return _resource().Table(SETTINGS_TABLE)
 
 
 # --- Decimal <-> JSON number conversion ------------------------------------

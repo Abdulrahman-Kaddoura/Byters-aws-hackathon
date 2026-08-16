@@ -2,6 +2,7 @@ import { config } from './config';
 import { getIdToken, signOut } from './auth';
 import type {
   AppUser,
+  CaseDocument,
   ChatMessage,
   CognitoGroup,
   Conversation,
@@ -10,6 +11,7 @@ import type {
   Flag,
   FinalDiagnosis,
   KnowledgeResource,
+  Me,
   PatientCase,
   PermissionCatalogEntry,
   PermissionGroup,
@@ -60,13 +62,34 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
 
 const enc = encodeURIComponent;
 
+// --- Identity ---------------------------------------------------------------
+/** Who the caller is and what the server will actually let them do. */
+export function me(): Promise<Me> {
+  return request('GET', '/me');
+}
+
+/** The doctors a case can be routed to (names and ids only). */
+export function listDoctors(): Promise<{ sub: string; name: string }[]> {
+  return request('GET', '/doctors');
+}
+
 // --- Cases ------------------------------------------------------------------
-export function listCases(opts: { status?: string; mine?: boolean } = {}): Promise<PatientCase[]> {
+/** `scope: 'mine'` narrows a nurse's list to the patients she admitted; a
+ * doctor's list is always their own assignments, enforced server-side. */
+export function listCases(opts: { status?: string; scope?: 'mine' } = {}): Promise<PatientCase[]> {
   const qs = new URLSearchParams();
   if (opts.status) qs.set('status', opts.status);
-  if (opts.mine) qs.set('mine', 'true');
+  if (opts.scope) qs.set('scope', opts.scope);
   const query = qs.toString();
   return request('GET', `/cases${query ? `?${query}` : ''}`);
+}
+
+export function assignCase(caseId: string, doctorId: string): Promise<PatientCase> {
+  return request('POST', `/cases/${enc(caseId)}/assign`, { doctorId });
+}
+
+export function setCaseTags(caseId: string, tags: string[]): Promise<{ caseId: string; tags: string[] }> {
+  return request('PUT', `/cases/${enc(caseId)}/tags`, { tags });
 }
 
 export function getCase(id: string): Promise<PatientCase> {
@@ -90,10 +113,29 @@ export function caseAudit(caseId: string): Promise<Record<string, unknown>[]> {
 }
 
 // --- Interview --------------------------------------------------------------
+export interface InterviewView {
+  caseId: string;
+  title: string;
+  messages: ChatMessage[];
+  open: boolean;
+  patientName?: string;
+}
+
+/** The live transcript for the kiosk screen.
+ *
+ * Patient Mode reads this rather than `case.interview` because the interview
+ * runs on the *nurse's* device: the transcript is clinical content and is
+ * stripped from any case payload she receives, but the patient answering the
+ * questions still has to see the conversation in front of them. */
+export function getInterview(caseId: string, conversationId?: string): Promise<InterviewView> {
+  const qs = conversationId ? `?conversationId=${enc(conversationId)}` : '';
+  return request('GET', `/cases/${enc(caseId)}/interview${qs}`);
+}
+
 export function postInterviewMessage(
   caseId: string,
   text: string
-): Promise<CaseEnvelope & { aiMessage: ChatMessage; complete: boolean }> {
+): Promise<CaseEnvelope & { messages: ChatMessage[]; aiMessage: ChatMessage; complete: boolean }> {
   return request('POST', `/cases/${enc(caseId)}/interview/messages`, { text });
 }
 
@@ -245,12 +287,56 @@ export function adminListPermissions(): Promise<PermissionCatalogEntry[]> {
   return request('GET', '/admin/permissions');
 }
 
+// --- Hospital settings + the patient-interview (kiosk) lock -------------------
+export interface AppSettings {
+  kioskExitPasswordSet: boolean;
+  updatedAt?: string;
+  updatedBy?: string;
+}
+
+export function adminGetSettings(): Promise<AppSettings> {
+  return request('GET', '/admin/settings');
+}
+
+export function adminSetKioskPassword(kioskExitPassword: string): Promise<AppSettings> {
+  return request('PUT', '/admin/settings', { kioskExitPassword });
+}
+
+/** Whether an exit password exists at all, so the nurse can be warned before
+ * she hands the device over. Reveals only the boolean. */
+export function kioskStatus(): Promise<{ kioskExitPasswordSet: boolean }> {
+  return request('GET', '/kiosk');
+}
+
+/** Verifies the exit password server-side. A check done in the browser would
+ * be readable in the shipped bundle, so this is the only way out of kiosk mode. */
+export function kioskExit(password: string): Promise<{ ok: true }> {
+  return request('POST', '/kiosk/exit', { password });
+}
+
 // --- Documents, audio + transcription ----------------------------------------
 export function uploadCaseDocument(
   caseId: string,
-  payload: { fileBase64: string; fileExtension?: string; contentType?: string }
-): Promise<CaseEnvelope & { documentS3Uri: string }> {
+  payload: { fileBase64: string; fileName?: string; fileExtension?: string; contentType?: string }
+): Promise<CaseEnvelope & { document: CaseDocument }> {
   return request('POST', `/cases/${enc(caseId)}/documents`, payload);
+}
+
+export function listCaseDocuments(caseId: string): Promise<{ documents: CaseDocument[] }> {
+  return request('GET', `/cases/${enc(caseId)}/documents`);
+}
+
+/** Returns a presigned URL valid for a few minutes — used for both download
+ * and the inline preview. */
+export function getCaseDocument(
+  caseId: string,
+  documentId: string
+): Promise<{ document: CaseDocument; url: string; expiresIn: number }> {
+  return request('GET', `/cases/${enc(caseId)}/documents/${enc(documentId)}`);
+}
+
+export function deleteCaseDocument(caseId: string, documentId: string): Promise<CaseEnvelope> {
+  return request('DELETE', `/cases/${enc(caseId)}/documents/${enc(documentId)}`);
 }
 
 export function uploadCaseAudio(

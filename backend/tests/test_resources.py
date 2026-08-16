@@ -56,13 +56,13 @@ def test_save_resource_truncates_oversized_text(aws):
 
 
 # --- resolvers/resources.py ---------------------------------------------------
-def test_list_upload_delete_resource(aws, monkeypatch, physician):
+def test_list_upload_delete_resource(aws, monkeypatch, doctor):
     import boto3
 
     monkeypatch.setenv("DOCUMENTS_BUCKET", "sehati-documents-test")
     boto3.client("s3", region_name="us-east-1").create_bucket(Bucket="sehati-documents-test")
 
-    uploaded = resolve("uploadResource", physician, {
+    uploaded = resolve("uploadResource", doctor, {
         "title": "Migraine Guideline",
         "tags": ["migraine", "neurology"],
         "fileBase64": base64.b64encode(b"guideline text").decode(),
@@ -72,29 +72,29 @@ def test_list_upload_delete_resource(aws, monkeypatch, physician):
     assert "text" not in uploaded  # metadata only, never the extracted text
     assert uploaded["s3Uri"].startswith("s3://sehati-documents-test/resources/")
 
-    listed = resolve("listResources", physician, {})
+    listed = resolve("listResources", doctor, {})
     assert len(listed) == 1
     assert listed[0]["id"] == uploaded["id"]
 
-    result = resolve("deleteResource", physician, {"id": uploaded["id"]})
+    result = resolve("deleteResource", doctor, {"id": uploaded["id"]})
     assert result == {"deleted": True}
-    assert resolve("listResources", physician, {}) == []
+    assert resolve("listResources", doctor, {}) == []
 
 
-def test_upload_resource_requires_title_and_file(aws, physician):
+def test_upload_resource_requires_title_and_file(aws, doctor):
     with pytest.raises(ValidationError):
-        resolve("uploadResource", physician, {"fileBase64": base64.b64encode(b"x").decode()})
+        resolve("uploadResource", doctor, {"fileBase64": base64.b64encode(b"x").decode()})
     with pytest.raises(ValidationError):
-        resolve("uploadResource", physician, {"title": "No file"})
+        resolve("uploadResource", doctor, {"title": "No file"})
 
 
-def test_resources_forbidden_for_patient(aws, patient):
+def test_resources_forbidden_for_nurse(aws, nurse):
     with pytest.raises(ForbiddenError):
-        resolve("listResources", patient, {})
+        resolve("listResources", nurse, {})
     with pytest.raises(ForbiddenError):
-        resolve("uploadResource", patient, {"title": "x", "fileBase64": "eA=="})
+        resolve("uploadResource", nurse, {"title": "x", "fileBase64": "eA=="})
     with pytest.raises(ForbiddenError):
-        resolve("deleteResource", patient, {"id": "res-1"})
+        resolve("deleteResource", nurse, {"id": "res-1"})
 
 
 # --- AI seam retrieval hookup --------------------------------------------------

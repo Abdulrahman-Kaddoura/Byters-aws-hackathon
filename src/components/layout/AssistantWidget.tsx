@@ -4,10 +4,9 @@ import { X, Sparkles } from 'lucide-react';
 import { useCase } from '@/hooks/useCases';
 import { ChatThread } from '@/components/Chat';
 import { GLOBAL_PROMPTS } from '@/data/prompts';
-import { currentIdentity } from '@/lib/auth';
+import { PERMISSIONS, useSession } from '@/lib/session';
 import { cn } from '@/lib/utils';
 
-const CLINICIAN_GROUPS = ['physician', 'admin', 'compliance'];
 
 /** Floating case-level assistant chat — only meaningful once a case is open
  * (the backend's assistant endpoint is scoped to one case). */
@@ -17,7 +16,8 @@ export function AssistantWidget() {
   const match = /^\/cases\/([^/]+)/.exec(location);
   const caseId = match && match[1] !== 'new' ? match[1] : undefined;
   const { data: caseData } = useCase(caseId);
-  const isClinician = currentIdentity()?.groups.some((g) => CLINICIAN_GROUPS.includes(g)) ?? false;
+  // Gated on the same permission the server checks for assistantChat.
+  const isClinician = useSession().can(PERMISSIONS.assistantChat);
 
   if (!caseId || !caseData || !isClinician) return null;
 

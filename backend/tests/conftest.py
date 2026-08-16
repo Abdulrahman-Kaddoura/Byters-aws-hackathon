@@ -62,14 +62,14 @@ def _create_tables(tables) -> None:
         BillingMode="PAY_PER_REQUEST",
         AttributeDefinitions=[
             {"AttributeName": "id", "AttributeType": "S"},
-            {"AttributeName": "patientId", "AttributeType": "S"},
+            {"AttributeName": "createdByNurseId", "AttributeType": "S"},
             {"AttributeName": "assignedPhysicianId", "AttributeType": "S"},
             {"AttributeName": "status", "AttributeType": "S"},
             {"AttributeName": "createdAt", "AttributeType": "S"},
         ],
         KeySchema=[{"AttributeName": "id", "KeyType": "HASH"}],
         GlobalSecondaryIndexes=[
-            _gsi("byPatient", "patientId"),
+            _gsi("byNurse", "createdByNurseId"),
             _gsi("byPhysician", "assignedPhysicianId"),
             _gsi("byStatus", "status"),
         ],
@@ -111,12 +111,13 @@ def _create_tables(tables) -> None:
         AttributeDefinitions=[{"AttributeName": "id", "AttributeType": "S"}],
         KeySchema=[{"AttributeName": "id", "KeyType": "HASH"}],
     )
-    client.create_table(
-        TableName=tables.RESOURCES_TABLE,
-        BillingMode="PAY_PER_REQUEST",
-        AttributeDefinitions=[{"AttributeName": "id", "AttributeType": "S"}],
-        KeySchema=[{"AttributeName": "id", "KeyType": "HASH"}],
-    )
+    for name in (tables.RESOURCES_TABLE, tables.SETTINGS_TABLE):
+        client.create_table(
+            TableName=name,
+            BillingMode="PAY_PER_REQUEST",
+            AttributeDefinitions=[{"AttributeName": "id", "AttributeType": "S"}],
+            KeySchema=[{"AttributeName": "id", "KeyType": "HASH"}],
+        )
 
 
 def _gsi(name: str, pk: str) -> dict:
@@ -141,42 +142,42 @@ def _default_permissions(role: str) -> frozenset[str]:
 
 
 @pytest.fixture()
-def patient():
+def doctor():
     from sehati.context import AuthContext
 
     return AuthContext(
-        sub="patient-1", username="layla", groups=frozenset({"patient"}),
-        permissions=_default_permissions("patient"),
+        sub="dr-karim", username="dr.karim", groups=frozenset({"doctor"}),
+        permissions=_default_permissions("doctor"),
     )
 
 
 @pytest.fixture()
-def other_patient():
+def other_doctor():
     from sehati.context import AuthContext
 
     return AuthContext(
-        sub="patient-2", username="sami", groups=frozenset({"patient"}),
-        permissions=_default_permissions("patient"),
+        sub="dr-nabil", username="dr.nabil", groups=frozenset({"doctor"}),
+        permissions=_default_permissions("doctor"),
     )
 
 
 @pytest.fixture()
-def physician():
+def nurse():
     from sehati.context import AuthContext
 
     return AuthContext(
-        sub="dr-karim", username="dr.karim", groups=frozenset({"physician"}),
-        permissions=_default_permissions("physician"),
+        sub="nurse-rima", username="nurse.rima", groups=frozenset({"nurse"}),
+        permissions=_default_permissions("nurse"),
     )
 
 
 @pytest.fixture()
-def compliance():
+def other_nurse():
     from sehati.context import AuthContext
 
     return AuthContext(
-        sub="dr-nabil", username="dr.nabil", groups=frozenset({"compliance"}),
-        permissions=_default_permissions("compliance"),
+        sub="nurse-hala", username="nurse.hala", groups=frozenset({"nurse"}),
+        permissions=_default_permissions("nurse"),
     )
 
 
@@ -191,15 +192,55 @@ def admin():
 
 
 @pytest.fixture()
+def seeded_users(aws):
+    """User records for the role fixtures, in the shape the admin panel writes.
+
+    Assignment validates its target against this table (a case can only be
+    routed to an active doctor), so any test that assigns needs it.
+    """
+    from sehati.db import groups_repo, users_repo
+    from sehati.permissions import SYSTEM_GROUPS
+
+    for role, spec in SYSTEM_GROUPS.items():
+        groups_repo.create_group(
+            name=str(spec["name"]),
+            description=str(spec["description"]),
+            permissions=list(spec["permissions"]),  # type: ignore[arg-type]
+            group_id=str(spec["id"]),
+            is_system=True,
+        )
+
+    people = [
+        ("dr-karim", "dr.karim", "Karim Haddad", "doctor"),
+        ("dr-nabil", "dr.nabil", "Nabil Aoun", "doctor"),
+        ("nurse-rima", "nurse.rima", "Rima Saad", "nurse"),
+        ("nurse-hala", "nurse.hala", "Hala Khoury", "nurse"),
+        ("admin-1", "admin", "Administrator", "admin"),
+    ]
+    for sub, username, name, role in people:
+        users_repo.create_user(
+            sub=sub,
+            username=username,
+            email=f"{username}@example.test",
+            name=name,
+            cognito_group=role,
+            custom_groups=[str(SYSTEM_GROUPS[role]["id"])],
+        )
+    return {sub: username for sub, username, _, _ in people}
+
+
+@pytest.fixture()
 def cognito_pool(aws, monkeypatch):
-    """A mocked Cognito user pool with the 4 built-in groups, for tests that
-    exercise the admin panel's Cognito Admin* calls (see cognito_admin.py).
+    """A mocked Cognito user pool with the 3 built-in role groups, for tests
+    that exercise the admin panel's Cognito Admin* calls (see cognito_admin.py).
     Depends on ``aws`` so it shares the same moto session/DynamoDB tables."""
     import boto3
 
+    from sehati.models import ROLES
+
     idp = boto3.client("cognito-idp", region_name="us-east-1")
     pool_id = idp.create_user_pool(PoolName="sehati-users")["UserPool"]["Id"]
-    for group in ("patient", "physician", "admin", "compliance"):
+    for group in ROLES:
         idp.create_group(UserPoolId=pool_id, GroupName=group)
     client_id = idp.create_user_pool_client(
         UserPoolId=pool_id, ClientName="test-client", ExplicitAuthFlows=["ADMIN_NO_SRP_AUTH"]
@@ -210,10 +251,23 @@ def cognito_pool(aws, monkeypatch):
 
 @pytest.fixture()
 def sample_intake() -> dict:
+    """What the nurse's admission form posts: identity plus measured vitals.
+    Symptoms are deliberately absent — the AI interview gathers those."""
     return {
         "input": {
-            "patient": {"name": "Layla Haddad", "age": 54, "gender": "Female"},
+            "patient": {
+                "name": "Layla Haddad",
+                "age": 54,
+                "gender": "Female",
+                "height": "165 cm",
+                "weight": "70 kg",
+            },
             "chiefComplaint": "Headache for 3 days with fever",
-            "complaint": {"symptoms": ["Headache", "Fever"], "painScale": 6, "duration": "3 days"},
+            "vitals": {
+                "bloodPressure": "128/82",
+                "heartRate": 88,
+                "temperature": 38.1,
+                "oxygenSaturation": 97,
+            },
         }
     }

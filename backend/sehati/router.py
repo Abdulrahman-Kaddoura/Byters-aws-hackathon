@@ -20,7 +20,9 @@ from .resolvers import (
     exams,
     feedback,
     interview,
+    me,
     resources,
+    settings,
     tests,
     transcribe,
 )
@@ -28,15 +30,21 @@ from .resolvers import (
 Resolver = Callable[[AuthContext, dict[str, Any]], Any]
 
 ROUTES: dict[str, Resolver] = {
+    # Who am I / what may I do (the frontend's permission source of truth)
+    "me": me.me,
     # Queries
     "listCases": cases.list_cases,
     "getCase": cases.get_case,
     "caseAudit": cases.case_audit,
+    "listDoctors": cases.list_doctors,
     # Case lifecycle
     "submitIntake": cases.submit_intake,
+    "assignCase": cases.assign_case,
+    "setCaseTags": cases.set_case_tags,
     "setCaseState": cases.set_case_state,
     "addNote": cases.add_note,
     # Interview
+    "getInterview": interview.get_interview,
     "postInterviewMessage": interview.post_interview_message,
     "generateSummary": interview.generate_summary,
     # Side conversations (return visits / follow-ups, additive to interview)
@@ -60,6 +68,9 @@ ROUTES: dict[str, Resolver] = {
     "rejectRecommendation": collab.reject_recommendation,
     # Documents
     "uploadCaseDocument": documents.upload_case_document,
+    "listCaseDocuments": documents.list_case_documents,
+    "getCaseDocument": documents.get_case_document,
+    "deleteCaseDocument": documents.delete_case_document,
     "uploadCaseAudio": documents.upload_case_audio,
     # Transcription (AWS HealthScribe)
     "startTranscription": transcribe.transcribe_audio,
@@ -80,6 +91,11 @@ ROUTES: dict[str, Resolver] = {
     "adminUpdateGroup": admin.update_group,
     "adminDeleteGroup": admin.delete_group,
     "adminListPermissions": admin.list_permissions,
+    "adminGetSettings": settings.get_settings,
+    "adminUpdateSettings": settings.update_settings,
+    # Patient-interview (kiosk) lock
+    "kioskStatus": settings.kiosk_status,
+    "kioskExit": settings.kiosk_exit,
 }
 
 

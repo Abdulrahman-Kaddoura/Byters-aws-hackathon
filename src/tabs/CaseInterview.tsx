@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { useLocation } from 'wouter';
 import { Sparkles, FileText, Send, CheckCircle2, Loader2, Tablet } from 'lucide-react';
 import type { PatientCase } from '@/types';
+import { CaseConversations } from '@/tabs/CaseConversations';
+import { AudioTranscriptionCard, FeedbackCard } from '@/components/DoctorTools';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,7 +12,30 @@ import { Transcript } from '@/components/Chat';
 import { TagList } from '@/components/common';
 import { usePostInterviewMessage, useGenerateSummary } from '@/hooks/useCases';
 
-export function CaseInterview({ caseData: c }: { caseData: PatientCase }) {
+/**
+ * The primary intake interview, plus the follow-up sessions layered on it.
+ *
+ * "Sessions" used to be its own tab, which put a return visit's conversation
+ * one navigation away from the original it follows on from.
+ */
+export function CaseInterview({ caseData }: { caseData: PatientCase }) {
+  return (
+    <div className="space-y-10 pb-8">
+      <PrimaryInterview caseData={caseData} />
+      <div className="border-t pt-8">
+        <CaseConversations caseData={caseData} />
+      </div>
+      {/* Moved off Overview, where they competed with the clinical summary.
+          Both are about this conversation, so they belong beside it. */}
+      <div className="grid gap-4 border-t pt-8 sm:grid-cols-2">
+        <AudioTranscriptionCard caseId={caseData.id} />
+        <FeedbackCard caseId={caseData.id} />
+      </div>
+    </div>
+  );
+}
+
+function PrimaryInterview({ caseData: c }: { caseData: PatientCase }) {
   const [, navigate] = useLocation();
   const [view, setView] = useState<'chat' | 'summary'>(c.summary?.chiefComplaint ? 'summary' : 'chat');
   const [input, setInput] = useState('');
