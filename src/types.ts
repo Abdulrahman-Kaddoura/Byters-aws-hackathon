@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------------------
 // Domain types for the Aura clinical decision support prototype.
-// Everything here is dummy data used to simulate the product experience.
+// The live API contract shared by the client and backend/sehati/models.py.
 // ---------------------------------------------------------------------------
 
 export type Gender = 'Male' | 'Female' | 'Other';
@@ -248,15 +248,52 @@ export interface PatientCase {
   lessonsLearned?: string[];
   associatedConditions?: string[];
   progress: ProgressStep[];
+  documents?: CaseDocument[];
+  /** The nurse who admitted this patient. */
+  createdByNurseId?: string;
+  /** The doctor this case is routed to. Assignment is the access boundary:
+   * the API only returns a case to the doctor it names (or to an admin). */
+  assignedPhysicianId?: string;
+  assignedAt?: string;
+  assignedBy?: string;
+}
+
+/** A file attached to a case. The extracted text and the S3 key stay
+ * server-side; downloads go through a short-lived presigned URL. */
+export interface CaseDocument {
+  id: string;
+  name: string;
+  contentType: string;
+  extension: string;
+  size: number;
+  uploadedBy: string;
+  uploadedByName: string;
+  uploadedAt: string;
 }
 
 // ---------------------------------------------------------------------------
 // Admin panel — hospital-provisioned accounts and custom permission groups.
-// Cognito's 4 groups (below) stay the coarse identity/row-level-security
-// role; PermissionGroup is a separate, admin-editable concept carrying
-// fine-grained permissions (see docs/API.md and backend/sehati/permissions.py).
+// Cognito's 3 role groups (below) stay the coarse identity that drives
+// row-level security; PermissionGroup is a separate, admin-editable concept
+// carrying fine-grained permissions (see docs/API.md and
+// backend/sehati/permissions.py). Patients never sign in, so there is no
+// patient role: a nurse admits them and hands over her own device.
 // ---------------------------------------------------------------------------
-export type CognitoGroup = 'patient' | 'physician' | 'admin' | 'compliance';
+export type CognitoGroup = 'doctor' | 'nurse' | 'admin';
+
+/** The answer from GET /me: who the caller is and what the *server* will let
+ * them do. Every screen gates on this rather than on the JWT's group claim,
+ * so the client can no longer disagree with the backend about access. */
+export interface Me {
+  sub: string;
+  username: string;
+  name: string;
+  email: string;
+  role: CognitoGroup | null;
+  permissions: string[];
+  /** This user's private labels, keyed by case id. Nobody else sees them. */
+  caseTags: Record<string, string[]>;
+}
 
 export interface PermissionCatalogEntry {
   key: string;

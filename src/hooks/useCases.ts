@@ -1,8 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as api from '../lib/api';
+import { ME_QUERY_KEY } from '../lib/session';
 import type { Flag, PatientCase } from '../types';
 
-const casesKey = (opts: { status?: string; mine?: boolean } = {}) => ['cases', opts] as const;
+const casesKey = (opts: { status?: string; scope?: 'mine' } = {}) => ['cases', opts] as const;
 const caseKey = (id: string) => ['case', id] as const;
 const auditKey = (id: string) => ['case-audit', id] as const;
 
@@ -12,7 +13,7 @@ function applyCase(qc: ReturnType<typeof useQueryClient>, updated: PatientCase) 
 }
 
 // --- Reads --------------------------------------------------------------
-export function useCaseList(opts: { status?: string; mine?: boolean } = {}) {
+export function useCaseList(opts: { status?: string; scope?: 'mine' } = {}) {
   return useQuery({
     queryKey: casesKey(opts),
     queryFn: () => api.listCases(opts),
@@ -35,7 +36,54 @@ export function useCaseAudit(id: string | undefined, enabled: boolean) {
   });
 }
 
+export function useCaseDocuments(id: string | undefined) {
+  return useQuery({
+    queryKey: ['case-documents', id ?? ''],
+    queryFn: () => api.listCaseDocuments(id!).then((r) => r.documents),
+    enabled: !!id,
+  });
+}
+
+/** The doctors a case can be routed to. Requires cases.assign server-side. */
+export function useDoctorList(enabled = true) {
+  return useQuery({
+    queryKey: ['doctors'],
+    queryFn: api.listDoctors,
+    enabled,
+    staleTime: 5 * 60_000,
+  });
+}
+
 // --- Mutations ------------------------------------------------------------
+export function useAssignCase(caseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (doctorId: string) => api.assignCase(caseId, doctorId),
+    onSuccess: (updated) => applyCase(qc, updated),
+  });
+}
+
+/** Tags are stored on the caller's own user record, so the cache to refresh is
+ * /me rather than the case. */
+export function useSetCaseTags(caseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (tags: string[]) => api.setCaseTags(caseId, tags),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ME_QUERY_KEY }),
+  });
+}
+
+export function useDeleteCaseDocument(caseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (documentId: string) => api.deleteCaseDocument(caseId, documentId),
+    onSuccess: (res) => {
+      applyCase(qc, res.case);
+      qc.invalidateQueries({ queryKey: ['case-documents', caseId] });
+    },
+  });
+}
+
 export function useSubmitIntake() {
   const qc = useQueryClient();
   return useMutation({
@@ -199,9 +247,16 @@ export function useRejectRecommendation(caseId: string) {
 export function useUploadCaseDocument(caseId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (vars: { fileBase64: string; fileExtension?: string; contentType?: string }) =>
-      api.uploadCaseDocument(caseId, vars),
-    onSuccess: (res) => applyCase(qc, res.case),
+    mutationFn: (vars: {
+      fileBase64: string;
+      fileName?: string;
+      fileExtension?: string;
+      contentType?: string;
+    }) => api.uploadCaseDocument(caseId, vars),
+    onSuccess: (res) => {
+      applyCase(qc, res.case);
+      qc.invalidateQueries({ queryKey: ['case-documents', caseId] });
+    },
   });
 }
 

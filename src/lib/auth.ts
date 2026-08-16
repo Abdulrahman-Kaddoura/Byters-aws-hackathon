@@ -10,12 +10,11 @@ export interface Session {
   expiresAt: number;
 }
 
-export interface Identity {
-  sub: string;
-  username: string;
-  email?: string;
-  groups: string[];
-}
+// NOTE: there is deliberately no `currentIdentity()` here any more.
+// Reading `cognito:groups` out of the ID token is what let the UI disagree
+// with the backend about access — the server gates on fine-grained
+// permissions that the claim knows nothing about. Ask the server instead:
+// `useSession()` in lib/session.tsx, backed by GET /me.
 
 /** A first-login challenge: the user must set a permanent password to continue. */
 export class NewPasswordRequired extends Error {
@@ -94,8 +93,20 @@ function load(): Session | null {
   }
 }
 
+// Sign-out happens from several places (the topbar, a 401 from lib/api, an
+// expired refresh token). Without a notification the app shell stayed mounted
+// on a dead session and every subsequent request failed with 401 — so
+// subscribers get told and can re-render to the sign-in screen.
+const signOutListeners = new Set<() => void>();
+
+export function onSignOut(listener: () => void): () => void {
+  signOutListeners.add(listener);
+  return () => signOutListeners.delete(listener);
+}
+
 export function signOut(): void {
   localStorage.removeItem(STORAGE_KEY);
+  signOutListeners.forEach((listener) => listener());
 }
 
 export async function signIn(username: string, password: string): Promise<Session> {
@@ -177,30 +188,11 @@ export async function getIdToken(): Promise<string | null> {
   }
 }
 
-export function currentIdentity(): Identity | null {
-  const session = load();
-  if (!session) return null;
-  const claims = decodeJwt(session.idToken);
-  if (!claims?.sub) return null;
-
-  const raw = claims['cognito:groups'];
-  return {
-    sub: claims.sub,
-    username: claims['cognito:username'] ?? claims.sub,
-    email: claims.email,
-    groups: Array.isArray(raw) ? raw : raw ? [raw] : [],
-  };
-}
-
 export function isSignedIn(): boolean {
-  return load() !== null;
-}
-
-function decodeJwt(token: string): any | null {
-  try {
-    const payload = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
-    return JSON.parse(decodeURIComponent(escape(atob(payload))));
-  } catch {
-    return null;
-  }
+  const session = load();
+  // A stored session whose refresh token is gone or whose expiry has passed is
+  // not a session: booting the app on one just fails on the first request.
+  if (!session) return false;
+  if (Date.now() < session.expiresAt) return true;
+  return Boolean(session.refreshToken);
 }

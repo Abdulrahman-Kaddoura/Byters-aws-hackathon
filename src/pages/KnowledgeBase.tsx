@@ -3,7 +3,7 @@ import { Link } from 'wouter';
 import { Search, BookOpen, FileUp, Loader2, Trash2, AlertTriangle } from 'lucide-react';
 import { useCaseList } from '@/hooks/useCases';
 import { useResourceList, useUploadResource, useDeleteResource } from '@/hooks/useResources';
-import { currentIdentity } from '@/lib/auth';
+import { PERMISSIONS, useSession } from '@/lib/session';
 import { fileToBase64 } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -13,10 +13,9 @@ import { LoadingState, EmptyState, SectionHeading } from '@/components/common';
 import { ReferenceCard, SimilarCaseCard } from '@/components/Evidence';
 import type { Reference, SimilarCase } from '@/types';
 
-const CLINICIAN_GROUPS = ['physician', 'admin', 'compliance'];
 
 function ReferenceLibrary() {
-  const isClinician = currentIdentity()?.groups.some((g) => CLINICIAN_GROUPS.includes(g)) ?? false;
+  const isClinician = useSession().can(PERMISSIONS.resourcesManage);
   const { data: resources = [], isLoading } = useResourceList();
   const upload = useUploadResource();
   const del = useDeleteResource();

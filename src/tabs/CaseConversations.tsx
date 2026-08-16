@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Transcript } from '@/components/Chat';
 import { useCreateConversation } from '@/hooks/useCases';
+import { setKioskLock } from '@/lib/kiosk';
 
 /** Doctor-facing view of every extra chat session on this case — return
  * visits and follow-ups layered on top of the primary intake interview. */
@@ -15,6 +16,8 @@ export function CaseConversations({ caseData: c }: { caseData: PatientCase }) {
 
   async function startSession() {
     const res = await createConversation.mutateAsync(undefined);
+    // Lock the device before handing it over, exactly as at admission.
+    setKioskLock(c.id, res.conversation.id);
     navigate(`/cases/${c.id}/patient-mode/${res.conversation.id}`);
   }
 

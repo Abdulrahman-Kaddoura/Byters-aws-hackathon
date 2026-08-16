@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { SectionHeading } from '@/components/common';
 import { Timeline } from '@/components/Timeline';
 import { useCaseAudit } from '@/hooks/useCases';
-import { currentIdentity } from '@/lib/auth';
+import { PERMISSIONS, useSession } from '@/lib/session';
 
 function LegendDot({ icon, label, cls }: { icon: React.ReactNode; label: string; cls: string }) {
   return (
@@ -58,7 +58,7 @@ function AuditTrail({ caseId }: { caseId: string }) {
 }
 
 export function CaseTimeline({ caseData: c }: { caseData: PatientCase; isClinician?: boolean }) {
-  const canAudit = currentIdentity()?.groups.some((g) => g === 'admin' || g === 'compliance') ?? false;
+  const canAudit = useSession().can(PERMISSIONS.auditView);
   return (
     <div className="space-y-5">
       <Card>
