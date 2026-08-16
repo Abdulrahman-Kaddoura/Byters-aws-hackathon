@@ -26,11 +26,13 @@ missing.
 
 ## ✨ What it demonstrates
 
-The prototype walks through the complete clinical workflow:
+The prototype follows a real ward workflow: a nurse admits the patient, the AI
+interviews them on her locked device, she routes the case to a doctor, and the
+doctor works it up.
 
-1. **Patient intake** — staff enter the patient's full record (name, age, gender, weight, height, blood type, occupation), then hand the device to the patient for a full-screen **Patient Mode** chat (`/cases/:id/patient-mode`) — the AI still gathers history and the current complaint conversationally, on top of that record.
-2. **AI patient interview** — an adaptive Q&A (backend `AIService.next_interview_question`) that auto-generates a **structured clinical summary** (so the doctor never reads the raw transcript). A case can also have extra **side conversations** (return visits/follow-ups) started from the doctor's "Sessions" tab, each its own Patient Mode session.
-3. **Doctor workspace** — a per-case dashboard with patient summary, progress tracker, AI insights, suggested next steps and recent updates.
+1. **Admission (nurse)** — she records what she can measure: name, age, sex, height, weight, and vitals. Symptoms and history are deliberately not on the form — the AI asks the patient directly, so a field here would mean asking twice.
+2. **AI patient interview (locked device)** — she hands over her tablet and it **locks**: routing is pinned to the interview screen, so the URL bar and the back button lead nowhere and a refresh lands back in it. An adaptive Q&A (`AIService.next_interview_question`) auto-generates a **structured clinical summary**, so the doctor never reads the raw transcript. Getting out costs an admin-set exit password, checked server-side.
+3. **Routing (nurse)** — she assigns the case to a doctor. This is the moment access is granted: **a doctor sees only the cases assigned to them**, and an unassigned case is invisible to every doctor. Nurses and admins can reassign; it's audit-logged either way.
 4. **Physical examination** — AI-recommended exams (with reason, importance, confidence) where the doctor enters findings, marks complete/skip, and adds notes.
 5. **Differential diagnosis** — ranked diagnosis cards with confidence meters, supporting/contradicting evidence, and full **explainability** (how confidence was calculated, why not 100%, risk, next action, guideline/paper/textbook references, similar historical cases).
 6. **AI discussion** — every diagnosis has its own chat where the doctor can challenge the reasoning ("Why not pulmonary embolism?", "What would increase confidence?"), answered by the backend AI seam (Amazon Bedrock).
@@ -39,37 +41,55 @@ The prototype walks through the complete clinical workflow:
 9. **Timeline & completion** — a vertical case timeline and read-only archived cases with outcomes and lessons learned.
 
 A persistent, case-aware **Aura Assistant** panel is available throughout for
-open-ended collaboration. On the case overview tab, clinicians also get three
-side tools (`src/components/DoctorTools.tsx`): **upload a document** (PDF/DOCX,
-extracted as context for every AI step), **upload audio** (transcribed by AWS
-HealthScribe into a structured clinical summary), and **leave feedback**
-(free-text notes on how the AI did on this case). Separately, the **Knowledge
-Base** page lets clinicians build a shared, tagged reference library (e.g. a
-diabetes guideline tagged "diabetes") that Aura automatically pulls in as
-grounding evidence for any case whose chief complaint or a doctor's question
-matches — no per-case action needed.
+open-ended collaboration. Each case has a **Documents** tab (upload, list,
+download, inline preview — extracted text feeds every AI step as grounding,
+and nurses can attach referral letters at admission), and doctors can tag any
+case with **private labels** that nobody else can see. The **Knowledge Base**
+page holds a shared, tagged reference library (e.g. a diabetes guideline
+tagged "diabetes") that Aura pulls in as grounding evidence for any case whose
+chief complaint or a doctor's question matches — no per-case action needed.
+
+### 🔑 Who sees what
+
+Three kinds of account: **doctor**, **nurse**, **admin**. Patients never sign
+in — they only ever hold a nurse's locked device.
+
+Two rules do the real work, and both are enforced in the data layer rather
+than in the browser:
+
+- **A doctor sees only their assigned cases.** Assignment is an access
+  boundary, not a filter.
+- **A nurse never receives clinical content.** She can open a case to check her
+  intake and route it, but the interview, differential, tests and diagnosis are
+  stripped from the response *before it leaves the Lambda* — the payload
+  genuinely doesn't contain them, so this isn't a hidden tab.
+
+See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) §5.
 
 ### 🔐 Admin panel
 
 The hospital doesn't self-register — only an **admin** account can create
-other accounts. Signed-in admins get an **Admin** item in the sidebar
-(`/admin`) with two tabs:
+other accounts. Admins land in `/admin`, which has three tabs:
 
-- **Users** — create an account (Cognito role + one-time temp password shown
-  once), edit someone's role, permission groups, and per-user permission
-  overrides, or disable them.
+- **Users** — create an account (role + one-time temp password shown once),
+  edit someone's role, permission groups, and per-user permission overrides,
+  or disable them.
 - **Groups** — create/edit/delete admin-defined permission groups from a
   fixed catalog of fine-grained permissions (e.g. "manage exams", "sign off
-  final diagnosis", "view the audit trail"). The 4 groups matching Cognito's
-  roles are seeded by default and can't be deleted, but their permissions
-  can be edited, and new groups (e.g. "Triage Nurse") can be created and
-  assigned independent of a user's coarse Cognito role.
+  final diagnosis", "view the audit trail"). The 3 groups matching the roles
+  are seeded and can't be deleted, but their permissions can be edited, and
+  new groups (e.g. a locum doctor who may add notes but not sign off) can be
+  created and assigned independent of a user's role.
+- **Settings** — the patient-interview exit password. Stored as a PBKDF2 hash
+  and never readable, only replaceable. **Set this before anyone hands a
+  device to a patient**: without it the interview screen locks with no way out.
 
-Cognito's 4 groups (patient/physician/admin/compliance) remain the identity
-layer that decides *whose data you can see at all*; the permission groups
-above decide *which clinical actions you can take* on top of that — see
-[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) §5 for the full model. The
-very first admin account is created by a one-time bootstrap script — see
+Cognito's 3 role groups decide *whose data you can see at all*; the permission
+groups decide *which actions you can take* on top of that — see
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) §5. The frontend asks
+`GET /me` for its own effective permissions rather than reading the JWT, so it
+can't disagree with what the backend enforces. The very first admin account is
+created by a one-time bootstrap script — see
 [AWS deployment](#-aws-deployment) below.
 
 ### Seeding sample cases (optional)
@@ -121,14 +141,12 @@ $env:AWS_ACCESS_KEY_ID = "..."; $env:AWS_SECRET_ACCESS_KEY = "..."
 .\scripts\deploy.ps1
 ```
 
-Both do the same thing: deploy `SehatiBackend` (API Gateway + Lambda +
-DynamoDB + Cognito + S3/KMS) via CDK, then print the
-`aws cognito-idp admin-create-user` commands to create your first physician
-login. After creating that user (and adding it to the `physician` group), run
-`npm run dev` — the app requires sign-in and reads every case from DynamoDB.
+Both deploy `SehatiBackend` (API Gateway + Lambda + DynamoDB + Cognito +
+S3/KMS) via CDK.
 
-**To get an admin account (and use the `/admin` panel) instead of, or in
-addition to, a physician login:**
+**Start with the admin account** — every other account is created from the
+panel, and a Cognito user on its own can't do anything (permissions come from
+the `sehati-users` record, and a user without one fails closed):
 
 ```bash
 cd backend
@@ -137,10 +155,34 @@ USER_POOL_ID=<UserPoolId from the deploy output> AWS_REGION=us-east-1 \
   python -m scripts.bootstrap_admin
 ```
 
-Seeds the 4 default permission groups and creates username `admin` / password
+Seeds the 3 permission groups and creates username `admin` / password
 `Admin@123456` (override with `--username`/`--email`/`--password`) as a
-ready-to-use permanent login — safe to re-run. From there, create every other
-account through the Admin panel instead of the AWS CLI.
+ready-to-use permanent login — safe to re-run.
+
+Then sign in and, in order:
+
+1. **Admin → Settings**: set the patient-interview exit password. Do this
+   first — without it, a device handed to a patient locks with no way out.
+2. **Admin → Users**: create a nurse and a doctor.
+3. `npm run dev`, sign in as the nurse, admit a patient, run the interview,
+   unlock with the exit password, and assign the case to the doctor.
+
+### Upgrading an existing deployment
+
+If you are deploying over a stack that predates the doctor/nurse/admin roles,
+run the migration **after** `cdk deploy` — the deploy replaces the old Cognito
+groups, so the script reads each account's role from DynamoDB instead:
+
+```bash
+cd backend
+python -m scripts.migrate_roles --dry-run   # see what would change
+python -m scripts.migrate_roles
+```
+
+It maps `physician` → `doctor` and re-seeds the permission groups. Accounts
+that were `compliance` or `patient` are reported, not guessed at: those roles
+no longer exist, so those users can still sign in but reach nothing until an
+admin re-roles or disables them.
 
 Leaving the username at its default `admin` provisions the **fixed super
 admin** account: the panel won't let it be demoted, disabled, or stripped of
@@ -187,7 +229,7 @@ API Gateway for data (`src/lib/api.ts`), with no SDK dependency.
 
 ```
 src/
-  pages/         # Route pages (Dashboard, CasesList, CaseWorkspace, NewCase,
+  pages/         # Route pages (CasesHub, CasesBrowser, CaseWorkspace, NewCase,
                  # PatientMode, Login, Settings, admin/…)
   tabs/          # The per-case workspace's tabs (Overview, Interview,
                  # Conversations, Examination, Differential, Tests, Diagnosis,

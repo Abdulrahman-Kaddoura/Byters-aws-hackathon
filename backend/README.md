@@ -71,13 +71,14 @@ pytest
 
 # 2) Drive a full case through the entire lifecycle (also uses the test
 #    double by default, no AWS account needed — pass --bedrock to hit real
-#    Bedrock instead), including the patient-isolation guard, printing each step:
+#    Bedrock instead), including both access guards, printing each step:
 python scripts/local_invoke.py
 ```
 
 `local_invoke.py` walks: intake → interview → summary → exams → differential →
-tests → results → re-rank → final diagnosis → close, then shows a second patient
-being **denied** access to the first patient's case, and the compliance role
+tests → results → re-rank → final diagnosis → close, then shows an unassigned
+doctor being **denied** the case, the nurse's payload arriving with the
+clinical content redacted, and the admin role
 reading the immutable audit trail.
 
 ### Optional: run against a local DynamoDB
@@ -109,7 +110,7 @@ implementation follows this exact contract and output shapes (which match
 Every method returns an `AIResult(value, model_version, retrieved_context)` so the
 audit trail and feedback flywheel capture provenance. The **Bedrock adapter**
 (`ai/bedrock.py`) is where the AI team owns the model id, prompts (`ai/prompts.py`,
-system > physician > retrieved-docs hierarchy), Guardrails, and Knowledge-Base
+system > doctor > retrieved-docs hierarchy), Guardrails, and Knowledge-Base
 retrieval.
 
 ## Configuration (environment variables)
@@ -133,14 +134,20 @@ and reverts hand-set vars on the next `cdk deploy`).
 
 ## Security model (design doc §10)
 
-- **AuthN:** Cognito user pool (MFA-capable). **AuthZ:** Cognito groups
-  (`patient`/`physician`/`admin`/`compliance`) → API Gateway's Cognito JWT
-  authorizer (verifies the token) + data-layer ownership/role checks in
-  `db/cases_repo.py` and the resolvers (`ctx.require_permission`), plus a
-  second, admin-editable fine-grained permission layer (`permissions.py`) —
-  see `../docs/ARCHITECTURE.md` §5.
+- **AuthN:** Cognito user pool (MFA-capable). **AuthZ:** Cognito role groups
+  (`doctor`/`nurse`/`admin`) → API Gateway's Cognito JWT authorizer (verifies
+  the token) + an admin-editable fine-grained permission layer
+  (`permissions.py`, checked with `ctx.require_permission`) — see
+  `../docs/ARCHITECTURE.md` §5.
+- **Two case-access gates, both in the data layer** (`db/cases_repo.py`):
+  *row level* — a doctor reaches only the cases whose `assignedPhysicianId` is
+  their own `sub`, so assignment is a boundary rather than a filter; and
+  *field level* — a caller without `cases.view_clinical` gets a case with the
+  clinical fields stripped, applied at one outbound choke point in
+  `handler._project_result` so a new endpoint can't forget it.
 - **Patient-facing interview path has no data-access tools** — it can only ever
-  see the current case.
+  see the current case. It also runs behind a device lock whose exit password
+  is verified server-side against a PBKDF2 hash (`db/settings_repo.py`).
 - **Rejections require a reason** (anti-rubber-stamp / anti-automation-bias).
 - **Immutable audit:** every significant action is appended to the audit table
   (who/what/when/model version/retrieved context/output); production mirrors to

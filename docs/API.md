@@ -33,56 +33,112 @@ is in [`WORKFLOW.md`](./WORKFLOW.md).
 
 ## Roles cheat-sheet
 
-| | patient | physician | admin | compliance |
-|---|:-:|:-:|:-:|:-:|
-| read cases (`GET /cases`, `GET /cases/{caseId}`) | own only | ✓ | ✓ | ✓ |
-| create a case (`POST /cases`) | ✓ (self) | ✓ | ✓ | — |
-| interview (`.../interview/messages`, `.../interview/summary`) | ✓ | ✓ | ✓ | — |
-| side conversations (`.../conversations`, `.../conversations/{id}/messages`) | ✓ | ✓ | ✓ | — |
-| exams, differential, tests, chat, propose dx | — | ✓ | ✓ | ✓ |
-| accept final diagnosis (sign-off) | — | ✓ | ✓ | — |
-| audit trail (`GET /cases/{caseId}/audit`) | — | — | ✓ | ✓ |
-| reference library (`/resources`) | — | ✓ | ✓ | ✓ |
+There are three kinds of account: **doctor**, **nurse**, **admin**. Patients
+never sign in — a nurse admits them and hands over her own device for the AI
+interview.
+
+| | nurse | doctor | admin |
+|---|:-:|:-:|:-:|
+| admit a patient (`POST /cases`) | ✓ | — | ✓ |
+| assign/reassign a case (`POST /cases/{caseId}/assign`, `GET /doctors`) | ✓ | — | ✓ |
+| read cases (`GET /cases`, `GET /cases/{caseId}`) | any, redacted | **assigned only** | ✓ |
+| see clinical content (interview, differential, tests, diagnosis) | — | ✓ | ✓ |
+| run the interview (`.../interview`, `.../interview/messages`, `.../interview/summary`) | ✓ | ✓ | ✓ |
+| side conversations (`.../conversations`) | ✓ | ✓ | ✓ |
+| exams, differential, tests, assistant chat, propose dx | — | ✓ | ✓ |
+| accept final diagnosis (sign-off) | — | ✓ | ✓ |
+| case documents (`.../documents`) | upload + read | ✓ (incl. delete) | ✓ |
+| private case tags (`PUT /cases/{caseId}/tags`) | ✓ | ✓ | ✓ |
+| audit trail (`GET /cases/{caseId}/audit`) | — | — | ✓ |
+| reference library (`/resources`) | — | ✓ | ✓ |
+| user + group management (`/admin/users`, `/admin/groups`) | — | — | ✓ |
+| hospital settings (`/admin/settings`) | — | — | ✓ |
+| unlock a kiosk device (`POST /kiosk/exit`) | ✓ | ✓ | ✓ |
 
 If a user calls something they're not allowed to, they get a `403 Forbidden`
 error (see [Errors](#errors) at the bottom).
 
-**This table is enforced, not just descriptive.** Under the hood, each
-clinical action above checks a specific fine-grained **permission**
-(`cases.manage_state`, `exams.manage`, `diagnoses.manage`,
-`final_diagnosis.accept`, `tests.manage`, `assistant.chat`,
-`recommendations.record`, `audit.view`) rather than the role name directly. A
-user's effective permissions come from the admin-editable permission
-**groups** they belong to (see the `/admin` endpoints below), seeded by
-default so every role above starts out with exactly this table's behavior —
-an admin can then create custom groups to grant a narrower or different set
-of permissions to specific users, independent of their Cognito role.
-Row-level access (a patient only ever seeing their own case) is separate and
-is **not** part of this permission system — it's Cognito-role-based and
-enforced in the data layer, unaffected by permission-group changes.
+**This table is enforced, not just descriptive.** Each action checks a
+fine-grained **permission** (`cases.create`, `cases.assign`,
+`cases.view_clinical`, `cases.manage_state`, `cases.add_note`, `exams.manage`,
+`diagnoses.manage`, `final_diagnosis.accept`, `tests.manage`,
+`assistant.chat`, `recommendations.record`, `documents.manage`, `audit.view`,
+`users.manage`, `settings.manage`, `resources.manage`) rather than the role
+name. A user's effective permissions come from the admin-editable permission
+**groups** they belong to (see the `/admin` endpoints below), seeded so every
+role starts out with exactly this table's behaviour. `GET /me` returns the
+caller's own set, which is what the frontend gates its screens on — client and
+server therefore cannot disagree.
+
+### Two things the permission system does *not* do
+
+**Row-level access.** Which cases you can reach at all is decided by your
+Cognito role and the case's `assignedPhysicianId`, in the data layer
+(`db/cases_repo._visible_to`). Assignment is a boundary, not a filter: a
+doctor reads the cases routed to them and nothing else, and no permission
+grant widens that. Nurses reach the whole admissions desk so they can
+reassign for each other; admins reach everything.
+
+**Field-level redaction.** A caller without `cases.view_clinical` gets a
+case stripped of `interview`, `summary`, `exams`, `diagnoses`, `tests`,
+`finalDiagnosis`, `notes`, `insights`, `assistantThread`, `conversations`,
+`timeline`, `primaryImpression`, `documentContext` and `recentUpdates` before
+the response leaves the Lambda (`handler._project_result`). A nurse can
+therefore open a case to check her intake and route it, without the payload
+ever containing the clinical record. Document `text` and S3 keys are stripped
+for everyone — downloads go through a presigned URL.
+
+---
 
 ---
 
 # ENDPOINTS
 
+## `GET /me` — who am I and what may I do
+- **Purpose:** The caller's own identity, role and effective permissions. The
+  frontend gates every screen on this, so client and server can't disagree
+  about access.
+- **Who:** anyone logged in. No permission required.
+- **Sends back:** `{ sub, username, name, email, role, permissions[], caseTags }`
+  where `role` is `"doctor" | "nurse" | "admin"` (or `null` for an account with
+  no role), `permissions` is the caller's effective permission keys, and
+  `caseTags` maps case id → this user's private labels.
+- **Example:**
+  ```bash
+  curl -H "Authorization: Bearer $TOKEN" "$API_URL/me"
+  ```
+
+## `GET /doctors` — who a case can be routed to
+- **Purpose:** Populate the nurse's assignment picker.
+- **Who:** requires `cases.assign` (nurse, admin).
+- **Sends back:** `[{ sub, name }]` for every active doctor. Names and ids
+  only — deliberately not a staff directory.
+
+---
+
 ## `GET /cases` — list the cases you're allowed to see
-- **Purpose:** Get the case list for a dashboard.
-- **Who:** anyone logged in (patients get only their own).
+- **Purpose:** Get the case list.
+- **Who:** anyone logged in. A doctor always gets exactly their assigned cases;
+  a nurse gets the admissions desk (redacted); an admin gets everything.
 - **Wants (query string):**
   | Param | Type | Required | Description |
   |----------|------|:--:|-------------|
   | `status` | text | no | Filter to one status, e.g. `"Awaiting Tests"`. |
-  | `mine` | boolean | no | For a physician: only cases assigned to me. |
-- **Sends back:** a JSON array of **Cases** (each the full Case).
+  | `scope` | text | no | `mine` — for a nurse, only the patients she admitted. Ignored for doctors, whose list is always their own assignments. |
+- **Sends back:** a JSON array of **Cases**, each projected for your role (a
+  nurse's rows have no clinical fields — see the cheat-sheet above).
 - **Example:**
   ```bash
   curl -H "Authorization: Bearer $TOKEN" "$API_URL/cases?status=Awaiting%20Tests"
   ```
 
-## `GET /cases/{caseId}` — get one full case
-- **Purpose:** Open a case and show everything about it.
-- **Who:** anyone logged in (patients only their own; otherwise `403 Forbidden`).
-- **Sends back:** the full **Case** object.
+## `GET /cases/{caseId}` — get one case
+- **Purpose:** Open a case.
+- **Who:** the assigned doctor, any nurse, or an admin. Anyone else gets
+  `403 Forbidden` — including a doctor the case is not assigned to.
+- **Sends back:** the **Case** object, projected for your role. With
+  `cases.view_clinical` that's the whole record; without it, the clinical
+  fields are absent from the response entirely.
 - **Example:**
   ```bash
   curl -H "Authorization: Bearer $TOKEN" "$API_URL/cases/AUR-1042"
@@ -90,7 +146,7 @@ enforced in the data layer, unaffected by permission-group changes.
 
 ## `GET /cases/{caseId}/audit` — read the permanent audit trail of a case
 - **Purpose:** Compliance review — see every action taken on a case.
-- **Who:** **compliance** or **admin** only.
+- **Who:** requires `audit.view` (**admin** by default).
 - **Sends back:** a JSON array of **audit entries**, each with `action`, `actor`,
   `ts`, and (where relevant) `modelVersion`, `retrievedContext`, `output`.
 - **Example:**
@@ -100,30 +156,57 @@ enforced in the data layer, unaffected by permission-group changes.
 
 ---
 
-## `POST /cases` — create a new case from intake
-- **Purpose:** Start a case. Auto-advances to the AI interview.
-- **Who:** patient (creates their own), physician, or admin.
+## `POST /cases` — admit a patient
+- **Purpose:** The nurse's admission form. Creates the case and auto-advances
+  it to the AI interview.
+- **Who:** requires `cases.create` (nurse, admin).
 - **Wants (JSON body — the intake payload directly):**
   | Field | Required | Description |
   |-------|:--:|-------------|
-  | `patient` | **yes** | Object with at least `name` (plus `age`, `gender`, …). |
-  | `chiefComplaint` | recommended | One-line reason for the visit. |
-  | `complaint` | no | Symptoms object (`symptoms`, `painScale`, `duration`, …). |
+  | `patient` | **yes** | Object with at least `name` (plus `age`, `gender`, `height`, `weight`). |
+  | `vitals` | no | Measured vitals (`bp`, `hr`, `rr`, `spo2`, `temp`). |
+  | `chiefComplaint` | no | One line, if known. The AI interview establishes it otherwise. |
   | `history` | no | Medical history object. |
-  | `vitals` | no | Vitals object. |
-  | `assignedPhysicianId` | no | Assign a doctor up front. |
+
+  Symptoms are deliberately not collected here — the AI interview asks the
+  patient directly, so a form field would mean asking twice.
+
+  **Ownership comes from your token, not the body.** `createdByNurseId` is set
+  to the caller; any `patientId` or `assignedPhysicianId` in the body is
+  ignored. Routing is a separate, audited step (`POST /cases/{caseId}/assign`).
 - **Sends back:** the full new **Case** (state = `AIInterview`, with the AI's first
   greeting already in `interview`).
 - **Example:**
   ```bash
   curl -X POST "$API_URL/cases" -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-    -d '{"patient":{"name":"Layla","age":54,"gender":"Female"},"chiefComplaint":"Headache 3 days with fever","complaint":{"symptoms":["Headache","Fever"],"painScale":6,"duration":"3 days"}}'
+    -d '{"patient":{"name":"Layla","age":54,"gender":"Female","height":"165 cm","weight":"70 kg"},"vitals":{"bp":"128/82","hr":"88 bpm","temp":"38.1°C","spo2":"97%"}}'
   ```
+
+## `POST /cases/{caseId}/assign` — route a case to a doctor
+- **Purpose:** Give the case to one doctor. **This is what grants access:**
+  until a case is assigned, no doctor can open it.
+- **Who:** requires `cases.assign` (nurse, admin). A doctor cannot reassign
+  their own case.
+- **Wants (JSON body):** `{ "doctorId": "<cognito sub>" }`. The target must be
+  an active account whose role is `doctor`, or you get a `400 ValidationError`.
+- **Sends back:** the updated **Case** with `assignedPhysicianId`, `assignedAt`
+  and `assignedBy` set. Reassignment is allowed and recorded in the audit trail
+  with the previous doctor.
+
+## `PUT /cases/{caseId}/tags` — set your private labels on a case
+- **Purpose:** Personal shorthand ("follow up monday", "waiting on radiology")
+  for filtering your own list.
+- **Who:** anyone who can already see the case.
+- **Wants (JSON body):** `{ "tags": ["follow up monday"] }`. Max 10 tags, each
+  trimmed to 40 characters; an empty list clears them.
+- **Sends back:** `{ caseId, tags }`.
+- Tags are stored on **your** user record, not on the case, so nobody else can
+  see them. Read them back from `GET /me`.
 
 ## `PUT /cases/{caseId}` — move the case to another state manually
 - **Purpose:** Explicit lifecycle control (e.g. force a re-evaluation from
   `Diagnosis` back to `ResultsDiscussion`). Illegal jumps are rejected.
-- **Who:** physician, admin, or compliance.
+- **Who:** requires `cases.manage_state` (doctor, admin).
 - **Wants (JSON body):**
   | Field | Required | Description |
   |-------|:--:|-------------|
@@ -133,15 +216,28 @@ enforced in the data layer, unaffected by permission-group changes.
 
 ## `POST /cases/{caseId}/notes` — add a doctor's note
 - **Purpose:** Attach a free-text note to the case.
-- **Who:** physician, admin, or compliance.
+- **Who:** requires `cases.add_note` (doctor, admin).
 - **Wants (JSON body):** `text` (**required**).
 - **Sends back:** the full **Case** (note added to `notes`).
 
 ---
 
+## `GET /cases/{caseId}/interview` — the live transcript (kiosk screen)
+- **Purpose:** Read the interview conversation on its own, scoped to one case.
+- **Who:** anyone who can see the case.
+- **Wants (query string):** `conversationId` (optional) to read a follow-up
+  session instead of the primary interview.
+- **Sends back:** `{ caseId, title, messages, open, patientName }` — `open` is
+  false once the interview has moved past `AIInterview`, so the kiosk shows it
+  read-only.
+- **Why this exists:** the interview runs on the *nurse's* device while the
+  patient answers, but the transcript is clinical content and is stripped from
+  any case payload she receives. This endpoint gives the kiosk screen the
+  conversation without handing her the rest of the record.
+
 ## `POST /cases/{caseId}/interview/messages` — send a patient answer, get the next question
 - **Purpose:** Run the adaptive interview, one turn at a time.
-- **Who:** patient, physician, or admin.
+- **Who:** anyone who can see the case.
 - **Wants (JSON body):** `text` (**required**) — the patient's answer.
 - **Sends back:** `{ case, aiMessage, complete }`
   | Part | Meaning |
@@ -158,7 +254,7 @@ enforced in the data layer, unaffected by permission-group changes.
 ## `POST /cases/{caseId}/interview/summary` — build the structured summary
 - **Purpose:** Turn the interview into a doctor-ready summary. Advances to
   `DoctorReview`.
-- **Who:** patient, physician, or admin.
+- **Who:** anyone who can see the case.
 - **Sends back:** `{ case, summary }` — `summary` is the *StructuredSummary*.
 
 ---
@@ -167,7 +263,7 @@ enforced in the data layer, unaffected by permission-group changes.
 - **Purpose:** Start an extra chat session on an existing case — a return
   visit or a new question — separate from the primary intake `interview`.
   Purely additive: never affects `lifecycleState`, `status`, or `stage`.
-- **Who:** patient, physician, or admin.
+- **Who:** anyone who can see the case.
 - **Wants (JSON body):** `title` (optional; defaults to `"New conversation"`).
 - **Sends back:** `{ case, conversation }` — `conversation` is the new
   *Conversation* (`{ id, title, createdAt, updatedAt, messages: [] }`),
@@ -176,7 +272,7 @@ enforced in the data layer, unaffected by permission-group changes.
 ## `POST /cases/{caseId}/conversations/{conversationId}/messages` — post to a side conversation
 - **Purpose:** Send a message in one specific side conversation and get the
   AI's grounded reply (uses the case's current data, including stage/status).
-- **Who:** patient, physician, or admin.
+- **Who:** anyone who can see the case.
 - **Wants (JSON body):** `text` (**required**).
 - **Sends back:** `{ case, conversation, aiMessage }` — `conversation` is the
   updated *Conversation* (both turns appended to `messages`).
@@ -185,13 +281,13 @@ enforced in the data layer, unaffected by permission-group changes.
 
 ## `POST /cases/{caseId}/exams` — get suggested physical exams
 - **Purpose:** Ask the AI which examinations matter for this case.
-- **Who:** physician, admin, or compliance.
+- **Who:** requires `exams.manage` (doctor, admin).
 - **Sends back:** `{ case, exams }` — `exams` is a list of *ExamRecommendation*
   (status `pending`).
 
 ## `PUT /cases/{caseId}/exams/{examId}` — enter what the doctor found
 - **Purpose:** Save the result of one examination.
-- **Who:** physician, admin, or compliance.
+- **Who:** requires `exams.manage` (doctor, admin).
 - **Wants (JSON body):**
   | Field | Required | Description |
   |-------|:--:|-------------|
@@ -212,7 +308,7 @@ enforced in the data layer, unaffected by permission-group changes.
 ## `POST /cases/{caseId}/diagnoses` — generate the differential + tests
 - **Purpose:** Get the ranked list of possible diagnoses (with reasoning &
   citations) and suggested tests.
-- **Who:** physician, admin, or compliance.
+- **Who:** requires `diagnoses.manage` (doctor, admin).
 - **Sends back:** `{ case, diagnoses, tests }`
   | Part | Meaning |
   |------|---------|
@@ -221,7 +317,7 @@ enforced in the data layer, unaffected by permission-group changes.
 
 ## `POST /cases/{caseId}/diagnoses/ask` — ask the AI about a diagnosis (explainability)
 - **Purpose:** Challenge/interrogate the reasoning ("Why this? Why not that?").
-- **Who:** physician, admin, or compliance.
+- **Who:** requires `diagnoses.manage` (doctor, admin).
 - **Wants (JSON body):**
   | Field | Required | Description |
   |-------|:--:|-------------|
@@ -232,7 +328,7 @@ enforced in the data layer, unaffected by permission-group changes.
 ## `POST /cases/{caseId}/diagnoses/rerank` — re-reason once results are in
 - **Purpose:** Have the AI update the differential with the new results. Moves the
   case to `ResultsDiscussion`.
-- **Who:** physician, admin, or compliance.
+- **Who:** requires `diagnoses.manage` (doctor, admin).
 - **Sends back:** `{ case, diagnoses }` — the updated, re-ranked list.
 
 ---
@@ -240,12 +336,12 @@ enforced in the data layer, unaffected by permission-group changes.
 ## `POST /cases/{caseId}/final-diagnosis` — propose the conclusion
 - **Purpose:** Ask the AI to propose a final diagnosis with a plan. Moves the case
   to `Diagnosis`.
-- **Who:** physician, admin, or compliance.
+- **Who:** requires `diagnoses.manage` (doctor, admin).
 - **Sends back:** `{ case, finalDiagnosis }` — a *FinalDiagnosis* (status `proposed`).
 
 ## `PUT /cases/{caseId}/final-diagnosis` — doctor signs off (closes the case)
 - **Purpose:** Physician accepts the final diagnosis. Moves the case to `Closed`.
-- **Who:** **physician or admin only.**
+- **Who:** requires `diagnoses.manage` (doctor, admin).
 - **Wants (JSON body):** `note` (no, optional sign-off note).
 - **Sends back:** `{ case, finalDiagnosis }` — `finalDiagnosis.status` is now
   `accepted`; the case is `Closed`.
@@ -260,12 +356,12 @@ enforced in the data layer, unaffected by permission-group changes.
 ## `POST /cases/{caseId}/tests/{testId}/order` — order a recommended test
 - **Purpose:** Mark a test as ordered. The **first** order moves the case to
   `InProgress` (Awaiting Tests).
-- **Who:** physician, admin, or compliance.
+- **Who:** requires `tests.manage` (doctor, admin).
 - **Sends back:** `{ case, test }` — the test now has status `ordered`.
 
 ## `PUT /cases/{caseId}/tests/{testId}/result` — enter a test result
 - **Purpose:** Record a result (a radiologist's report is entered here as text).
-- **Who:** physician, admin, or compliance.
+- **Who:** requires `tests.manage` (doctor, admin).
 - **Wants (JSON body):**
   | Field | Required | Description |
   |-------|:--:|-------------|
@@ -283,14 +379,14 @@ enforced in the data layer, unaffected by permission-group changes.
 
 ## `POST /cases/{caseId}/assistant` — case-level assistant chat
 - **Purpose:** Open-ended chat with the AI about the whole case (the assistant panel).
-- **Who:** physician, admin, or compliance.
+- **Who:** requires `assistant.chat` (doctor, admin).
 - **Wants (JSON body):** `text` (**required**).
 - **Sends back:** `{ case, aiMessage }` — the AI's reply (saved to `assistantThread`).
 
 ## `POST /cases/{caseId}/recommendations/{targetId}/accept` — record acceptance (feedback)
 - **Purpose:** Log that the doctor accepted a suggestion (test, diagnosis…). Feeds
   the feedback flywheel + audit.
-- **Who:** physician, admin, or compliance.
+- **Who:** requires `recommendations.record` (doctor, admin).
 - **Wants (JSON body):**
   | Field | Required | Description |
   |-------|:--:|-------------|
@@ -301,7 +397,7 @@ enforced in the data layer, unaffected by permission-group changes.
 ## `POST /cases/{caseId}/recommendations/{targetId}/reject` — record rejection (reason required)
 - **Purpose:** Log that the doctor rejected a suggestion. **A reason is mandatory**
   (anti-rubber-stamp).
-- **Who:** physician, admin, or compliance.
+- **Who:** requires `recommendations.record` (doctor, admin).
 - **Wants (JSON body):**
   | Field | Required | Description |
   |-------|:--:|-------------|
@@ -316,23 +412,42 @@ enforced in the data layer, unaffected by permission-group changes.
 
 ---
 
-## `POST /cases/{caseId}/documents` — upload a doctor's document
-- **Purpose:** Attach a PDF/DOCX/text document to a case; its text is extracted
-  and folded into `documentContext` as grounding for every subsequent AI step.
-- **Who:** physician, admin, or compliance.
+## `POST /cases/{caseId}/documents` — attach a document
+- **Purpose:** Add a file to the case. Its text is extracted and folded into
+  `documentContext` as grounding for every subsequent AI step. A case keeps
+  **all** its documents; the combined grounding text is capped at ~40k
+  characters, newest first, so a thick folder can't blow out the model context.
+- **Who:** requires `documents.manage` (nurse, doctor, admin) — nurses attach
+  referral letters and prior records at admission.
 - **Wants (JSON body):**
   | Field | Required | Description |
   |-------|:--:|-------------|
   | `fileBase64` | **yes** | The file, base64-encoded. |
+  | `fileName` | recommended | Original filename, shown in the document list. |
   | `fileExtension` | no | `pdf` (default), `docx`, or any text extension. |
   | `contentType` | no | MIME type stored on the S3 object. |
-- **Sends back:** `{ case, documentS3Uri }`.
+- **Sends back:** `{ case, document }` — document metadata only; the extracted
+  text and S3 key stay server-side.
+
+## `GET /cases/{caseId}/documents` — list a case's documents
+- **Who:** requires `documents.manage`.
+- **Sends back:** `{ documents: [{ id, name, contentType, extension, size,
+  uploadedBy, uploadedByName, uploadedAt }] }`.
+
+## `GET /cases/{caseId}/documents/{documentId}` — download or preview one
+- **Who:** requires `documents.manage`.
+- **Sends back:** `{ document, url, expiresIn }` — `url` is a presigned S3 link
+  valid for 5 minutes. Raw S3 keys are never handed to a client.
+
+## `DELETE /cases/{caseId}/documents/{documentId}` — remove a document
+- **Who:** requires `cases.view_clinical` (doctor, admin). A nurse can attach
+  paperwork but not remove anything from the record.
 
 ## `POST /cases/{caseId}/audio` — upload a doctor-recorded audio file
 - **Purpose:** Store a case's audio recording in S3 ahead of transcription — no
   text extraction, unlike `.../documents`. Returns the S3 key to pass straight
   into `.../transcribe`.
-- **Who:** physician, admin, or compliance.
+- **Who:** requires `documents.manage`.
 - **Wants (JSON body):**
   | Field | Required | Description |
   |-------|:--:|-------------|
@@ -346,7 +461,7 @@ enforced in the data layer, unaffected by permission-group changes.
   uploaded audio. Returns immediately — a scribe job can run for minutes, well
   past any API Gateway integration timeout, so this never blocks waiting for
   it. Poll `.../transcribe/{jobName}` for the result.
-- **Who:** physician, admin, or compliance.
+- **Who:** requires `documents.manage`.
 - **Wants (JSON body):** one of:
   | Field | Required | Description |
   |-------|:--:|-------------|
@@ -358,7 +473,7 @@ enforced in the data layer, unaffected by permission-group changes.
 - **Purpose:** Check a HealthScribe job's status; once complete, returns the
   structured clinical summary (chief complaint, HPI, review of systems, past
   medical history) extracted from it.
-- **Who:** physician, admin, or compliance.
+- **Who:** requires `documents.manage`.
 - **Sends back:** `{ status: "IN_PROGRESS" | "COMPLETED" | "FAILED", summary?, reason? }`
   — `summary` is present only when `status` is `COMPLETED`; `reason` only when `FAILED`.
 
@@ -367,7 +482,7 @@ enforced in the data layer, unaffected by permission-group changes.
   — distinct from the structured accept/reject flywheel above. Stored per
   doctor, and folded back into that doctor's future AI prompts as a
   preference history.
-- **Who:** physician, admin, or compliance.
+- **Who:** anyone who can see the case.
 - **Wants (JSON body):**
   | Field | Required | Description |
   |-------|:--:|-------------|
@@ -381,8 +496,7 @@ enforced in the data layer, unaffected by permission-group changes.
 - **Purpose:** Browse the guideline/reference documents clinical staff have
   uploaded (not case-scoped — shared across every case). Metadata only; the
   extracted text is never sent to the client.
-- **Who:** requires the **`resources.manage`** permission (physician, admin,
-  or compliance by default).
+- **Who:** requires `resources.manage` (doctor, admin).
 - **Sends back:** a JSON array of resource metadata objects (`id`, `title`,
   `tags[]`, `s3Uri`, `fileExtension`, `uploadedBy`, `uploadedByUsername`,
   `createdAt`, `truncated`).
@@ -393,7 +507,7 @@ enforced in the data layer, unaffected by permission-group changes.
   keyword-matches it against a case's chief complaint or a doctor's question
   and folds matching documents in as grounding evidence — no separate step
   needed once uploaded.
-- **Who:** requires the **`resources.manage`** permission.
+- **Who:** requires `resources.manage` (doctor, admin).
 - **Wants (JSON body):**
   | Field | Required | Description |
   |-------|:--:|-------------|
@@ -407,7 +521,7 @@ enforced in the data layer, unaffected by permission-group changes.
 ## `DELETE /resources/{resourceId}` — remove a reference document
 - **Purpose:** Take a document out of the library; it stops being considered
   for future AI grounding.
-- **Who:** requires the **`resources.manage`** permission.
+- **Who:** requires `resources.manage` (doctor, admin).
 - **Sends back:** `{ deleted: true }`.
 
 ---
@@ -434,7 +548,7 @@ route guard and the fixed, un-lockable super admin account.
   | `username` | **yes** | Cognito sign-in username. |
   | `email` | **yes** | Used for the Cognito `email` attribute (marked pre-verified). |
   | `name` | no | Display name. |
-  | `cognitoGroup` | **yes** | One of `patient`, `physician`, `admin`, `compliance`. |
+  | `cognitoGroup` | **yes** | One of `doctor`, `nurse`, `admin`. |
   | `customGroups` | no | Permission-group ids to assign; defaults to the system group matching `cognitoGroup`. |
 - **Sends back:** `{ user, temporaryPassword }` — the temp password is
   generated server-side and shown **only in this one response**; the account
@@ -487,6 +601,40 @@ route guard and the fixed, un-lockable super admin account.
   plus `users.manage` itself. This is what the admin UI's permission
   checklists are built from; it is not admin-extensible.
 
+## `GET /admin/settings` — hospital-wide settings
+- **Who:** requires `settings.manage` (admin).
+- **Sends back:** `{ kioskExitPasswordSet, updatedAt, updatedBy }`. The
+  password itself is stored as a PBKDF2 hash and is **never** returned — only
+  whether one exists.
+
+## `PUT /admin/settings` — set the patient-interview exit password
+- **Who:** requires `settings.manage` (admin).
+- **Wants (JSON body):** `{ "kioskExitPassword": "…" }` (minimum 4 characters).
+- **Sends back:** the same shape as `GET`. Replacing the password invalidates
+  the old one immediately.
+
+---
+
+# Patient-interview (kiosk) lock
+
+A nurse hands the patient her own device, so the browser is holding *her*
+session. While the interview runs the client refuses to navigate anywhere else;
+these two endpoints are the only way out. The comparison happens server-side on
+purpose — a password checked in JavaScript is readable in the shipped bundle.
+
+## `GET /kiosk` — is an exit password configured?
+- **Who:** anyone logged in.
+- **Sends back:** `{ kioskExitPasswordSet: boolean }` — nothing else. Lets the
+  nurse's UI warn her *before* she hands the device over.
+
+## `POST /kiosk/exit` — unlock the device
+- **Who:** anyone logged in.
+- **Wants (JSON body):** `{ "password": "…" }`.
+- **Sends back:** `{ ok: true }`, or `403 Forbidden` if the password is wrong.
+  If no password has ever been set it also refuses, with a message pointing at
+  the admin panel — an unconfigured hospital fails closed (device stays
+  locked) rather than open.
+
 ---
 
 # Errors
@@ -497,7 +645,7 @@ Errors come back as an HTTP status code plus a JSON body with a typed
 | HTTP | `errorType` | When it happens | What to do |
 |-----|-------------|-----------------|-----------|
 | 401 | `Unauthorized` | No/expired login token. | Re-authenticate; resend the ID token. |
-| 403 | `Forbidden` | Not allowed (e.g. a patient opening another patient's case, or a role calling a restricted endpoint). | Expected for the wrong role — don't retry. |
+| 403 | `Forbidden` | Not allowed — e.g. a doctor opening a case that isn't assigned to them, a nurse calling a clinical endpoint, or a wrong kiosk exit password. | Expected for the wrong role — don't retry. |
 | 404 | `NotFound` | The `caseId` / `examId` / `testId` / `diagnosisId` doesn't exist, or the route itself doesn't exist. | Check the id / path. |
 | 400 | `ValidationError` | A required field is missing or invalid (e.g. rejecting without a reason). | Fix the inputs. |
 | 409 | `StateTransitionError` | An illegal lifecycle move was requested. | Follow the allowed transitions ([`WORKFLOW.md`](./WORKFLOW.md) §1). |
@@ -508,9 +656,16 @@ Errors come back as an HTTP status code plus a JSON body with a typed
 # The minimal happy path (copy/paste order)
 
 ```
-POST /cases
-  → POST /cases/{caseId}/interview/messages (repeat until complete=true)
+NURSE
+POST /cases                                     (admit the patient)
+  → GET  /cases/{caseId}/interview              (kiosk screen)
+  → POST /cases/{caseId}/interview/messages     (repeat until complete=true)
   → POST /cases/{caseId}/interview/summary
+  → POST /kiosk/exit                            (take the device back)
+  → GET  /doctors → POST /cases/{caseId}/assign (route it)
+
+DOCTOR
+GET  /cases                                     (their assigned cases)
   → POST /cases/{caseId}/exams → PUT /cases/{caseId}/exams/{examId}
   → POST /cases/{caseId}/diagnoses → POST /cases/{caseId}/diagnoses/ask
   → POST /cases/{caseId}/tests/{testId}/order → PUT /cases/{caseId}/tests/{testId}/result
@@ -518,9 +673,7 @@ POST /cases
   → POST /cases/{caseId}/final-diagnosis → PUT /cases/{caseId}/final-diagnosis
 ```
 
-Everything a doctor screen needs is in these calls; everything a patient screen
-needs is `POST /cases` + `POST /cases/{caseId}/interview/messages` (+
-`GET /cases/{caseId}` / `GET /cases` for their own case).
+Every screen starts with `GET /me` to learn what it is allowed to show.
 
 > **No real-time channel today.** The previous AppSync-based design had
 > `onCaseUpdated`/`onNewMessage` subscriptions; a plain REST-style API (REST

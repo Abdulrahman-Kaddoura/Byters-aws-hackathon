@@ -136,35 +136,48 @@ aws cloudformation describe-stacks --stack-name SehatiBackend \
 
 ## Task Set 5 — Create login users (Cognito)
 
-**Goal:** create at least one **physician** and one **patient** so you can log in.
-Replace `<UserPoolId>` with your saved value.
+**Goal:** create one **nurse** and one **doctor** so you can walk the whole
+flow. Replace `<UserPoolId>` with your saved value.
+
+> The easier path is to bootstrap the admin account (Task Set 6) and create
+> these two from the `/admin` panel — that writes the `sehati-users` record as
+> well, which the CLI below does not. See the note after the snippet.
 
 ```bash
 POOL=<UserPoolId>
 
-# --- A physician (can do everything clinical) ---
+# --- A nurse (admits patients, routes cases; no clinical content) ---
+aws cognito-idp admin-create-user --user-pool-id $POOL --username nurse.rima \
+  --user-attributes Name=email,Value=rima@example.com Name=email_verified,Value=true \
+  --message-action SUPPRESS
+aws cognito-idp admin-set-user-password --user-pool-id $POOL --username nurse.rima \
+  --password 'Passw0rd!Demo' --permanent
+aws cognito-idp admin-add-user-to-group --user-pool-id $POOL --username nurse.rima \
+  --group-name nurse
+
+# --- A doctor (full clinical workflow, on assigned cases only) ---
 aws cognito-idp admin-create-user --user-pool-id $POOL --username dr.karim \
   --user-attributes Name=email,Value=karim@example.com Name=email_verified,Value=true \
   --message-action SUPPRESS
 aws cognito-idp admin-set-user-password --user-pool-id $POOL --username dr.karim \
   --password 'Passw0rd!Demo' --permanent
 aws cognito-idp admin-add-user-to-group --user-pool-id $POOL --username dr.karim \
-  --group-name physician
-
-# --- A patient (sees only their own cases) ---
-aws cognito-idp admin-create-user --user-pool-id $POOL --username layla \
-  --user-attributes Name=email,Value=layla@example.com Name=email_verified,Value=true \
-  --message-action SUPPRESS
-aws cognito-idp admin-set-user-password --user-pool-id $POOL --username layla \
-  --password 'Passw0rd!Demo' --permanent
-aws cognito-idp admin-add-user-to-group --user-pool-id $POOL --username layla \
-  --group-name patient
+  --group-name doctor
 ```
 
-Available groups: **patient**, **physician**, **admin**, **compliance**. Add an
-`admin`/`compliance` user the same way if you want to test the audit trail.
+Available groups: **doctor**, **nurse**, **admin**. There is no patient group —
+patients never sign in; a nurse admits them and hands over her own device for
+the AI interview.
 
-**Optional — get a user's stable id (`sub`)** for the seeding step:
+> **A Cognito account alone can't do anything.** Permissions are computed from
+> the `sehati-users` record, not from the Cognito group, and a user with no
+> record fails closed. Accounts created from the `/admin` panel get both in one
+> step. If you create them with the CLI as above, create them again from the
+> panel (or run `python -m scripts.migrate_roles`, which is idempotent) so the
+> records exist.
+
+**Get each user's stable id (`sub`)** — the seeding step needs the *doctor's*,
+because a doctor only ever sees cases assigned to them:
 ```bash
 aws cognito-idp admin-get-user --user-pool-id $POOL --username dr.karim \
   --query "UserAttributes[?Name=='sub'].Value" --output text
@@ -221,8 +234,8 @@ pip install -r requirements.txt
 export AWS_REGION=us-east-1
 
 # Assign who owns the seeded cases (use the subs from Task Set 5):
-export SEED_PATIENT_SUB=<layla-sub>
-export SEED_PHYSICIAN_SUB=<dr.karim-sub>
+export SEED_NURSE_SUB=<nurse.rima-sub>
+export SEED_DOCTOR_SUB=<dr.karim-sub>
 
 python scripts/seed_cases.py
 ```
@@ -236,7 +249,7 @@ python scripts/seed_cases.py
 **Goal:** prove the API answers and that role-based access works.
 
 ```bash
-# 1) get a login token for the physician
+# 1) get a login token for the doctor
 TOKEN=$(aws cognito-idp initiate-auth --auth-flow USER_PASSWORD_AUTH \
   --client-id <UserPoolClientId> \
   --auth-parameters USERNAME=dr.karim,PASSWORD='Passw0rd!Demo' \
@@ -246,10 +259,16 @@ TOKEN=$(aws cognito-idp initiate-auth --auth-flow USER_PASSWORD_AUTH \
 curl -s "<ApiUrl>cases" -H "Authorization: Bearer $TOKEN"
 ```
 
-Now sign in as **`layla`** (patient) the same way and call `GET /cases` again —
-she should see **only her own** cases. That proves the isolation works.
+Now sign in as **`nurse.rima`** the same way and call `GET /cases` again. Two
+things should be true, and together they are the whole access model:
 
-**Checkpoint:** `GET /cases` returns case data for the physician; a patient sees
+- She sees the cases on the admissions desk, but each one comes back **without**
+  `interview`, `diagnoses`, `tests` or `finalDiagnosis` — the redaction is in
+  the response, not just hidden in the UI.
+- A *second* doctor (create one and repeat) sees **none** of the cases assigned
+  to `dr.karim`, and gets `403` if they request one by id.
+
+**Checkpoint:** `GET /cases` returns case data for the doctor; a nurse sees
 only their own. See [`API.md`](./API.md) for every endpoint.
 
 ---
@@ -314,7 +333,7 @@ cannot be configured past 30 seconds — this is an AWS ceiling, not something
 this stack can raise (REST API's equivalent ceiling was 29s; switching API
 types doesn't meaningfully change this). The Lambda's own timeout is 60s, so a slow Bedrock call can finish
 successfully server-side (visible in CloudWatch as a normal, non-error
-`REPORT` line) while the physician-facing request already failed client-side
+`REPORT` line) while the doctor-facing request already failed client-side
 with a generic error a second earlier. `ai/bedrock.py`'s `answer()` (case chat)
 caps `maxTokens` at 600 to keep replies fast and reliably under that ceiling;
 `_converse`/`_converse_json` still default to 2000 tokens for the

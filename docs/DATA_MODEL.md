@@ -84,10 +84,12 @@ plain numbers on a 0–100 scale (pain is 0–10). Higher = more/stronger.
 | `outcome` | text, optional | Final outcome once closed. |
 | `lessonsLearned` | list of text, optional | Retrospective notes on completed cases. |
 | `associatedConditions` | list of text, optional | Related conditions noted at closure. |
-| `patientId` | text | **Ownership:** the Cognito id of the patient who owns this case. Used to enforce isolation. |
-| `assignedPhysicianId` | text, optional | **Ownership:** the doctor assigned to the case. |
+| `createdByNurseId` | text | The nurse who admitted this patient. Indexed (`byNurse`) so the admissions desk can list its own intake. |
+| `assignedPhysicianId` | text, optional | **The access boundary:** the one doctor this case is routed to. Absent until a nurse assigns it — and while absent, no doctor can open the case at all. |
+| `assignedAt` / `assignedBy` | text, optional | When the case was routed, and by whom. |
+| `documents` | list of *CaseDocument* | Files attached to the case (entity 18). |
 
-> `patientId` and `assignedPhysicianId` are **backend-only** (the UI never shows
+> `createdByNurseId` and `assignedPhysicianId` are **backend-only** (the UI never shows
 > them). They are how the system decides who is allowed to open the case.
 
 ---
@@ -346,7 +348,8 @@ dedicated key and bills only for what you use (near-zero when idle).
 - **Three extra indexes** for listing cases quickly:
   | Index | Lets you ask… |
   |-------|---------------|
-  | `byPatient` | "all cases belonging to *this patient*" (used to scope patients to their own data) |
+  | `byNurse` | "all cases *this nurse* admitted" — the admissions desk |
+  | `byPatient` | **Retired.** Nothing writes `patientId` any more (patients stopped being account holders). Kept in the table because DynamoDB allows only one index add/remove per deploy, and `byNurse` took that slot; safe to drop in a later, separate deploy. |
   | `byPhysician` | "all cases assigned to *this doctor*" |
   | `byStatus` | "all cases at a given status" (e.g. all "Awaiting Tests") |
 
@@ -359,7 +362,7 @@ dedicated key and bills only for what you use (near-zero when idle).
   (`ts`), the **AI version** used (`modelVersion`), the **evidence** the AI used
   (`retrievedContext`), and the **output**.
 - **Append-only.** In production it is also mirrored to a tamper-proof S3 WORM store.
-- Only **compliance/admin** roles can read it.
+- Only callers with the `audit.view` permission (**admin** by default) can read it.
 
 ### Table 3 — `sehati-feedback` (the feedback flywheel)
 
@@ -390,8 +393,11 @@ dedicated key and bills only for what you use (near-zero when idle).
 - **One row = one account's app-level permission data** — Cognito remains the
   identity store (sign-in, password, the 4 coarse groups); this table only
   carries what Cognito has no concept of.
-- **Primary key:** `sub` (the Cognito subject — same id used as `patientId`/
-  `assignedPhysicianId` elsewhere).
+- **Primary key:** `sub` (the Cognito subject — same id used as
+  `createdByNurseId` / `assignedPhysicianId` elsewhere).
+- Also carries `caseTags`: `{ caseId: [labels] }`, this user's **private**
+  labels for cases. They live here rather than on the case so one clinician's
+  shorthand can never appear in another's payload.
 - Fields: `username`, `email`, `name`, `cognitoGroup` (their Cognito role),
   `customGroups` (list of `sehati-groups` ids they belong to),
   `permissionOverrides` (`{ "permission.key": true|false }`, beats group
@@ -401,13 +407,14 @@ dedicated key and bills only for what you use (near-zero when idle).
 
 ### Table 6 — `sehati-groups` (admin-defined permission groups)
 
-- **One row = one named bundle of permissions** — decoupled from Cognito's 4
-  groups; an admin can create/edit/delete these from the `/admin` panel.
+- **One row = one named bundle of permissions** — decoupled from the 3 Cognito
+  role groups; an admin can create/edit/delete these from the `/admin` panel.
 - **Primary key:** `id`.
 - Fields: `name`, `description`, `permissions` (list of keys from the fixed
   catalog — see `GET /admin/permissions` in [`API.md`](./API.md)), `isSystem`
-  (the 4 groups matching Cognito roles are marked `true` and can't be
-  deleted, but their `permissions` can still be edited), `createdAt`/`updatedAt`.
+  (the 3 groups matching the roles — `system-doctor`, `system-nurse`,
+  `system-admin` — are marked `true` and can't be deleted, though their
+  `permissions` can still be edited), `createdAt`/`updatedAt`.
 
 ### Table 7 — `sehati-resources` (the shared reference-document library)
 
@@ -427,3 +434,32 @@ dedicated key and bills only for what you use (near-zero when idle).
 **Next:** read [`WORKFLOW.md`](./WORKFLOW.md) to see how these entities are created
 and updated as a case moves through its life, then [`API.md`](./API.md) for the
 exact endpoint inputs and outputs.
+
+### Table 8 — `sehati-settings` (hospital-wide settings)
+
+- **One row, always** — `id = "app"`.
+- Holds the patient-interview (kiosk) exit password as
+  `kioskExitPasswordHash` + `kioskExitPasswordSalt` +
+  `kioskExitPasswordIterations` (PBKDF2-HMAC-SHA256, stdlib, no extra Lambda
+  dependency), plus `updatedAt` / `updatedBy`.
+- The hash is **never** returned by any endpoint. `GET /admin/settings` reports
+  only whether a password exists; `POST /kiosk/exit` compares a candidate in
+  constant time. It lives in a table rather than a Lambda environment variable
+  because an admin sets it at runtime and it must be stored hashed — the CDK
+  owns the environment map wholesale.
+
+---
+
+### 18. `CaseDocument` — a file attached to a case
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | text | Document id. |
+| `name` | text | Original filename, as shown in the document list. |
+| `contentType` | text | MIME type; drives whether the UI can preview it inline. |
+| `extension` | text | File extension, used for text extraction. |
+| `size` | number | Bytes. |
+| `uploadedBy` / `uploadedByName` | text | Who attached it. |
+| `uploadedAt` | text | ISO timestamp. |
+| `s3Key` / `s3Uri` | text | **Server-side only** — never sent to a client; downloads go through a 5-minute presigned URL. |
+| `text` | text | **Server-side only** — extracted content, concatenated into the case's `documentContext` (capped ~40k chars, newest first) as AI grounding. |
