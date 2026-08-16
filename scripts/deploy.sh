@@ -32,7 +32,7 @@ CDK_DEFAULT_ACCOUNT=$ACCOUNT CDK_DEFAULT_REGION=$REGION \
 
 echo "==> Deploying $STACK"
 CDK_DEFAULT_ACCOUNT=$ACCOUNT CDK_DEFAULT_REGION=$REGION \
-  cdk deploy --require-approval never
+  cdk deploy "$STACK" --require-approval never
 
 echo "==> Reading stack outputs"
 out() {

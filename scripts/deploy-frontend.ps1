@@ -6,6 +6,13 @@
 # aws CLI, node, python.
 $ErrorActionPreference = "Stop"
 
+# $ErrorActionPreference only stops on PowerShell-native (cmdlet) errors — a
+# failed external command like cdk/npm/aws just sets $LASTEXITCODE and the
+# script keeps going, silently, past a deploy that never happened.
+function Assert-Success($Message) {
+    if ($LASTEXITCODE -ne 0) { throw $Message }
+}
+
 $Stack = "SehatiFrontend"
 $Region = if ($env:CDK_DEFAULT_REGION) { $env:CDK_DEFAULT_REGION } else { "us-east-1" }
 $Root = (Resolve-Path "$PSScriptRoot\..").Path
@@ -18,7 +25,9 @@ Write-Host "==> Installing frontend dependencies and building"
 Push-Location $Root
 try {
     npm install
+    Assert-Success "npm install failed (exit $LASTEXITCODE) -- see the output above."
     npm run build
+    Assert-Success "npm run build failed (exit $LASTEXITCODE) -- see the output above."
 } finally {
     Pop-Location
 }
@@ -35,9 +44,11 @@ try {
     $env:CDK_DEFAULT_ACCOUNT = $Account
     $env:CDK_DEFAULT_REGION = $Region
     cdk bootstrap "aws://$Account/$Region"
+    Assert-Success "cdk bootstrap failed (exit $LASTEXITCODE) -- see the output above."
 
     Write-Host "==> Deploying $Stack"
     cdk deploy $Stack --require-approval never
+    Assert-Success "cdk deploy failed (exit $LASTEXITCODE) -- see the output above. Site was NOT redeployed."
 } finally {
     Pop-Location
 }
