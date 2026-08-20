@@ -35,6 +35,68 @@ interface CaseEnvelope {
   case: PatientCase;
 }
 
+/** Defends the Diagnosis tab against records the server hasn't backfilled yet.
+ * `Diagnosis`/`FinalDiagnosis` array fields are typed as required, but a
+ * record written before the server started defaulting them (or one an AI
+ * call left incomplete) can still arrive with a key missing or `null` —
+ * every consumer reads `.length`/`.map` on these unconditionally, so that
+ * crashes the tab instead of just rendering an empty section. */
+function normalizeDiagnosis(d: Diagnosis): Diagnosis {
+  return {
+    ...d,
+    supporting: d.supporting ?? [],
+    contradicting: d.contradicting ?? [],
+    missing: d.missing ?? [],
+    recommendedTests: d.recommendedTests ?? [],
+    references: d.references ?? [],
+    similarCases: d.similarCases ?? [],
+    trend: d.trend ?? [],
+    discussion: d.discussion ?? [],
+  };
+}
+
+function normalizeFinalDiagnosis(fd: FinalDiagnosis | undefined): FinalDiagnosis | undefined {
+  if (!fd) return fd;
+  return {
+    ...fd,
+    evidenceSummary: fd.evidenceSummary ?? [],
+    ruledOut: fd.ruledOut ?? [],
+    treatment: fd.treatment ?? [],
+    monitoring: fd.monitoring ?? [],
+    complications: fd.complications ?? [],
+    followUp: fd.followUp ?? [],
+  };
+}
+
+function isPatientCaseShape(x: unknown): x is PatientCase {
+  return !!x && typeof x === 'object' && 'diagnoses' in x && 'patient' in x;
+}
+
+function normalizeCase(c: PatientCase): PatientCase {
+  return {
+    ...c,
+    diagnoses: (c.diagnoses ?? []).map(normalizeDiagnosis),
+    finalDiagnosis: normalizeFinalDiagnosis(c.finalDiagnosis),
+    notes: c.notes ?? [],
+  };
+}
+
+/** Normalizes any `PatientCase` reachable in a parsed response body — a bare
+ * case, a list of cases, or a `{ case }` envelope — without every endpoint
+ * function having to remember to do it. */
+function normalizeResponseCases<T>(data: T): T {
+  if (Array.isArray(data)) {
+    return data.map((item) => (isPatientCaseShape(item) ? normalizeCase(item) : item)) as unknown as T;
+  }
+  if (isPatientCaseShape(data)) {
+    return normalizeCase(data) as unknown as T;
+  }
+  if (data && typeof data === 'object' && 'case' in data && isPatientCaseShape((data as { case: unknown }).case)) {
+    return { ...data, case: normalizeCase((data as { case: PatientCase }).case) };
+  }
+  return data;
+}
+
 /** 503/504 here means the API Gateway integration gave up waiting on the
  * Lambda (its hard ceiling is well under the AI calls' worst-case latency),
  * not that the request was bad — the same call often succeeds a moment
@@ -79,7 +141,7 @@ async function request<T>(method: string, path: string, body?: unknown, _retried
     }
     throw new ApiError(res.status, data?.errorType ?? 'Error', data?.message ?? `Request failed (${res.status}).`);
   }
-  return data as T;
+  return normalizeResponseCases(data as T);
 }
 
 const enc = encodeURIComponent;

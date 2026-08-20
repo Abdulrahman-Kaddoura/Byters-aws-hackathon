@@ -170,6 +170,72 @@ def recent_update(text: str, actor: Speaker) -> dict[str, Any]:
     return {"time": "just now", "text": text, "actor": actor}
 
 
+# --- Diagnosis / final-diagnosis defaulting ----------------------------------
+# Fields the frontend (src/types.ts Diagnosis / FinalDiagnosis) always reads
+# unconditionally (`.length`, `.map`) — the model is asked for all of these
+# but, being free text turned into JSON, sometimes leaves one out entirely, or
+# emits an explicit `null` (both of which the frontend sees as a missing
+# array). Every diagnosis/final-diagnosis gets defaulted through here — both
+# when an AI call site first stores one (resolvers/diagnosis.py) and again
+# whenever a case is read back (db/cases_repo.py) — so a record written before
+# this defaulting existed, or one an AI call left incomplete, still renders.
+DIAGNOSIS_LIST_FIELDS = (
+    "supporting",
+    "contradicting",
+    "missing",
+    "recommendedTests",
+    "references",
+    "similarCases",
+    "trend",
+    "discussion",
+)
+DIAGNOSIS_STR_FIELDS = (
+    "name",
+    "category",
+    "tagline",
+    "reasoning",
+    "confidenceExplanation",
+    "whyNot100",
+    "riskAssessment",
+    "nextAction",
+)
+FINAL_DIAGNOSIS_LIST_FIELDS = (
+    "evidenceSummary",
+    "ruledOut",
+    "treatment",
+    "monitoring",
+    "complications",
+    "followUp",
+)
+
+
+def normalize_diagnosis(d: dict[str, Any]) -> dict[str, Any]:
+    d = dict(d)
+    d["id"] = d.get("id") or new_id("DX")
+    d["confidence"] = d.get("confidence") or 0
+    d["priority"] = d.get("priority") or "Medium"
+    for field in DIAGNOSIS_STR_FIELDS:
+        d[field] = d.get(field) or ""
+    for field in DIAGNOSIS_LIST_FIELDS:
+        d[field] = d.get(field) or []
+    return d
+
+
+def normalize_diagnoses(diagnoses: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
+    return [normalize_diagnosis(d) for d in (diagnoses or [])]
+
+
+def normalize_final_diagnosis(d: dict[str, Any]) -> dict[str, Any]:
+    d = dict(d)
+    d["name"] = d.get("name") or ""
+    d["confidence"] = d.get("confidence") or 0
+    d["reasoning"] = d.get("reasoning") or ""
+    for field in FINAL_DIAGNOSIS_LIST_FIELDS:
+        d[field] = d.get(field) or []
+    d["status"] = d.get("status") or "proposed"
+    return d
+
+
 def _clock() -> str:
     return datetime.now(timezone.utc).strftime("%H:%M")
 

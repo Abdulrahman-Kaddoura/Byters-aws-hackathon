@@ -9,80 +9,18 @@ from ..ai import factory
 from ..context import AuthContext
 from ..db import audit_repo, cases_repo
 from ..errors import NotFoundError, ValidationError
-from ..models import chat_message, new_id, now_iso, recent_update, timeline_event
+from ..models import (
+    chat_message,
+    new_id,
+    normalize_diagnoses as _normalize_diagnoses,
+    normalize_final_diagnosis as _normalize_final_diagnosis,
+    now_iso,
+    recent_update,
+    timeline_event,
+)
 from .cases import _apply_state
 from .helpers import find, touch_progress
 from .tests import _MAX_NEW_RECOMMENDATIONS
-
-# Fields the frontend (src/types.ts Diagnosis) always reads unconditionally
-# (`.length`, `.map`) — the model is asked for all of these but, being free
-# text turned into JSON, sometimes leaves one out entirely (most often
-# `references`/`similarCases` when it has nothing to cite, or `discussion`
-# before any question has been asked). Persisting the raw payload would leave
-# that key missing rather than empty, so every diagnosis gets defaulted here
-# before it reaches storage — the one place all three AI call sites funnel
-# through.
-_DIAGNOSIS_LIST_FIELDS = (
-    "supporting",
-    "contradicting",
-    "missing",
-    "recommendedTests",
-    "references",
-    "similarCases",
-    "trend",
-    "discussion",
-)
-_DIAGNOSIS_STR_FIELDS = (
-    "name",
-    "category",
-    "tagline",
-    "reasoning",
-    "confidenceExplanation",
-    "whyNot100",
-    "riskAssessment",
-    "nextAction",
-)
-
-
-def _normalize_diagnosis(d: dict[str, Any]) -> dict[str, Any]:
-    d = dict(d)
-    d.setdefault("id", new_id("DX"))
-    d.setdefault("confidence", 0)
-    d.setdefault("priority", "Medium")
-    for field in _DIAGNOSIS_STR_FIELDS:
-        d.setdefault(field, "")
-    for field in _DIAGNOSIS_LIST_FIELDS:
-        d.setdefault(field, [])
-    return d
-
-
-def _normalize_diagnoses(diagnoses: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
-    return [_normalize_diagnosis(d) for d in (diagnoses or [])]
-
-
-# Same defensiveness as `_normalize_diagnosis`, for the one-shot final
-# diagnosis object (src/types.ts FinalDiagnosis) — `CaseDiagnosis.tsx` maps
-# over `evidenceSummary`/`ruledOut` and hands the rest straight to `ListBlock`,
-# all unconditionally.
-_FINAL_DIAGNOSIS_LIST_FIELDS = (
-    "evidenceSummary",
-    "ruledOut",
-    "treatment",
-    "monitoring",
-    "complications",
-    "followUp",
-)
-
-
-def _normalize_final_diagnosis(d: dict[str, Any]) -> dict[str, Any]:
-    d = dict(d)
-    d.setdefault("name", "")
-    d.setdefault("confidence", 0)
-    d.setdefault("reasoning", "")
-    for field in _FINAL_DIAGNOSIS_LIST_FIELDS:
-        d.setdefault(field, [])
-    d.setdefault("status", "proposed")
-    return d
 
 
 def request_recommendations(ctx: AuthContext, args: dict[str, Any]) -> dict[str, Any]:
