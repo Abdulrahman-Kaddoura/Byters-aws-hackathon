@@ -116,8 +116,12 @@ export function ConsultationPrompt({ caseData: c }: { caseData: PatientCase }) {
 
   async function declineRecording() {
     stopPolling();
-    await setConsultation.mutateAsync({ hasRecording: false });
-    setOpen(false);
+    try {
+      await setConsultation.mutateAsync({ hasRecording: false });
+      setOpen(false);
+    } catch (err) {
+      fail((err as Error).message);
+    }
   }
 
   const busy = phase === 'working';
