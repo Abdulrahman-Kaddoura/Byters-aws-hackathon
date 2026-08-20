@@ -14,6 +14,76 @@ from .cases import _apply_state
 from .helpers import find, touch_progress
 from .tests import _MAX_NEW_RECOMMENDATIONS
 
+# Fields the frontend (src/types.ts Diagnosis) always reads unconditionally
+# (`.length`, `.map`) — the model is asked for all of these but, being free
+# text turned into JSON, sometimes leaves one out entirely (most often
+# `references`/`similarCases` when it has nothing to cite, or `discussion`
+# before any question has been asked). Persisting the raw payload would leave
+# that key missing rather than empty, so every diagnosis gets defaulted here
+# before it reaches storage — the one place all three AI call sites funnel
+# through.
+_DIAGNOSIS_LIST_FIELDS = (
+    "supporting",
+    "contradicting",
+    "missing",
+    "recommendedTests",
+    "references",
+    "similarCases",
+    "trend",
+    "discussion",
+)
+_DIAGNOSIS_STR_FIELDS = (
+    "name",
+    "category",
+    "tagline",
+    "reasoning",
+    "confidenceExplanation",
+    "whyNot100",
+    "riskAssessment",
+    "nextAction",
+)
+
+
+def _normalize_diagnosis(d: dict[str, Any]) -> dict[str, Any]:
+    d = dict(d)
+    d.setdefault("id", new_id("DX"))
+    d.setdefault("confidence", 0)
+    d.setdefault("priority", "Medium")
+    for field in _DIAGNOSIS_STR_FIELDS:
+        d.setdefault(field, "")
+    for field in _DIAGNOSIS_LIST_FIELDS:
+        d.setdefault(field, [])
+    return d
+
+
+def _normalize_diagnoses(diagnoses: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
+    return [_normalize_diagnosis(d) for d in (diagnoses or [])]
+
+
+# Same defensiveness as `_normalize_diagnosis`, for the one-shot final
+# diagnosis object (src/types.ts FinalDiagnosis) — `CaseDiagnosis.tsx` maps
+# over `evidenceSummary`/`ruledOut` and hands the rest straight to `ListBlock`,
+# all unconditionally.
+_FINAL_DIAGNOSIS_LIST_FIELDS = (
+    "evidenceSummary",
+    "ruledOut",
+    "treatment",
+    "monitoring",
+    "complications",
+    "followUp",
+)
+
+
+def _normalize_final_diagnosis(d: dict[str, Any]) -> dict[str, Any]:
+    d = dict(d)
+    d.setdefault("name", "")
+    d.setdefault("confidence", 0)
+    d.setdefault("reasoning", "")
+    for field in _FINAL_DIAGNOSIS_LIST_FIELDS:
+        d.setdefault(field, [])
+    d.setdefault("status", "proposed")
+    return d
+
 
 def request_recommendations(ctx: AuthContext, args: dict[str, Any]) -> dict[str, Any]:
     """Generate the prioritised differential + recommended tests."""
@@ -23,7 +93,7 @@ def request_recommendations(ctx: AuthContext, args: dict[str, Any]) -> dict[str,
     ai = factory.get_ai_service()
     dx = ai.differential(case)
     tests = ai.recommend_tests(case)
-    case["diagnoses"] = dx.value
+    case["diagnoses"] = _normalize_diagnoses(dx.value)
     if not case.get("tests"):
         case["tests"] = (tests.value or [])[:_MAX_NEW_RECOMMENDATIONS]
     if case["diagnoses"]:
@@ -73,7 +143,7 @@ def rerank_after_results(ctx: AuthContext, args: dict[str, Any]) -> dict[str, An
     case = cases_repo.get_case(_require(args, "caseId"), ctx)
 
     result = factory.get_ai_service().rerank_after_results(case)
-    case["diagnoses"] = result.value
+    case["diagnoses"] = _normalize_diagnoses(result.value)
     if case.get("lifecycleState") == "InProgress":
         _apply_state(case, "ResultsDiscussion")
     else:
@@ -139,7 +209,7 @@ def analyze_results(ctx: AuthContext, args: dict[str, Any]) -> dict[str, Any]:
     result = factory.get_ai_service().analyze_results(case)
     payload = result.value if isinstance(result.value, dict) else {}
     verdict = "needs_more_tests" if payload.get("verdict") == "needs_more_tests" else "confident"
-    diagnoses = payload.get("diagnoses") or []
+    diagnoses = _normalize_diagnoses(payload.get("diagnoses"))
     if diagnoses:
         case["diagnoses"] = diagnoses
         case["primaryImpression"] = diagnoses[0].get("name", case.get("primaryImpression", ""))
@@ -269,7 +339,7 @@ def propose_final_diagnosis(ctx: AuthContext, args: dict[str, Any]) -> dict[str,
     case = cases_repo.get_case(_require(args, "caseId"), ctx)
 
     result = factory.get_ai_service().propose_final_diagnosis(case)
-    case["finalDiagnosis"] = result.value
+    case["finalDiagnosis"] = _normalize_final_diagnosis(result.value)
     if case.get("lifecycleState") in ("ResultsDiscussion",):
         _apply_state(case, "Diagnosis")
     else:
