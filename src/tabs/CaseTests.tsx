@@ -173,12 +173,22 @@ function StatusActions({ test, caseId }: { test: TestRecommendation; caseId: str
   // ordered / pending — running, waiting on the lab.
   return (
     <div className="flex shrink-0 flex-col items-end gap-2">
-      <div className="flex gap-2">
+      <div className="flex items-center gap-2">
         <Badge variant="warning">
           <Clock className="mr-1 h-3 w-3" /> Awaiting results
         </Badge>
         <Button size="sm" onClick={() => setEntering((v) => !v)}>
           Enter result
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          className="text-muted-foreground"
+          disabled={busy}
+          title="Cancel — this test wasn't actually ordered"
+          onClick={() => updateTest.mutate({ testId: test.id, status: 'recommended' })}
+        >
+          <X className="h-3.5 w-3.5" /> Cancel
         </Button>
       </div>
       {entering && (

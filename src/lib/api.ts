@@ -35,7 +35,13 @@ interface CaseEnvelope {
   case: PatientCase;
 }
 
-async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+/** 503/504 here means the API Gateway integration gave up waiting on the
+ * Lambda (its hard ceiling is well under the AI calls' worst-case latency),
+ * not that the request was bad — the same call often succeeds a moment
+ * later. Retried once before surfacing it as an error. */
+const GATEWAY_TIMEOUT_STATUSES = new Set([503, 504]);
+
+async function request<T>(method: string, path: string, body?: unknown, _retried = false): Promise<T> {
   const token = await getIdToken();
   if (!token) {
     signOut();
@@ -54,11 +60,23 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     body: body === undefined ? undefined : JSON.stringify(body),
   });
 
+  if (GATEWAY_TIMEOUT_STATUSES.has(res.status) && !_retried) {
+    await new Promise((r) => setTimeout(r, 1500));
+    return request<T>(method, path, body, true);
+  }
+
   const text = await res.text();
   const data = text ? JSON.parse(text) : null;
 
   if (!res.ok) {
     if (res.status === 401) signOut();
+    if (GATEWAY_TIMEOUT_STATUSES.has(res.status)) {
+      throw new ApiError(
+        res.status,
+        'ServiceUnavailable',
+        "Aura's still working on this — the request took longer than the server allows. Please try again in a moment."
+      );
+    }
     throw new ApiError(res.status, data?.errorType ?? 'Error', data?.message ?? `Request failed (${res.status}).`);
   }
   return data as T;

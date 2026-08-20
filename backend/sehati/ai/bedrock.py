@@ -267,9 +267,10 @@ class BedrockAIService(AIService):
 
     def recommend_tests(self, case: PatientCase) -> AIResult:
         instruction = (
-            "Recommend AT MOST 6 investigations, the most diagnostically valuable "
-            "ones only, as a JSON array with keys: id, name, category, reason (one "
-            "short phrase), expectedFinding (one short phrase), priority, cost, "
+            "Recommend AT MOST 5 investigations — no more than 5 even if more "
+            "could be justified — the most diagnostically valuable ones only, as "
+            "a JSON array with keys: id, name, category, reason (one short "
+            "phrase), expectedFinding (one short phrase), priority, cost, "
             "urgency, diagnosticValue(0-100), status('recommended')."
         )
         value, evidence = self._converse_json(
@@ -303,9 +304,12 @@ class BedrockAIService(AIService):
             "- If they are, return verdict 'confident'.\n"
             "- If they are not — the results are equivocal, contradict each other, or "
             "leave a dangerous alternative standing — return verdict "
-            "'needs_more_tests' and populate `newTests` with the specific further "
-            "investigations that would settle it. Do NOT repeat a test that already "
-            "has a result. Never claim confidence you do not have to avoid asking.\n\n"
+            "'needs_more_tests' and populate `newTests` with AT MOST 5 of the most "
+            "specific further investigations that would settle it — no more than "
+            "5 even if more could be justified. Do NOT repeat a test that already "
+            "has a result. Never claim confidence you do not have to avoid asking. "
+            "Keep every reasoning field to one or two sentences — the physician "
+            "needs the answer quickly, not an essay.\n\n"
             "Return JSON: {\"verdict\": \"confident\"|\"needs_more_tests\", "
             "\"message\": str (one or two sentences for the physician, naming what the "
             "results showed and what is still missing), "
@@ -314,10 +318,14 @@ class BedrockAIService(AIService):
             "'Results'], "
             "\"newTests\": [TestRecommendation objects with keys id, name, category, "
             "reason, expectedFinding, priority, cost, urgency, diagnosticValue(0-100), "
-            "status('recommended')] — empty when verdict is 'confident'}."
+            "status('recommended')] — empty when verdict is 'confident', at most 5 "
+            "otherwise}."
         )
         value, evidence = self._converse_json(
-            task_instruction=instruction, case=case, retrieval_query=case.get("chiefComplaint")
+            task_instruction=instruction,
+            case=case,
+            retrieval_query=case.get("chiefComplaint"),
+            evidence_k=3,
         )
         return AIResult(value, self.model_version, evidence)
 
