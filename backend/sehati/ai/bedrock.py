@@ -28,7 +28,9 @@ import os
 from typing import Any
 
 import boto3
+from botocore.exceptions import BotoCoreError, ClientError
 
+from ..errors import AIServiceError
 from ..models import PatientCase, chat_message
 from . import prompts
 from .base import AIResult, AIService
@@ -152,7 +154,7 @@ class BedrockAIService(AIService):
         case: PatientCase,
         physician_question: str | None = None,
         retrieval_query: str | None = None,
-        max_tokens: int = 2000,
+        max_tokens: int = 4096,
     ) -> tuple[str, list[dict[str, Any]]]:
         evidence = self._retrieve(retrieval_query) if retrieval_query else []
         messages = prompts.build_messages(
@@ -172,7 +174,10 @@ class BedrockAIService(AIService):
                 "guardrailIdentifier": GUARDRAIL_ID,
                 "guardrailVersion": GUARDRAIL_VERSION,
             }
-        resp = self._runtime.converse(**kwargs)
+        try:
+            resp = self._runtime.converse(**kwargs)
+        except (ClientError, BotoCoreError) as exc:
+            raise AIServiceError(f"AI model call failed: {exc}") from exc
         text = resp["output"]["message"]["content"][0]["text"]
         return text, evidence
 
@@ -186,7 +191,12 @@ class BedrockAIService(AIService):
         text, evidence = self._converse(
             task_instruction=instruction, case=case, retrieval_query=retrieval_query
         )
-        return _parse_json(text), evidence
+        try:
+            return _parse_json(text), evidence
+        except json.JSONDecodeError as exc:
+            raise AIServiceError(
+                "AI model returned malformed output; please retry."
+            ) from exc
 
     # --- AIService contract -------------------------------------------------
     def next_interview_question(
