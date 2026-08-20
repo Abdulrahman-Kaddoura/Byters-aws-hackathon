@@ -5,11 +5,11 @@ export function ConfidenceTrendChart({
   height = 180,
   color = '#4f46e5',
 }: {
-  data: { label: string; value: number }[];
+  data: { label: string; value: number }[] | undefined;
   height?: number;
   color?: string;
 }) {
-  if (!data.length) {
+  if (!data?.length) {
     return <p className="py-6 text-center text-sm text-muted-foreground">Not enough history yet to plot a trend.</p>;
   }
   return (

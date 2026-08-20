@@ -28,9 +28,23 @@ from boto3.dynamodb.conditions import Key
 
 from ..context import AuthContext
 from ..errors import ForbiddenError, NotFoundError
-from ..models import PatientCase, now_iso
+from ..models import PatientCase, normalize_diagnoses, normalize_final_diagnosis, now_iso
 from ..permissions import CASES_VIEW_CLINICAL
 from . import tables
+
+
+def _normalize_case(case: PatientCase) -> PatientCase:
+    """Defend reads against records written before diagnosis/final-diagnosis
+    defaulting existed (resolvers/diagnosis.py normalizes on write, but that
+    can't reach rows already sitting in the table) — the frontend reads
+    `diagnoses[].supporting.length` etc. unconditionally, so a stale record
+    missing one of those keys crashes the Diagnosis tab rather than just
+    rendering it empty."""
+    case["diagnoses"] = normalize_diagnoses(case.get("diagnoses"))
+    if case.get("finalDiagnosis"):
+        case["finalDiagnosis"] = normalize_final_diagnosis(case["finalDiagnosis"])
+    case.setdefault("notes", [])
+    return case
 
 
 # GSI key attributes must never be empty strings (DynamoDB rejects them).
@@ -120,7 +134,7 @@ def get_case(case_id: str, ctx: AuthContext) -> PatientCase:
     if not _visible_to(case, ctx):
         # Do not leak existence details across the isolation boundary.
         raise ForbiddenError("You are not permitted to access this case.")
-    return case
+    return _normalize_case(case)
 
 
 def list_cases(
@@ -168,6 +182,7 @@ def list_cases(
     cases = [c for c in cases if _visible_to(c, ctx)]
     if status:
         cases = [c for c in cases if c.get("status") == status]
+    cases = [_normalize_case(c) for c in cases]
     cases.sort(key=lambda c: c.get("createdAt", ""), reverse=True)
     return cases
 
