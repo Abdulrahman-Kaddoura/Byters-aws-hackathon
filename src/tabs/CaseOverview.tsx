@@ -90,12 +90,12 @@ function nextStep(stage: string): { tab: string; label: string } {
     case 'interview':
       return { tab: 'interview', label: 'Review the interview' };
     case 'examination':
-      return { tab: 'workup', label: 'Start the workup' };
+      return { tab: 'examination', label: 'Start the examination' };
     case 'differential':
       return { tab: 'diagnosis', label: 'Review the differential' };
     case 'tests':
     case 'results':
-      return { tab: 'workup', label: 'Continue the workup' };
+      return { tab: 'tests', label: 'Continue with tests' };
     case 'diagnosis':
     case 'treatment':
       return { tab: 'diagnosis', label: 'Finalise the diagnosis' };

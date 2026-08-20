@@ -3,6 +3,7 @@ import {
   ArrowLeft,
   ClipboardCheck,
   FileText,
+  FlaskConical,
   FolderOpen,
   GitBranch,
   Stethoscope,
@@ -22,20 +23,21 @@ import { TagEditor } from '@/components/TagEditor';
 
 import { CaseOverview } from '@/tabs/CaseOverview';
 import { CaseInterview } from '@/tabs/CaseInterview';
-import { CaseWorkup } from '@/tabs/CaseWorkup';
+import { CaseExamination } from '@/tabs/CaseExamination';
+import { CaseTests } from '@/tabs/CaseTests';
 import { CaseDiagnosis } from '@/tabs/CaseDiagnosis';
 import { CaseDocuments } from '@/tabs/CaseDocuments';
 import { CaseTimeline } from '@/tabs/CaseTimeline';
 
 /**
- * Six tabs, down from eight.
- *
- * Nothing was removed — siblings were merged. Examination and Tests are one
- * workup; Differential and the final sign-off are one diagnosis; the follow-up
- * "Sessions" list belongs with the interview it extends. What a nurse sees is
- * decided by `cases.view_clinical`, which is also what the server uses to
- * decide which fields to send her in the first place, so the tab list and the
- * payload agree by construction.
+ * Seven tabs. Examination and Tests are separate — a physical exam finding
+ * you record yourself is a different activity from a lab/imaging result you
+ * wait on, and only the latter feeds the differential (`analyzeResults` reads
+ * `tests`, never `exams`). Differential and the final sign-off are still one
+ * "Diagnosis" tab; the follow-up "Sessions" list belongs with the interview
+ * it extends. What a nurse sees is decided by `cases.view_clinical`, which is
+ * also what the server uses to decide which fields to send her in the first
+ * place, so the tab list and the payload agree by construction.
  */
 export function CaseWorkspace() {
   const params = useParams();
@@ -49,7 +51,8 @@ export function CaseWorkspace() {
   const allTabs = [
     { id: 'overview', label: 'Overview', icon: User, clinicalOnly: false },
     { id: 'interview', label: 'Interview', icon: FileText, clinicalOnly: true },
-    { id: 'workup', label: 'Workup', icon: Stethoscope, clinicalOnly: true },
+    { id: 'examination', label: 'Examination', icon: Stethoscope, clinicalOnly: true },
+    { id: 'tests', label: 'Tests', icon: FlaskConical, clinicalOnly: true },
     { id: 'diagnosis', label: 'Diagnosis', icon: ClipboardCheck, clinicalOnly: true },
     { id: 'documents', label: 'Documents', icon: FolderOpen, clinicalOnly: false },
     { id: 'timeline', label: 'Timeline', icon: GitBranch, clinicalOnly: true },
@@ -150,7 +153,8 @@ export function CaseWorkspace() {
         <div className="mx-auto h-full max-w-7xl">
           {tab === 'overview' && <CaseOverview caseData={caseData} isClinician={clinical} />}
           {tab === 'interview' && clinical && <CaseInterview caseData={caseData} />}
-          {tab === 'workup' && clinical && <CaseWorkup caseData={caseData} />}
+          {tab === 'examination' && clinical && <CaseExamination caseData={caseData} />}
+          {tab === 'tests' && clinical && <CaseTests caseData={caseData} />}
           {tab === 'diagnosis' && clinical && <CaseDiagnosis caseData={caseData} />}
           {tab === 'documents' && <CaseDocuments caseData={caseData} />}
           {tab === 'timeline' && clinical && (
