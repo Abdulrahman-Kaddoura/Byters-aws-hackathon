@@ -117,6 +117,75 @@ def test_explainability_chat_persists_to_diagnosis(aws, nurse, doctor, sample_in
     assert len(dx["discussion"]) >= 2  # doctor question + ai answer
 
 
+def test_diagnoses_are_normalized_when_the_model_omits_optional_arrays(
+    aws, nurse, doctor, sample_intake, seeded_users, monkeypatch
+):
+    """The fake AI (like a real Bedrock reply) always fills in every array
+    field, so it can't catch the model simply leaving one out — which real
+    JSON-from-free-text output does, e.g. no `references` when it has nothing
+    to cite. `src/types.ts` types every Diagnosis field as required and the
+    frontend reads `.length`/`.map` on them unconditionally, so a missing key
+    (not even an empty list) crashes the client. Simulate that here and check
+    the resolver backfills it before the case is ever saved."""
+    from sehati.ai.base import AIResult
+    from tests.fakes.ai_double import FakeAIService
+
+    cid = _drive_to_doctor_review(nurse, doctor, sample_intake)
+
+    bare_diagnosis = {
+        "id": "DX-bare",
+        "name": "Acute appendicitis",
+        "confidence": 62,
+        "priority": "High",
+        # Everything below is entirely absent, not empty — the shape a model
+        # produces when it has nothing to say for a field.
+    }
+    monkeypatch.setattr(
+        FakeAIService, "differential",
+        lambda self, case: AIResult(value=[bare_diagnosis], model_version="test"),
+    )
+
+    rec = resolve("requestRecommendations", doctor, {"caseId": cid})
+    dx = rec["diagnoses"][0]
+    for field in (
+        "supporting", "contradicting", "missing", "recommendedTests",
+        "references", "similarCases", "trend", "discussion",
+    ):
+        assert dx[field] == [], f"{field} should default to [] when the model omits it"
+    for field in (
+        "category", "tagline", "reasoning", "confidenceExplanation",
+        "whyNot100", "riskAssessment", "nextAction",
+    ):
+        assert dx[field] == ""
+
+    # And the same object round-trips through storage with those defaults
+    # intact, so a later GET never re-exposes the gap.
+    stored = resolve("getCase", doctor, {"id": cid})
+    assert stored["diagnoses"][0]["references"] == []
+
+
+def test_final_diagnosis_is_normalized_when_the_model_omits_optional_arrays(
+    aws, nurse, doctor, sample_intake, seeded_users, monkeypatch
+):
+    from sehati.ai.base import AIResult
+    from tests.fakes.ai_double import FakeAIService
+
+    cid = _drive_to_doctor_review(nurse, doctor, sample_intake)
+    resolve("requestRecommendations", doctor, {"caseId": cid})
+
+    bare_final = {"name": "Acute appendicitis", "confidence": 88}
+    monkeypatch.setattr(
+        FakeAIService, "propose_final_diagnosis",
+        lambda self, case: AIResult(value=bare_final, model_version="test"),
+    )
+
+    out = resolve("proposeFinalDiagnosis", doctor, {"caseId": cid})
+    fd = out["finalDiagnosis"]
+    for field in ("evidenceSummary", "ruledOut", "treatment", "monitoring", "complications", "followUp"):
+        assert fd[field] == []
+    assert fd["status"] == "proposed"
+
+
 def test_interview_transcript_is_served_outside_the_case_payload(aws, nurse, sample_intake):
     """The kiosk runs on the nurse's device, so the live transcript has to reach
     her session — but only through this endpoint, never in her case view."""
