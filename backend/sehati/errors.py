@@ -65,3 +65,11 @@ class ConflictError(AppError):
 
     code = "Conflict"
     http_status = 409
+
+
+class AIServiceError(AppError):
+    """The AI model call failed or returned unusable output (throttled,
+    unavailable, or malformed/truncated JSON)."""
+
+    code = "AIServiceError"
+    http_status = 502
