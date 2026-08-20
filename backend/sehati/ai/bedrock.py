@@ -155,8 +155,9 @@ class BedrockAIService(AIService):
         physician_question: str | None = None,
         retrieval_query: str | None = None,
         max_tokens: int = 4096,
+        evidence_k: int = 5,
     ) -> tuple[str, list[dict[str, Any]]]:
-        evidence = self._retrieve(retrieval_query) if retrieval_query else []
+        evidence = self._retrieve(retrieval_query, evidence_k) if retrieval_query else []
         messages = prompts.build_messages(
             task_instruction=task_instruction,
             case_context=_case_context(case),
@@ -182,14 +183,22 @@ class BedrockAIService(AIService):
         return text, evidence
 
     def _converse_json(
-        self, *, task_instruction: str, case: PatientCase, retrieval_query: str | None = None
+        self,
+        *,
+        task_instruction: str,
+        case: PatientCase,
+        retrieval_query: str | None = None,
+        evidence_k: int = 5,
     ) -> tuple[Any, list[dict[str, Any]]]:
         instruction = (
             task_instruction
             + "\n\nRespond with ONLY valid JSON, no prose, no markdown fences."
         )
         text, evidence = self._converse(
-            task_instruction=instruction, case=case, retrieval_query=retrieval_query
+            task_instruction=instruction,
+            case=case,
+            retrieval_query=retrieval_query,
+            evidence_k=evidence_k,
         )
         try:
             return _parse_json(text), evidence
@@ -258,12 +267,16 @@ class BedrockAIService(AIService):
 
     def recommend_tests(self, case: PatientCase) -> AIResult:
         instruction = (
-            "Recommend investigations as a JSON array with keys: id, name, category, reason, "
-            "expectedFinding, priority, cost, urgency, diagnosticValue(0-100), "
-            "status('recommended')."
+            "Recommend AT MOST 6 investigations, the most diagnostically valuable "
+            "ones only, as a JSON array with keys: id, name, category, reason (one "
+            "short phrase), expectedFinding (one short phrase), priority, cost, "
+            "urgency, diagnosticValue(0-100), status('recommended')."
         )
         value, evidence = self._converse_json(
-            task_instruction=instruction, case=case, retrieval_query=case.get("chiefComplaint")
+            task_instruction=instruction,
+            case=case,
+            retrieval_query=case.get("chiefComplaint"),
+            evidence_k=3,
         )
         return AIResult(value, self.model_version, evidence)
 
