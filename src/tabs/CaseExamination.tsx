@@ -17,7 +17,7 @@ function ExamItem({ exam, caseId }: { exam: ExamRecommendation; caseId: string }
   const [noteOpen, setNoteOpen] = useState(false);
   const [note, setNote] = useState(exam.note ?? '');
   const recordFinding = useRecordExamFinding(caseId);
-  const imp = IMPORTANCE_META[exam.importance];
+  const imp = IMPORTANCE_META[exam.importance] ?? { tone: 'gray' as const };
 
   function persist(status: 'complete' | 'skipped') {
     recordFinding.mutate({ examId: exam.id, patch: { finding, note, status } });
