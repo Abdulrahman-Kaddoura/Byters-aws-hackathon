@@ -18,7 +18,7 @@ const STRENGTH_TONE: Record<NonNullable<Reference['strength']>, Tone> = {
 };
 
 export function ReferenceCard({ reference }: { reference: Reference }) {
-  const meta = REF_META[reference.type];
+  const meta = REF_META[reference.type] ?? { icon: FileText, label: reference.type, tone: 'gray' as const };
   const Icon = meta.icon;
   return (
     <div className="group rounded-lg border bg-muted/30 p-3.5 transition-colors hover:border-primary/40">
