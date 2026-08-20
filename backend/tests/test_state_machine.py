@@ -20,7 +20,8 @@ def test_happy_path_transitions():
         (S.DOCTOR_REVIEW, S.IN_PROGRESS),
         (S.IN_PROGRESS, S.RESULTS_DISCUSSION),
         (S.RESULTS_DISCUSSION, S.DIAGNOSIS),
-        (S.DIAGNOSIS, S.CLOSED),
+        (S.DIAGNOSIS, S.TREATMENT),
+        (S.TREATMENT, S.CLOSED),
     ]
     for frm, to in path:
         assert can_transition(frm, to)
@@ -32,6 +33,15 @@ def test_loops_are_allowed():
     assert can_transition(S.RESULTS_DISCUSSION, S.IN_PROGRESS)
     # doctor forces re-eval: Diagnosis -> ResultsDiscussion
     assert can_transition(S.DIAGNOSIS, S.RESULTS_DISCUSSION)
+    # unexpected outcome on treatment: Treatment -> ResultsDiscussion
+    assert can_transition(S.TREATMENT, S.RESULTS_DISCUSSION)
+
+
+def test_signing_off_a_diagnosis_does_not_close_the_case():
+    """Accepting a diagnosis parks the case in treatment; only marking it
+    resolved closes it."""
+    assert not can_transition(S.DIAGNOSIS, S.CLOSED)
+    assert can_transition(S.DIAGNOSIS, S.TREATMENT)
 
 
 def test_illegal_transitions_rejected():

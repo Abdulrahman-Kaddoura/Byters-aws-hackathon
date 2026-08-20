@@ -61,6 +61,14 @@ class AIService:
             retrieved_context=raw.get("retrievedContext"),
         )
 
+    def analyze_results(self, case: dict[str, Any]) -> AIResult:
+        raw = invoke_agent(prompts.analyze_results_prompt(case), session_id=case["id"])
+        return AIResult(
+            value=raw,
+            model_version=MODEL_VERSION,
+            retrieved_context=raw.get("retrievedContext"),
+        )
+
     def propose_final_diagnosis(self, case: dict[str, Any]) -> AIResult:
         raw = invoke_agent(prompts.final_diagnosis_prompt(case), session_id=case["id"])
         return AIResult(

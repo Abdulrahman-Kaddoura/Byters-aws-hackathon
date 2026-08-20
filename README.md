@@ -33,12 +33,14 @@ doctor works it up.
 1. **Admission (nurse)** — she records what she can measure: name, age, sex, height, weight, and vitals. Symptoms and history are deliberately not on the form — the AI asks the patient directly, so a field here would mean asking twice.
 2. **AI patient interview (locked device)** — she hands over her tablet and it **locks**: routing is pinned to the interview screen, so the URL bar and the back button lead nowhere and a refresh lands back in it. An adaptive Q&A (`AIService.next_interview_question`) auto-generates a **structured clinical summary**, so the doctor never reads the raw transcript. Getting out costs an admin-set exit password, checked server-side.
 3. **Routing (nurse)** — she assigns the case to a doctor. This is the moment access is granted: **a doctor sees only the cases assigned to them**, and an unassigned case is invisible to every doctor. Nurses and admins can reassign; it's audit-logged either way.
-4. **Physical examination** — AI-recommended exams (with reason, importance, confidence) where the doctor enters findings, marks complete/skip, and adds notes.
-5. **Differential diagnosis** — ranked diagnosis cards with confidence meters, supporting/contradicting evidence, and full **explainability** (how confidence was calculated, why not 100%, risk, next action, guideline/paper/textbook references, similar historical cases).
-6. **AI discussion** — every diagnosis has its own chat where the doctor can challenge the reasoning ("Why not pulmonary embolism?", "What would increase confidence?"), answered by the backend AI seam (Amazon Bedrock).
-7. **Recommended tests & results** — investigations with reason, expected finding, priority, cost, urgency and diagnostic value; results arrive and the differential re-ranks.
-8. **Final diagnosis** — proposed diagnosis with evidence summary, ruled-out alternatives, treatment, monitoring, complications and follow-up. The doctor can Accept / Modify / Continue investigation / Add notes.
-9. **Timeline & completion** — a vertical case timeline and read-only archived cases with outcomes and lessons learned.
+4. **The doctor's consultation recording** — the first time a doctor opens a case routed to them, they're asked once whether they recorded themselves talking to the patient. If they did, AWS HealthScribe transcribes it and **every** subsequent AI step reasons over both accounts — the patient's AI interview and the doctor's own consultation. Saying "no recording" is a complete answer; the case then runs on the interview alone. It's asked up front because a recording added after the differential is built is too late to inform anything.
+5. **Physical examination** — AI-recommended exams (with reason, importance, confidence) where the doctor enters findings, marks complete/skip, and adds notes — plus anything they examined that the AI didn't ask for.
+6. **Recommended tests & results** — investigations with reason, expected finding, priority, cost, urgency and diagnostic value. The doctor marks each one awaiting results or declined, enters what came back, and can add tests they ordered themselves when none of the AI's are the right one.
+7. **Differential diagnosis** — driven by the results, not the intake. It weighs each recommended test against the result that actually came back and answers honestly: nothing resulted yet (it says so rather than guessing), a ranked differential it's confident in, or "not sure yet" — in which case it writes a **new round of tests** onto the workup and tells the doctor to go and fill them in. Earlier rounds stay as history. Each diagnosis card carries full **explainability** (how confidence was calculated, why not 100%, risk, next action, guideline/paper/textbook references, similar historical cases).
+8. **AI discussion** — every diagnosis has its own chat where the doctor can challenge the reasoning ("Why not pulmonary embolism?", "What would increase confidence?"), answered by the backend AI seam (Amazon Bedrock).
+9. **Final diagnosis, then treatment** — proposed diagnosis with evidence summary, ruled-out alternatives, treatment, monitoring, complications and follow-up. Signing it off doesn't close the case: the patient still has to be treated, so the case parks in **Treatment** until the doctor either marks it **resolved** or reopens it with an account of what went wrong — which withdraws the sign-off and re-runs the analysis on what actually happened.
+10. **Feedback, once and at the end** — only after a case is resolved is the doctor asked how Aura did. It's the single place in the app feedback can be given, enforced server-side, because how the AI reasoned can only be judged once the patient's outcome is known. It's kept as memory for future cases.
+11. **Timeline & completion** — a vertical case timeline and read-only archived cases with outcomes and lessons learned.
 
 A persistent, case-aware **Aura Assistant** panel is available throughout for
 open-ended collaboration. Each case has a **Documents** tab (upload, list,
@@ -250,8 +252,8 @@ src/
   tabs/          # The per-case workspace's tabs (Overview, Interview,
                  # Conversations, Examination, Differential, Tests, Diagnosis,
                  # Timeline), rendered inside CaseWorkspace
-  components/    # Reusable UI: sidebar, cards, chat, charts, doctor tools
-                 # (document/audio upload, feedback), badges…
+  components/    # Reusable UI: sidebar, cards, chat, charts, the consultation
+                 # prompt, end-of-case feedback, badges…
   hooks/         # React Query hooks wrapping lib/api.ts (one per endpoint)
   lib/           # api.ts (fetch client), auth.ts (Cognito), theme, utils
   data/          # UI helpers (data/helpers.ts) and suggested-prompt labels for

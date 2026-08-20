@@ -17,10 +17,29 @@ def _assigned_case(nurse, doctor, sample_intake) -> str:
     return case["id"]
 
 
+def _resolved_case(nurse, doctor, sample_intake) -> str:
+    """A case driven all the way to resolved — the only state feedback is
+    accepted in (see resolvers/feedback.py)."""
+    cid = _assigned_case(nurse, doctor, sample_intake)
+    for _ in range(6):
+        if resolve("postInterviewMessage", nurse, {"caseId": cid, "text": "some answer"})["complete"]:
+            break
+    resolve("generateSummary", nurse, {"caseId": cid})
+    rec = resolve("requestRecommendations", doctor, {"caseId": cid})
+    test_id = rec["tests"][0]["id"]
+    resolve("orderTest", doctor, {"caseId": cid, "testId": test_id})
+    resolve("recordTestResult", doctor, {"caseId": cid, "testId": test_id, "result": "WBC 16"})
+    resolve("rerankAfterResults", doctor, {"caseId": cid})
+    resolve("proposeFinalDiagnosis", doctor, {"caseId": cid})
+    resolve("acceptFinalDiagnosis", doctor, {"caseId": cid})
+    resolve("resolveCase", doctor, {"caseId": cid})
+    return cid
+
+
 def test_submit_feedback(aws, nurse, doctor, sample_intake, seeded_users):
     from sehati.db import feedback_repo
 
-    cid = _assigned_case(nurse, doctor, sample_intake)
+    cid = _resolved_case(nurse, doctor, sample_intake)
 
     result = resolve("submitFeedback", doctor, {
         "caseId": cid, "feedback": "The differential missed a common cause.", "category": "diagnosis",
@@ -32,8 +51,18 @@ def test_submit_feedback(aws, nurse, doctor, sample_intake, seeded_users):
     assert history == ["The differential missed a common cause."]
 
 
-def test_submit_feedback_requires_text(aws, nurse, doctor, sample_intake, seeded_users):
+def test_feedback_is_refused_until_the_case_is_resolved(
+    aws, nurse, doctor, sample_intake, seeded_users
+):
+    """Feedback is an end-of-case judgement, so an open case rejects it — the
+    UI offers the form in one place because the server takes it in one state."""
     cid = _assigned_case(nurse, doctor, sample_intake)
+    with pytest.raises(ValidationError):
+        resolve("submitFeedback", doctor, {"caseId": cid, "feedback": "Too early to say."})
+
+
+def test_submit_feedback_requires_text(aws, nurse, doctor, sample_intake, seeded_users):
+    cid = _resolved_case(nurse, doctor, sample_intake)
     with pytest.raises(ValidationError):
         resolve("submitFeedback", doctor, {"caseId": cid, "feedback": ""})
 

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Stethoscope, Check, SkipForward, StickyNote, Sparkles, CircleCheck, Circle, X, Loader2 } from 'lucide-react';
+import { Stethoscope, Check, SkipForward, StickyNote, Sparkles, CircleCheck, Circle, Plus, X, Loader2 } from 'lucide-react';
 import type { ExamRecommendation, PatientCase } from '@/types';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { SectionHeading, EmptyState } from '@/components/common';
 import { FlagBadge } from '@/components/badges';
 import { IMPORTANCE_META, toneVariant } from '@/data/helpers';
-import { useRecommendExams, useRecordExamFinding } from '@/hooks/useCases';
+import { useAddCustomExam, useRecommendExams, useRecordExamFinding } from '@/hooks/useCases';
 import { cn } from '@/lib/utils';
 
 function ExamItem({ exam, caseId }: { exam: ExamRecommendation; caseId: string }) {
@@ -32,19 +32,25 @@ function ExamItem({ exam, caseId }: { exam: ExamRecommendation; caseId: string }
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h4 className="text-sm font-semibold">{exam.name}</h4>
-            <Badge variant={toneVariant(imp.tone)}>{exam.importance}</Badge>
+            {exam.custom ? (
+              <Badge variant="outline">Added by you</Badge>
+            ) : (
+              <Badge variant={toneVariant(imp.tone)}>{exam.importance}</Badge>
+            )}
             {exam.status === 'complete' && exam.flag && <FlagBadge flag={exam.flag} />}
             {exam.status === 'skipped' && <Badge variant="secondary">Skipped</Badge>}
           </div>
           <p className="mt-1 text-[13px] text-muted-foreground">{exam.reason}</p>
 
-          <div className="mt-2 flex items-center gap-2">
-            <span className="text-[11px] font-medium text-muted-foreground">AI relevance</span>
-            <div className="h-1.5 w-24 overflow-hidden rounded-full bg-muted">
-              <div className="h-full rounded-full bg-primary" style={{ width: `${exam.confidence}%` }} />
+          {!exam.custom && (
+            <div className="mt-2 flex items-center gap-2">
+              <span className="text-[11px] font-medium text-muted-foreground">AI relevance</span>
+              <div className="h-1.5 w-24 overflow-hidden rounded-full bg-muted">
+                <div className="h-full rounded-full bg-primary" style={{ width: `${exam.confidence}%` }} />
+              </div>
+              <span className="text-[11px] font-semibold tabular-nums text-muted-foreground">{exam.confidence}%</span>
             </div>
-            <span className="text-[11px] font-semibold tabular-nums text-muted-foreground">{exam.confidence}%</span>
-          </div>
+          )}
 
           {exam.status === 'complete' ? (
             <div className="mt-3 rounded-lg border bg-muted/30 p-3">
@@ -91,6 +97,56 @@ function ExamItem({ exam, caseId }: { exam: ExamRecommendation; caseId: string }
   );
 }
 
+/** The form for an examination Aura didn't recommend.
+ *
+ * A doctor examines the patient in front of them, not the one in the model's
+ * prompt. This records what they actually did — and since it describes
+ * something that has already happened, it lands complete, with its finding. */
+function CustomExamForm({ caseId }: { caseId: string }) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState('');
+  const [finding, setFinding] = useState('');
+  const addExam = useAddCustomExam(caseId);
+
+  if (!open) {
+    return (
+      <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
+        <Plus className="h-3.5 w-3.5" /> Add an exam I performed
+      </Button>
+    );
+  }
+
+  async function submit() {
+    if (!name.trim()) return;
+    await addExam.mutateAsync({ name: name.trim(), finding: finding.trim() || undefined });
+    setName('');
+    setFinding('');
+    setOpen(false);
+  }
+
+  return (
+    <div className="w-full space-y-2 rounded-lg border bg-muted/30 p-3">
+      <div className="flex items-center justify-between">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          Examination performed by you
+        </p>
+        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setOpen(false)} aria-label="Cancel">
+          <X className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+      <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Examination (e.g. Kernig's sign)" autoFocus />
+      <Input value={finding} onChange={(e) => setFinding(e.target.value)} placeholder="Finding" />
+      <Button size="sm" onClick={submit} disabled={!name.trim() || addExam.isPending}>
+        {addExam.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+        Record finding
+      </Button>
+      {addExam.isError && (
+        <p className="text-xs text-rose-600 dark:text-rose-400">{(addExam.error as Error).message}</p>
+      )}
+    </div>
+  );
+}
+
 export function CaseExamination({ caseData: c }: { caseData: PatientCase }) {
   const recommend = useRecommendExams(c.id);
   const hasExams = c.exams.length > 0;
@@ -101,12 +157,15 @@ export function CaseExamination({ caseData: c }: { caseData: PatientCase }) {
         <EmptyState
           icon={<Stethoscope className="h-6 w-6" />}
           title="No Examinations Recommended Yet"
-          description="Ask Aura which physical examinations matter for this case."
+          description="Ask Aura which physical examinations matter for this case, or record one you've already performed."
           action={
-            <Button onClick={() => recommend.mutate()} disabled={recommend.isPending}>
-              {recommend.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-              Get AI exam recommendations
-            </Button>
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              <Button onClick={() => recommend.mutate()} disabled={recommend.isPending}>
+                {recommend.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                Get AI exam recommendations
+              </Button>
+              <CustomExamForm caseId={c.id} />
+            </div>
           }
         />
         {recommend.isError && <p className="mt-3 text-sm text-rose-600 dark:text-rose-400">{(recommend.error as Error).message}</p>}
@@ -131,6 +190,13 @@ export function CaseExamination({ caseData: c }: { caseData: PatientCase }) {
               </Badge>
             }
           />
+          <div className="mt-4 flex flex-wrap items-start gap-2 border-t pt-4">
+            <Button variant="outline" size="sm" onClick={() => recommend.mutate()} disabled={recommend.isPending}>
+              {recommend.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+              Ask Aura for more exams
+            </Button>
+            <CustomExamForm caseId={c.id} />
+          </div>
         </CardContent>
       </Card>
 

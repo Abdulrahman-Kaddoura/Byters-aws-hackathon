@@ -46,7 +46,10 @@ Priority = Literal["High", "Medium", "Low"]
 Importance = Literal["Critical", "Important", "Routine"]
 Flag = Literal["normal", "abnormal", "critical"]
 Speaker = Literal["ai", "patient", "doctor", "system"]
-TestStatus = Literal["recommended", "ordered", "pending", "completed"]
+# "ordered" is the doctor saying "this is running, I'm waiting on the result";
+# "declined" is them saying they chose not to run it. Both keep a decision on
+# the record rather than leaving a recommendation dangling forever.
+TestStatus = Literal["recommended", "ordered", "pending", "declined", "completed"]
 
 # Cognito groups — the three kinds of person who hold an account. Patients
 # never log in: a nurse admits them and hands over her own device for the AI
@@ -114,6 +117,16 @@ class PatientCase(TypedDict, total=False):
     conversations: list[Conversation]
     progress: list[dict[str, Any]]
     documents: list[dict[str, Any]]
+    # The doctor's own consultation with the patient, transcribed — a second
+    # source of history alongside `interview`. See resolvers/consultation.py.
+    consultation: dict[str, Any]
+    # Which round of investigations the workup is on. Bumped by the results
+    # analysis when the results in hand don't settle the question.
+    testRound: int
+    # The last results analysis's verdict + message (resolvers/diagnosis.py).
+    analysis: dict[str, Any]
+    # Why the doctor reopened a case that was on treatment.
+    reopenReason: str
     # --- Backend-only fields (not rendered by the UI) ---
     lifecycleState: str
     # The nurse who admitted this patient. Indexed (byNurse) so the admissions
@@ -252,6 +265,8 @@ def new_case(
         "assistantThread": [],
         "documents": [],
         "progress": build_progress("intake"),
+        "consultation": {"prompted": False},
+        "testRound": 1,
         # Backend-only:
         "lifecycleState": "Intake",
     }

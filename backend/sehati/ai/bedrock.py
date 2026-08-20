@@ -48,8 +48,15 @@ def _case_context(case: PatientCase) -> dict[str, Any]:
 
     We pass clinical content, not identifiers, to the model. Names are dropped;
     the model reasons over the presentation, not the person.
+
+    Two sources of history sit side by side here on purpose. ``interview`` is
+    what the patient told the AI on the nurse's device; ``consultation`` is the
+    clinical summary of the doctor actually talking to the patient, transcribed
+    by HealthScribe. Neither replaces the other, and every downstream step —
+    summary, exams, differential, analysis — reasons over both.
     """
     patient = case.get("patient", {})
+    consultation = case.get("consultation") or {}
     return {
         "age": patient.get("age"),
         "gender": patient.get("gender"),
@@ -63,6 +70,9 @@ def _case_context(case: PatientCase) -> dict[str, Any]:
             {"role": m.get("role"), "text": m.get("text")} for m in case.get("interview", [])
         ],
         "summary": case.get("summary"),
+        "consultation": consultation.get("summary") or None,
+        "doctorNotes": [n.get("text") for n in case.get("notes", [])],
+        "reopenReason": case.get("reopenReason"),
         "exams": case.get("exams"),
         "tests": case.get("tests"),
         "diagnoses": [
@@ -252,6 +262,36 @@ class BedrockAIService(AIService):
             "Test results are now available in the case context. Re-reason and return the "
             "UPDATED prioritised differential in the same Diagnosis JSON array shape, "
             "adjusting confidence and adding a trend point labelled 'Results'."
+        )
+        value, evidence = self._converse_json(
+            task_instruction=instruction, case=case, retrieval_query=case.get("chiefComplaint")
+        )
+        return AIResult(value, self.model_version, evidence)
+
+    def analyze_results(self, case: PatientCase) -> AIResult:
+        instruction = (
+            "The case context's `tests` array holds the investigations recommended for "
+            "this patient. Some carry a `result` the physician entered, with a "
+            "`resultFlag` of normal/abnormal/critical. Work test by test: compare each "
+            "recommendation's `expectedFinding` and `reason` against the result that "
+            "actually came back, and say what that result rules in or out.\n\n"
+            "Then decide honestly whether the resulted investigations are enough to "
+            "name a leading diagnosis.\n"
+            "- If they are, return verdict 'confident'.\n"
+            "- If they are not — the results are equivocal, contradict each other, or "
+            "leave a dangerous alternative standing — return verdict "
+            "'needs_more_tests' and populate `newTests` with the specific further "
+            "investigations that would settle it. Do NOT repeat a test that already "
+            "has a result. Never claim confidence you do not have to avoid asking.\n\n"
+            "Return JSON: {\"verdict\": \"confident\"|\"needs_more_tests\", "
+            "\"message\": str (one or two sentences for the physician, naming what the "
+            "results showed and what is still missing), "
+            "\"diagnoses\": [Diagnosis objects, same shape and keys as the differential, "
+            "re-ranked in light of the results, each with a trend point labelled "
+            "'Results'], "
+            "\"newTests\": [TestRecommendation objects with keys id, name, category, "
+            "reason, expectedFinding, priority, cost, urgency, diagnosticValue(0-100), "
+            "status('recommended')] — empty when verdict is 'confident'}."
         )
         value, evidence = self._converse_json(
             task_instruction=instruction, case=case, retrieval_query=case.get("chiefComplaint")

@@ -88,6 +88,10 @@ plain numbers on a 0–100 scale (pain is 0–10). Higher = more/stronger.
 | `assignedPhysicianId` | text, optional | **The access boundary:** the one doctor this case is routed to. Absent until a nurse assigns it — and while absent, no doctor can open the case at all. |
 | `assignedAt` / `assignedBy` | text, optional | When the case was routed, and by whom. |
 | `documents` | list of *CaseDocument* | Files attached to the case (entity 18). |
+| `consultation` | object | The doctor's own consultation with the patient. `prompted` records that the once-only question was put; `hasRecording` how it was answered; `summary` the HealthScribe clinical summary, which every AI step reads alongside `interview`. |
+| `testRound` | number | Which round of investigations the workup is on. Incremented when the results analysis needs more evidence; each *TestRecommendation* carries the `round` it belongs to. |
+| `analysis` | object, optional | The last results analysis: `verdict` (`no_results` / `confident` / `needs_more_tests`), the `message` shown to the doctor, `newTestCount`, and the results it weighed. |
+| `reopenReason` | text, optional | The doctor's account of why a case on treatment was reopened. Fed to the AI on the re-analysis. |
 
 > `createdByNurseId` and `assignedPhysicianId` are **backend-only** (the UI never shows
 > them). They are how the system decides who is allowed to open the case.

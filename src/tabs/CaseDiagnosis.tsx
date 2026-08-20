@@ -1,12 +1,20 @@
 import { useState } from 'react';
-import { ClipboardCheck, Sparkles, Check, Search, StickyNote, Pill, Activity, AlertTriangle, CalendarClock, XCircle, ShieldCheck, Hourglass, Loader2 } from 'lucide-react';
+import { ClipboardCheck, Sparkles, Check, Search, StickyNote, Pill, Activity, AlertTriangle, CalendarClock, XCircle, ShieldCheck, Hourglass, HeartPulse, RotateCcw, Loader2 } from 'lucide-react';
 import type { PatientCase } from '@/types';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { SectionHeading, ConfidenceRing } from '@/components/common';
-import { useProposeFinalDiagnosis, useAcceptFinalDiagnosis, useSetCaseState, useAddNote } from '@/hooks/useCases';
+import {
+  useProposeFinalDiagnosis,
+  useAcceptFinalDiagnosis,
+  useSetCaseState,
+  useAddNote,
+  useResolveCase,
+  useReopenCase,
+} from '@/hooks/useCases';
 import { CaseDifferential } from '@/tabs/CaseDifferential';
+import { CaseFeedback } from '@/components/DoctorTools';
 import { cn } from '@/lib/utils';
 
 function ListBlock({ icon, title, items }: { icon: React.ReactNode; title: string; items: string[] }) {
@@ -31,20 +39,120 @@ function ListBlock({ icon, title, items }: { icon: React.ReactNode; title: strin
 }
 
 /**
- * The ranked differential and the final sign-off, on one page.
+ * The ranked differential, the sign-off, and the end of the case, on one page.
  *
- * They were two tabs, which meant reading the reasoning and acting on it
- * happened in different places. The differential leads; the sign-off follows
- * from it.
+ * The differential and the sign-off were two tabs, which meant reading the
+ * reasoning and acting on it happened in different places. The differential
+ * leads; the sign-off follows from it; treatment follows from that; and the
+ * feedback form sits at the very bottom, unlocked only once the case is
+ * resolved.
  */
 export function CaseDiagnosis({ caseData }: { caseData: PatientCase }) {
+  const resolved = caseData.status === 'Completed' || caseData.status === 'Archived';
   return (
     <div className="space-y-10 pb-8">
       <CaseDifferential caseData={caseData} />
       <div className="border-t pt-8">
         <FinalDiagnosisPanel caseData={caseData} />
       </div>
+      {/* The one and only place a doctor can rate Aura's reasoning — and it
+          only appears once the patient's outcome is known. The server enforces
+          the same rule (backend/sehati/resolvers/feedback.py). */}
+      {resolved && (
+        <div className="border-t pt-8">
+          <CaseFeedback caseId={caseData.id} />
+        </div>
+      )}
     </div>
+  );
+}
+
+/**
+ * What happens after the diagnosis is signed off.
+ *
+ * Accepting a diagnosis is not the end of a case: the patient still has to be
+ * treated, and treatment is where an unexpected outcome shows up. So the case
+ * parks here, and the doctor closes the loop one of two ways — the patient got
+ * better (resolve, which is also what unlocks the feedback form), or they
+ * didn't (reopen, which withdraws the sign-off and re-runs the analysis with
+ * the doctor's account of what actually happened, usually producing a new
+ * round of tests).
+ */
+function TreatmentPanel({ caseData: c }: { caseData: PatientCase }) {
+  const resolveCase = useResolveCase(c.id);
+  const reopenCase = useReopenCase(c.id);
+  const [mode, setMode] = useState<'idle' | 'resolve' | 'reopen'>('idle');
+  const [text, setText] = useState('');
+
+  const busy = resolveCase.isPending || reopenCase.isPending;
+  const error = (resolveCase.error ?? reopenCase.error) as Error | undefined;
+
+  return (
+    <Card className="overflow-hidden border-primary/40">
+      <div className="flex items-center gap-2 bg-primary/10 px-5 py-2.5 text-[13px] font-semibold text-primary">
+        <HeartPulse className="h-4 w-4" /> Patient is on treatment
+      </div>
+      <CardContent className="space-y-4 p-5">
+        <p className="text-sm text-muted-foreground">
+          Close the loop when you know how {c.patient.name.split(' ')[0] || 'the patient'} responded. If the
+          outcome wasn't what the diagnosis predicted, reopening withdraws the sign-off and asks Aura to
+          re-reason from what actually happened.
+        </p>
+
+        {mode === 'idle' && (
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={() => setMode('resolve')}>
+              <Check className="h-4 w-4" /> Mark resolved
+            </Button>
+            <Button variant="outline" onClick={() => setMode('reopen')}>
+              <RotateCcw className="h-4 w-4" /> Unexpected outcome — reopen
+            </Button>
+          </div>
+        )}
+
+        {mode !== 'idle' && (
+          <div className="space-y-3 rounded-lg border bg-muted/30 p-3.5">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              {mode === 'resolve' ? 'How did it turn out? (optional)' : 'What happened instead?'}
+            </p>
+            <Textarea
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              rows={3}
+              autoFocus
+              placeholder={
+                mode === 'resolve'
+                  ? 'e.g. Symptoms resolved after 5 days of oral antibiotics.'
+                  : 'e.g. No response to antibiotics after 72 hours; fever persisting.'
+              }
+            />
+            <div className="flex flex-wrap gap-2">
+              <Button
+                disabled={busy || (mode === 'reopen' && !text.trim())}
+                onClick={() => {
+                  if (mode === 'resolve') resolveCase.mutate({ note: text.trim() || undefined });
+                  else reopenCase.mutate(text.trim());
+                }}
+              >
+                {busy && <Loader2 className="h-4 w-4 animate-spin" />}
+                {mode === 'resolve' ? 'Resolve and close case' : 'Reopen and re-analyse'}
+              </Button>
+              <Button variant="ghost" onClick={() => setMode('idle')} disabled={busy}>
+                Cancel
+              </Button>
+            </div>
+            {mode === 'reopen' && (
+              <p className="text-[12px] text-muted-foreground">
+                Aura will read this, re-weigh the results, and usually add a new round of tests to the
+                Workup tab.
+              </p>
+            )}
+          </div>
+        )}
+
+        {error && <p className="text-[13px] text-rose-600 dark:text-rose-400">{error.message}</p>}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -167,11 +275,16 @@ function FinalDiagnosisPanel({ caseData: c }: { caseData: PatientCase }) {
           )}
           {fd.status === 'accepted' && (
             <p className="mt-3 flex items-center gap-1.5 text-[13px] font-medium text-emerald-600 dark:text-emerald-400">
-              <Check className="h-4 w-4" /> Diagnosis confirmed. Case closed and retained immutably.
+              <Check className="h-4 w-4" />
+              {readOnly
+                ? 'Case resolved and retained immutably.'
+                : 'Diagnosis signed off. The case stays open until you mark it resolved.'}
             </p>
           )}
         </CardContent>
       </Card>
+
+      {c.status === 'Treatment' && <TreatmentPanel caseData={c} />}
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>

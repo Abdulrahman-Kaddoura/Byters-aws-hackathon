@@ -1,4 +1,10 @@
-"""Physical examination resolvers (design doc section 6.2)."""
+"""Physical examination resolvers (design doc section 6.2).
+
+Aura recommends manoeuvres, but a doctor examines the patient in front of them
+— so ``add_custom_exam`` lets a finding onto the case whether or not the AI
+thought to ask for it. It lands complete, because it describes something that
+has already happened.
+"""
 
 from __future__ import annotations
 
@@ -8,7 +14,7 @@ from ..ai import factory
 from ..context import AuthContext
 from ..db import audit_repo, cases_repo
 from ..errors import NotFoundError, ValidationError
-from ..models import recent_update
+from ..models import new_id, recent_update
 from .helpers import find, touch_progress
 
 
@@ -25,6 +31,33 @@ def recommend_exams(ctx: AuthContext, args: dict[str, Any]) -> dict[str, Any]:
     cases_repo.save_case(case, ctx)
     audit_repo.record(ctx, case_id=case["id"], action="recommendExams", model_version=result.model_version)
     return {"case": case, "exams": case["exams"]}
+
+
+def add_custom_exam(ctx: AuthContext, args: dict[str, Any]) -> dict[str, Any]:
+    """Record an examination the doctor performed that Aura didn't recommend."""
+    ctx.require_permission("exams.manage")
+    case = cases_repo.get_case(_require(args, "caseId"), ctx)
+    name = _require(args, "name")
+
+    exam = {
+        "id": new_id("EXM"),
+        "name": name,
+        "reason": args.get("reason") or "Performed by the treating physician.",
+        "importance": args.get("importance") or "Routine",
+        "confidence": 0,
+        "status": "complete",
+        "finding": args.get("finding") or "",
+        "custom": True,
+    }
+    for field in ("flag", "note", "normalRange"):
+        if args.get(field):
+            exam[field] = args[field]
+    case.setdefault("exams", []).append(exam)
+    touch_progress(case, "examination")
+    case.setdefault("recentUpdates", []).insert(0, recent_update(f"Doctor recorded exam: {name}", "doctor"))
+    cases_repo.save_case(case, ctx)
+    audit_repo.record(ctx, case_id=case["id"], action="addCustomExam", output={"name": name})
+    return {"case": case, "exam": exam}
 
 
 def record_exam_finding(ctx: AuthContext, args: dict[str, Any]) -> dict[str, Any]:

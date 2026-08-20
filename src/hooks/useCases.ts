@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as api from '../lib/api';
 import { ME_QUERY_KEY } from '../lib/session';
-import type { Flag, PatientCase } from '../types';
+import type { Flag, PatientCase, TestStatus } from '../types';
 
 const casesKey = (opts: { status?: string; scope?: 'mine' } = {}) => ['cases', opts] as const;
 const caseKey = (id: string) => ['case', id] as const;
@@ -279,5 +279,73 @@ export function useStartTranscription(caseId: string) {
 export function useSubmitFeedback(caseId: string) {
   return useMutation({
     mutationFn: (vars: { feedback: string; category?: string }) => api.submitFeedback(caseId, vars.feedback, vars.category),
+  });
+}
+
+// --- The doctor's consultation recording -------------------------------------
+export function useSetConsultation(caseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: Parameters<typeof api.setConsultation>[1]) => api.setConsultation(caseId, payload),
+    onSuccess: (res) => applyCase(qc, res.case),
+  });
+}
+
+// --- Workup: the doctor's own additions --------------------------------------
+export function useRecommendTests(caseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.recommendTests(caseId),
+    onSuccess: (res) => applyCase(qc, res.case),
+  });
+}
+
+export function useAddCustomTest(caseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: Parameters<typeof api.addCustomTest>[1]) => api.addCustomTest(caseId, payload),
+    onSuccess: (res) => applyCase(qc, res.case),
+  });
+}
+
+export function useUpdateTest(caseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { testId: string; status: TestStatus; note?: string }) =>
+      api.updateTest(caseId, vars.testId, { status: vars.status, note: vars.note }),
+    onSuccess: (res) => applyCase(qc, res.case),
+  });
+}
+
+export function useAddCustomExam(caseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: Parameters<typeof api.addCustomExam>[1]) => api.addCustomExam(caseId, payload),
+    onSuccess: (res) => applyCase(qc, res.case),
+  });
+}
+
+// --- Results-driven differential + resolution --------------------------------
+export function useAnalyzeResults(caseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.analyzeResults(caseId),
+    onSuccess: (res) => applyCase(qc, res.case),
+  });
+}
+
+export function useResolveCase(caseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: { outcome?: string; note?: string } = {}) => api.resolveCase(caseId, payload),
+    onSuccess: (res) => applyCase(qc, res.case),
+  });
+}
+
+export function useReopenCase(caseId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (reason: string) => api.reopenCase(caseId, reason),
+    onSuccess: (res) => applyCase(qc, res.case),
   });
 }

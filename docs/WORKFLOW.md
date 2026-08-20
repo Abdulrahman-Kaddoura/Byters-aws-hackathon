@@ -24,9 +24,16 @@ stateDiagram-v2
     ResultsDiscussion --> InProgress: needs more tests
     ResultsDiscussion --> Diagnosis: enough evidence
     Diagnosis --> ResultsDiscussion: doctor forces re-eval
-    Diagnosis --> Closed: doctor signs off
+    Diagnosis --> Treatment: doctor signs off
+    Treatment --> ResultsDiscussion: unexpected outcome
+    Treatment --> Closed: doctor marks resolved
     Closed --> [*]
 ```
+
+Note where sign-off lands. Accepting a diagnosis does **not** close a case: the
+patient still has to be treated, and treatment is where an unexpected outcome
+surfaces. So sign-off parks the case in `Treatment`, from which the doctor
+either marks it resolved or reopens it.
 
 Each state also maps to the friendlier `status`/`stage` labels the UI shows (e.g.
 `InProgress` → "Awaiting Tests"). You don't manage that mapping — the backend keeps
@@ -40,7 +47,8 @@ them in sync.
 | `InProgress` | Awaiting Tests | Tests have been ordered; waiting on results. |
 | `ResultsDiscussion` | Diagnosis in Progress | Results are in; AI + doctor reason over them. |
 | `Diagnosis` | Diagnosis in Progress | A final diagnosis has been proposed. |
-| `Closed` | Completed | Doctor signed off; record retained immutably. |
+| `Treatment` | Treatment | Doctor signed off; patient is being treated. Waiting to see how it goes. |
+| `Closed` | Completed | Doctor marked the case resolved; record retained immutably. Feedback unlocks here. |
 
 ---
 
@@ -127,23 +135,38 @@ sequenceDiagram
 - **Result:** `summary` is filled in and the case moves **AIInterview → DoctorReview**.
   The doctor now has a tidy write-up instead of a raw transcript.
 
+### Step 3b — The doctor's own consultation recording
+- **Who:** The assigned doctor, the first time they open the case.
+- **What:** They are asked once whether they have a recording of themselves
+  talking to the patient. If they do, it is uploaded, transcribed by AWS
+  HealthScribe, and its clinical summary is stored on the case. From then on
+  **every** AI step reasons over both accounts — the patient's AI interview and
+  the doctor's consultation — because the two capture different things.
+- **Endpoints:** `uploadCaseAudio` → `startTranscription` →
+  `transcriptionStatus` (poll) → `setConsultation`.
+- **Result:** `consultation.prompted` becomes `true` whichever way it is
+  answered, so the question is never asked twice. Saying "no recording" is a
+  complete answer: the case then runs on the AI interview alone.
+
 ### Step 4 — Doctor review & examination
 - **Who:** The **assigned** doctor. A colleague who isn't assigned to this case
   gets a `403` — they cannot see it in any list, or open it by URL.
 - **What:** Opens the case, reads the summary, and does a physical examination. The
-  AI can suggest which exams matter; the doctor records findings.
+  AI can suggest which exams matter; the doctor records findings. A recommendation
+  isn't a work order — anything the doctor examined that the AI didn't ask for
+  goes on the case too.
 - **Endpoints:** `getCase` (open it), `recommendExams` (get suggested exams),
-  `recordExamFinding` (enter each finding).
+  `recordExamFinding` (enter each finding), `addCustomExam` (record one the AI
+  didn't suggest).
 - **Result:** `exams` get their `finding`/`flag` filled in.
 
-### Step 5 — Differential diagnosis (the ranked possibilities)
-- **Who:** Doctor asks; AI produces.
-- **What:** The AI returns a **ranked list of Diagnoses**, each with reasoning,
-  supporting/contradicting evidence, a confidence band, citations, and recommended
-  tests. It also proposes the tests to order.
-- **Endpoint:** `requestRecommendations`
-- **Result:** `diagnoses` and `tests` are populated; the leading one becomes the
-  `primaryImpression`.
+### Step 5 — Stock the workup
+- **Who:** Doctor asks; AI proposes.
+- **What:** The AI proposes the investigations this presentation needs, each
+  with a reason, an expected finding and a diagnostic value. The doctor can also
+  add tests they ordered themselves.
+- **Endpoints:** `recommendTests`, `addCustomTest`.
+- **Result:** `tests` is populated, tagged with the current `testRound`.
 
 ### Step 6 — Interrogate the AI (explainability)
 - **Who:** Doctor ↔ AI.
@@ -156,8 +179,10 @@ sequenceDiagram
 
 ### Step 7 — Order tests
 - **Who:** Doctor.
-- **What:** Accepts some recommended tests and orders them.
-- **Endpoint:** `orderTest` (once per test).
+- **What:** Marks the tests they've actually put in as awaiting results, and the
+  ones they chose not to run as declined — so no recommendation is left
+  dangling.
+- **Endpoints:** `orderTest` (or `updateTest` with a `status`).
 - **Result:** The test's status becomes `ordered`. **The first order moves the case
   DoctorReview → InProgress** ("Awaiting Tests").
 
@@ -173,14 +198,27 @@ sequenceDiagram
 - **Result:** The test's `result`/`resultFlag` are filled in and a timeline entry
   is added.
 
-### Step 9 — Re-reason over the results
-- **Who:** Doctor asks; AI re-ranks.
-- **What:** With results in hand, the AI updates the differential — confidences
-  shift, the order may change.
-- **Endpoint:** `rerankAfterResults`
-- **Result:** `diagnoses` are updated and the case moves **InProgress →
-  ResultsDiscussion**. If more tests are needed, the doctor can loop back to
-  ordering tests.
+### Step 9 — Analyse the results (the differential)
+- **Who:** Doctor asks; AI weighs.
+- **What:** The AI compares each recommended test against the result that
+  actually came back and decides, honestly, whether that is enough. This is the
+  differential — it is driven by results, not by the intake, and it has three
+  possible answers:
+
+  | Verdict | What it means | What happens |
+  |---------|---------------|--------------|
+  | `no_results` | Nothing has been resulted. | It says so and points at the workup. No differential is invented from the intake alone. |
+  | `confident` | The results settle it. | `diagnoses` is re-ranked; the case moves **InProgress → ResultsDiscussion**. |
+  | `needs_more_tests` | The results narrow the field without closing it. | A fresh round of investigations is written onto the workup and the doctor is told to go and enter their results; the case goes back to **InProgress**. |
+
+- **Endpoint:** `analyzeResults`
+- **Result:** On a new round, `testRound` is incremented. Everything the doctor
+  ordered or resulted keeps its round number and stays on the case as history;
+  recommendations nobody acted on are dropped, since they are the guesses this
+  analysis just superseded. The loop repeats until the verdict is `confident`.
+
+  (`rerankAfterResults` still exists and only re-orders the existing list — it
+  never asks for anything back. `analyzeResults` is what the UI calls.)
 
 ### Step 10 — Propose the final diagnosis
 - **Who:** Doctor asks; AI proposes.
@@ -198,7 +236,29 @@ sequenceDiagram
 - **Endpoint:** `acceptFinalDiagnosis` (to sign off), or `setCaseState` back to
   `ResultsDiscussion` (to re-open).
 - **Result:** On accept, `finalDiagnosis.status` becomes `accepted` and the case
-  moves **Diagnosis → Closed**. The complete record is retained immutably.
+  moves **Diagnosis → Treatment**. It stays there until the doctor knows how the
+  patient responded.
+
+### Step 12 — Treatment, then resolution (or an unexpected outcome)
+- **Who:** Doctor.
+- **What:** The case sits in `Treatment` while the patient is actually treated.
+  Then one of two things happens. They got better — the doctor marks the case
+  resolved and it closes. Or they didn't — the doctor reopens it with an account
+  of what actually happened, which withdraws the sign-off, is written onto the
+  case as a note the AI reads, and immediately re-runs the results analysis
+  (usually producing a new round of tests).
+- **Endpoints:** `resolveCase`, `reopenCase`.
+- **Result:** **Treatment → Closed**, or **Treatment → ResultsDiscussion**.
+
+### Step 13 — Feedback (only now)
+- **Who:** Doctor.
+- **What:** With the outcome known, the doctor says where the AI's reasoning was
+  right and where it was wrong. This is kept as memory and folded back into that
+  doctor's future prompts.
+- **Endpoint:** `submitFeedback` — which **rejects an open case**. This is the
+  only state, and therefore the only place in the app, where feedback can be
+  given.
+- **Result:** Stored per doctor, against this case.
 
 ```mermaid
 sequenceDiagram
@@ -212,7 +272,8 @@ sequenceDiagram
     D->>Sys: orderTest / recordTestResult
     D->>Sys: rerankAfterResults(caseId)
     D->>Sys: proposeFinalDiagnosis(caseId)
-    D->>Sys: acceptFinalDiagnosis(caseId)  --> Closed
+    D->>Sys: acceptFinalDiagnosis(caseId)  --> Treatment
+    D->>Sys: resolveCase(caseId)           --> Closed
 ```
 
 ---
