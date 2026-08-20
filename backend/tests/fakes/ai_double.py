@@ -177,6 +177,56 @@ class FakeAIService(AIService):
             ranked[0] = top
         return AIResult(value=ranked, model_version=self.model_version)
 
+    # --- Results analysis ---------------------------------------------------
+    def analyze_results(self, case: PatientCase) -> AIResult:
+        """Deterministic stand-in for the real weigh-the-results reasoning.
+
+        The rule mirrors the shape of the real judgement without any model: a
+        set of results that all came back explicitly ``normal`` narrows nothing,
+        so it asks for another round; anything abnormal, critical or unflagged
+        is treated as informative enough to rank on.
+        """
+        resulted = [
+            t for t in case.get("tests") or []
+            if t.get("status") == "completed" and str(t.get("result", "")).strip()
+        ]
+        ranked = self.rerank_after_results(case).value
+        all_normal = bool(resulted) and all(t.get("resultFlag") == "normal" for t in resulted)
+        if all_normal:
+            done = {str(t.get("name", "")).strip().lower() for t in resulted}
+            follow_ups = [
+                _test("t-r2a", "Chest X-ray", "Imaging", "Look for a source the bloods did not show.", "High", 78),
+                _test("t-r2b", "Urinalysis", "Microbiology", "Rule out an occult urinary source.", "Medium", 64),
+            ]
+            new_tests = [t for t in follow_ups if t["name"].strip().lower() not in done]
+            return AIResult(
+                value={
+                    "verdict": "needs_more_tests",
+                    "message": (
+                        "Every result so far came back normal, which rules things out "
+                        "without ruling anything in. Further investigations have been "
+                        "added to the workup."
+                    ),
+                    "diagnoses": ranked,
+                    "newTests": new_tests,
+                },
+                model_version=self.model_version,
+            )
+        top = ranked[0] if ranked else None
+        return AIResult(
+            value={
+                "verdict": "confident",
+                "message": (
+                    f"The results support {top.get('name')} as the leading diagnosis."
+                    if top
+                    else "The results have been weighed against the recommendations."
+                ),
+                "diagnoses": ranked,
+                "newTests": [],
+            },
+            model_version=self.model_version,
+        )
+
     # --- Final diagnosis ----------------------------------------------------
     def propose_final_diagnosis(self, case: PatientCase) -> AIResult:
         existing = case.get("finalDiagnosis")

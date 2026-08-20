@@ -73,6 +73,21 @@ class AIService(abc.ABC):
         updated differential."""
 
     @abc.abstractmethod
+    def analyze_results(self, case: PatientCase) -> AIResult:
+        """Weigh each recommended test against the result the doctor actually
+        entered and decide whether the evidence settles the question.
+
+        Returns a dict: ``{"verdict": "confident"|"needs_more_tests",
+        "message": str, "diagnoses": [Diagnosis], "newTests": [TestRecommendation]}``.
+        ``needs_more_tests`` is the honest answer when the results narrow the
+        field without closing it — ``newTests`` then carries the round of
+        investigations that would close it, and the caller writes them onto the
+        case for the doctor to fill in.
+
+        Distinct from :meth:`rerank_after_results`, which only re-orders the
+        existing differential and never asks for anything back."""
+
+    @abc.abstractmethod
     def propose_final_diagnosis(self, case: PatientCase) -> AIResult:
         """Propose a final diagnosis (``FinalDiagnosis`` shape) with an honest,
         qualitative confidence band and the evidence summary."""

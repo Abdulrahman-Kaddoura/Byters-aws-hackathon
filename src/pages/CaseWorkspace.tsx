@@ -17,6 +17,7 @@ import { LoadingState } from '@/components/common';
 import { useCase } from '@/hooks/useCases';
 import { PERMISSIONS, useSession } from '@/lib/session';
 import { AssignDoctor } from '@/components/AssignDoctor';
+import { ConsultationPrompt } from '@/components/ConsultationPrompt';
 import { TagEditor } from '@/components/TagEditor';
 
 import { CaseOverview } from '@/tabs/CaseOverview';
@@ -137,8 +138,16 @@ export function CaseWorkspace() {
         </Tabs>
       </div>
 
-      <div className="flex-1 overflow-auto bg-muted/20 p-6">
-        <div className="mx-auto h-full max-w-5xl">
+      {/* Asked once, before anything else: is there a recording of the doctor's
+          own consultation? It has to come first because the summary, exams,
+          tests and differential are all generated from it. */}
+      {clinical && <ConsultationPrompt caseData={caseData} />}
+
+      {/* max-w-5xl left a wide screen mostly empty on either side of a single
+          column of cards. The tables and lists inside these tabs use the width
+          they're given, so give them more of it. */}
+      <div className="flex-1 overflow-auto bg-muted/20 px-4 py-5 sm:px-6">
+        <div className="mx-auto h-full max-w-7xl">
           {tab === 'overview' && <CaseOverview caseData={caseData} isClinician={clinical} />}
           {tab === 'interview' && clinical && <CaseInterview caseData={caseData} />}
           {tab === 'workup' && clinical && <CaseWorkup caseData={caseData} />}

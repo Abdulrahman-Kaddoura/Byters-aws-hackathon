@@ -12,7 +12,15 @@ so the case document renders correctly in the existing UI.
     needs more tests       -> InProgress            (loop)
     sufficient evidence    -> Diagnosis
     doctor forces re-eval  -> ResultsDiscussion     (loop)
-    doctor marks cured     -> Closed
+    doctor signs off dx    -> Treatment
+    unexpected outcome     -> ResultsDiscussion     (loop)
+    doctor marks resolved  -> Closed
+
+Accepting a diagnosis is not the end of the case. The patient still has to be
+treated, and treatment is where an unexpected outcome shows up. So sign-off
+lands in ``Treatment``, from which the doctor either marks the case resolved
+(``Closed``) or reopens it (``ResultsDiscussion``) when the patient doesn't
+respond the way the diagnosis predicted.
 """
 
 from __future__ import annotations
@@ -29,6 +37,7 @@ class LifecycleState(str, Enum):
     IN_PROGRESS = "InProgress"
     RESULTS_DISCUSSION = "ResultsDiscussion"
     DIAGNOSIS = "Diagnosis"
+    TREATMENT = "Treatment"
     CLOSED = "Closed"
 
 
@@ -43,8 +52,12 @@ _ALLOWED: dict[LifecycleState, set[LifecycleState]] = {
         LifecycleState.IN_PROGRESS,  # needs more tests
     },
     LifecycleState.DIAGNOSIS: {
-        LifecycleState.CLOSED,
+        LifecycleState.TREATMENT,  # doctor signs off; patient goes on treatment
         LifecycleState.RESULTS_DISCUSSION,  # doctor forces re-evaluation
+    },
+    LifecycleState.TREATMENT: {
+        LifecycleState.CLOSED,  # patient recovered; doctor marks it resolved
+        LifecycleState.RESULTS_DISCUSSION,  # unexpected outcome; re-open
     },
     LifecycleState.CLOSED: set(),  # terminal; record retained immutably
 }
@@ -58,6 +71,7 @@ STATE_PRESENTATION: dict[LifecycleState, tuple[str, str]] = {
     LifecycleState.IN_PROGRESS: ("Awaiting Tests", "tests"),
     LifecycleState.RESULTS_DISCUSSION: ("Diagnosis in Progress", "results"),
     LifecycleState.DIAGNOSIS: ("Diagnosis in Progress", "diagnosis"),
+    LifecycleState.TREATMENT: ("Treatment", "treatment"),
     LifecycleState.CLOSED: ("Completed", "completion"),
 }
 

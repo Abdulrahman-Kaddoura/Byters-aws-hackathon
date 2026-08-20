@@ -14,6 +14,7 @@ from .resolvers import (
     admin,
     cases,
     collab,
+    consultation,
     conversations,
     diagnosis,
     documents,
@@ -50,17 +51,26 @@ ROUTES: dict[str, Resolver] = {
     # Side conversations (return visits / follow-ups, additive to interview)
     "createConversation": conversations.create_conversation,
     "postConversationMessage": conversations.post_conversation_message,
+    # The doctor's own consultation recording (asked for once, up front)
+    "setConsultation": consultation.set_consultation,
     # Examination
     "recommendExams": exams.recommend_exams,
+    "addCustomExam": exams.add_custom_exam,
     "recordExamFinding": exams.record_exam_finding,
     # Diagnosis
     "requestRecommendations": diagnosis.request_recommendations,
     "askDiagnosis": diagnosis.ask_diagnosis,
+    "analyzeResults": diagnosis.analyze_results,
     "rerankAfterResults": diagnosis.rerank_after_results,
     "proposeFinalDiagnosis": diagnosis.propose_final_diagnosis,
     "acceptFinalDiagnosis": diagnosis.accept_final_diagnosis,
+    "resolveCase": diagnosis.resolve_case,
+    "reopenCase": diagnosis.reopen_case,
     # Tests
+    "recommendTests": tests.recommend_tests,
+    "addCustomTest": tests.add_custom_test,
     "orderTest": tests.order_test,
+    "updateTest": tests.update_test,
     "recordTestResult": tests.record_test_result,
     # Collaboration + feedback
     "assistantChat": collab.assistant_chat,

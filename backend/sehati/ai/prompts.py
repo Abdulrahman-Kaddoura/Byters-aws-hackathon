@@ -128,6 +128,20 @@ def rerank_prompt(case: dict[str, Any]) -> str:
     )
 
 
+def analyze_results_prompt(case: dict[str, Any]) -> str:
+    doc_context = case.get("documentContext", "")
+    return (
+        "Compare each recommended test against the result the physician entered, say "
+        "what each result rules in or out, then decide honestly whether that is enough "
+        "to name a leading diagnosis. If it is not, ask for the specific further tests "
+        "that would settle it rather than claiming confidence you do not have.\n\n"
+        f"Case: {case}\n"
+        f"Uploaded document context: {doc_context}\n\n"
+        'Respond ONLY with JSON: {"verdict": "confident"|"needs_more_tests", '
+        '"message": str, "diagnoses": [...], "newTests": [...]}'
+    )
+
+
 def final_diagnosis_prompt(case: dict[str, Any]) -> str:
     doc_context = case.get("documentContext", "")
     return (

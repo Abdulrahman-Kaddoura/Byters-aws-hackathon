@@ -2,9 +2,12 @@ import { config } from './config';
 import { getIdToken, signOut } from './auth';
 import type {
   AppUser,
+  CaseAnalysis,
   CaseDocument,
   ChatMessage,
   CognitoGroup,
+  Consultation,
+  ConsultationSummary,
   Conversation,
   Diagnosis,
   ExamRecommendation,
@@ -17,6 +20,7 @@ import type {
   PermissionGroup,
   StructuredSummary,
   TestRecommendation,
+  TestStatus,
 } from '../types';
 
 export class ApiError extends Error {
@@ -169,6 +173,25 @@ export function recordExamFinding(
   return request('PUT', `/cases/${enc(caseId)}/exams/${enc(examId)}`, patch);
 }
 
+/** Record an examination the doctor performed that Aura didn't recommend. */
+export function addCustomExam(
+  caseId: string,
+  payload: { name: string; finding?: string; reason?: string; flag?: Flag; note?: string }
+): Promise<CaseEnvelope & { exam: ExamRecommendation }> {
+  return request('POST', `/cases/${enc(caseId)}/exams/custom`, payload);
+}
+
+// --- The doctor's consultation recording ------------------------------------
+/** Answer the once-only consultation-recording prompt. `hasRecording: false`
+ * is a real answer — it records that the question was put and stops it coming
+ * back; the case then runs on the AI interview alone. */
+export function setConsultation(
+  caseId: string,
+  payload: { hasRecording: boolean; summary?: ConsultationSummary; jobName?: string; s3Key?: string }
+): Promise<CaseEnvelope & { consultation: Consultation }> {
+  return request('POST', `/cases/${enc(caseId)}/consultation`, payload);
+}
+
 // --- Diagnosis --------------------------------------------------------------
 export function requestRecommendations(
   caseId: string
@@ -188,10 +211,28 @@ export function rerankAfterResults(caseId: string): Promise<CaseEnvelope & { dia
   return request('POST', `/cases/${enc(caseId)}/diagnoses/rerank`);
 }
 
+/** Weigh the results the doctor entered against what each test was meant to
+ * show. Either names a leading diagnosis (`confident`) or writes a fresh round
+ * of investigations onto the workup and says so (`needs_more_tests`). With
+ * nothing resulted it answers `no_results` rather than guessing. */
+export function analyzeResults(
+  caseId: string
+): Promise<
+  CaseEnvelope & {
+    verdict: CaseAnalysis['verdict'];
+    message: string;
+    diagnoses: Diagnosis[];
+    newTests: TestRecommendation[];
+  }
+> {
+  return request('POST', `/cases/${enc(caseId)}/diagnoses/analyze`);
+}
+
 export function proposeFinalDiagnosis(caseId: string): Promise<CaseEnvelope & { finalDiagnosis: FinalDiagnosis }> {
   return request('POST', `/cases/${enc(caseId)}/final-diagnosis`);
 }
 
+/** Sign-off, not resolution: the case moves to treatment and waits there. */
 export function acceptFinalDiagnosis(
   caseId: string,
   note?: string
@@ -199,7 +240,53 @@ export function acceptFinalDiagnosis(
   return request('PUT', `/cases/${enc(caseId)}/final-diagnosis`, { note });
 }
 
+/** The patient responded to treatment — close the case. This is the only
+ * thing that unlocks the feedback form. */
+export function resolveCase(
+  caseId: string,
+  payload: { outcome?: string; note?: string } = {}
+): Promise<CaseEnvelope> {
+  return request('POST', `/cases/${enc(caseId)}/resolve`, payload);
+}
+
+/** Treatment didn't go as the diagnosis predicted. Withdraws the sign-off and
+ * immediately re-runs the results analysis with the doctor's account of what
+ * actually happened. */
+export function reopenCase(
+  caseId: string,
+  reason: string
+): Promise<
+  CaseEnvelope & { verdict: CaseAnalysis['verdict']; message: string; newTests: TestRecommendation[] }
+> {
+  return request('POST', `/cases/${enc(caseId)}/reopen`, { reason });
+}
+
 // --- Tests ------------------------------------------------------------------
+/** Stock the workup with AI-recommended investigations, without committing to
+ * a differential first — the differential is results-driven and has nothing to
+ * say until something comes back. */
+export function recommendTests(caseId: string): Promise<CaseEnvelope & { tests: TestRecommendation[] }> {
+  return request('POST', `/cases/${enc(caseId)}/tests/recommend`);
+}
+
+/** Record an investigation the doctor ordered that Aura didn't suggest. */
+export function addCustomTest(
+  caseId: string,
+  payload: { name: string; category?: string; reason?: string; expectedFinding?: string; priority?: string }
+): Promise<CaseEnvelope & { test: TestRecommendation }> {
+  return request('POST', `/cases/${enc(caseId)}/tests/custom`, payload);
+}
+
+/** Move a test between states — 'ordered' means awaiting results, 'declined'
+ * means the doctor chose not to run it. */
+export function updateTest(
+  caseId: string,
+  testId: string,
+  payload: { status: TestStatus; note?: string }
+): Promise<CaseEnvelope & { test: TestRecommendation }> {
+  return request('PUT', `/cases/${enc(caseId)}/tests/${enc(testId)}`, payload);
+}
+
 export function orderTest(caseId: string, testId: string): Promise<CaseEnvelope & { test: TestRecommendation }> {
   return request('POST', `/cases/${enc(caseId)}/tests/${enc(testId)}/order`);
 }

@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useLocation } from 'wouter';
-import { Sparkles, FileText, Send, CheckCircle2, Loader2, Tablet } from 'lucide-react';
-import type { PatientCase } from '@/types';
+import { Sparkles, FileText, Send, CheckCircle2, Loader2, Mic, Tablet } from 'lucide-react';
+import type { ConsultationSummary, PatientCase } from '@/types';
 import { CaseConversations } from '@/tabs/CaseConversations';
-import { AudioTranscriptionCard, FeedbackCard } from '@/components/DoctorTools';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,25 +12,86 @@ import { TagList } from '@/components/common';
 import { usePostInterviewMessage, useGenerateSummary } from '@/hooks/useCases';
 
 /**
- * The primary intake interview, plus the follow-up sessions layered on it.
+ * Everything the patient said, from both sources.
  *
- * "Sessions" used to be its own tab, which put a return visit's conversation
- * one navigation away from the original it follows on from.
+ * The doctor's own consultation leads, because it happened first and because
+ * every later AI step reasons over it — it is collected by the prompt on first
+ * open (`components/ConsultationPrompt.tsx`) and shown here read-only. Then the
+ * AI intake interview and the follow-up sessions layered on it. ("Sessions"
+ * used to be its own tab, which put a return visit's conversation one
+ * navigation away from the original it follows on from.)
+ *
+ * The audio-upload card and the feedback form used to sit at the bottom of
+ * this tab. Neither belonged: uploading audio after the differential is built
+ * is too late to be of any use, and feedback on the AI's reasoning can't be
+ * given before the patient's outcome is known. The first moved to the prompt,
+ * the second to the end of the case.
  */
 export function CaseInterview({ caseData }: { caseData: PatientCase }) {
   return (
     <div className="space-y-10 pb-8">
+      <ConsultationRecord caseData={caseData} />
       <PrimaryInterview caseData={caseData} />
       <div className="border-t pt-8">
         <CaseConversations caseData={caseData} />
       </div>
-      {/* Moved off Overview, where they competed with the clinical summary.
-          Both are about this conversation, so they belong beside it. */}
-      <div className="grid gap-4 border-t pt-8 sm:grid-cols-2">
-        <AudioTranscriptionCard caseId={caseData.id} />
-        <FeedbackCard caseId={caseData.id} />
-      </div>
     </div>
+  );
+}
+
+function SummaryField({ label, value }: { label: string; value?: string | null }) {
+  if (!value) return null;
+  return (
+    <div>
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{value}</p>
+    </div>
+  );
+}
+
+/** The transcribed doctor-patient consultation, if one was recorded.
+ *
+ * Read-only by design: the question is asked once, on first open, and the
+ * answer stands for the case. */
+function ConsultationRecord({ caseData: c }: { caseData: PatientCase }) {
+  const consultation = c.consultation;
+  if (!consultation?.prompted) return null;
+
+  const summary: ConsultationSummary = consultation.summary ?? {};
+  const hasFields = Object.values(summary).some(Boolean);
+
+  return (
+    <Card>
+      <CardContent className="p-5">
+        <div className="flex items-center gap-2">
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted text-primary">
+            <Mic className="h-4 w-4" />
+          </span>
+          <div>
+            <h3 className="text-sm font-semibold">Doctor's consultation</h3>
+            <p className="text-xs text-muted-foreground">
+              {consultation.hasRecording
+                ? 'Transcribed by AWS HealthScribe and used alongside the AI interview for every Aura step on this case.'
+                : 'No recording was provided — Aura works from the AI interview alone on this case.'}
+            </p>
+          </div>
+        </div>
+
+        {consultation.hasRecording &&
+          (hasFields ? (
+            <div className="mt-4 space-y-3 rounded-lg border bg-muted/30 p-3.5">
+              <SummaryField label="Chief complaint" value={summary.chief_complaint} />
+              <SummaryField label="History of present illness" value={summary.history_of_present_illness} />
+              <SummaryField label="Review of systems" value={summary.review_of_systems} />
+              <SummaryField label="Past medical history" value={summary.past_medical_history} />
+            </div>
+          ) : (
+            <p className="mt-4 text-sm text-muted-foreground">
+              The recording was transcribed but produced no structured summary.
+            </p>
+          ))}
+      </CardContent>
+    </Card>
   );
 }
 

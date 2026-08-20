@@ -218,8 +218,15 @@ export function AppLayout({ children }: { children: ReactNode }) {
   return (
     <div className="flex h-screen w-full flex-col overflow-hidden bg-background font-sans">
       <Topbar />
-      <main className="flex-1 overflow-auto bg-muted/20">{children}</main>
-      <AssistantWidget />
+      {/* The assistant is a sibling of <main>, not an overlay on top of it, so
+          opening it narrows the workspace instead of covering the case it's
+          discussing. It renders nothing at all outside a case, and below `lg`
+          it takes itself out of the flow and overlays — there is no room to
+          push anything on a narrow screen. */}
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        <main className="min-w-0 flex-1 overflow-auto bg-muted/20">{children}</main>
+        <AssistantWidget />
+      </div>
     </div>
   );
 }

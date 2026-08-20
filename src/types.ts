@@ -114,6 +114,8 @@ export interface ExamRecommendation {
   normalRange?: string;
   flag?: Flag;
   note?: string;
+  /** Performed by the doctor rather than recommended by Aura. */
+  custom?: boolean;
 }
 
 export type ReferenceType = 'guideline' | 'paper' | 'textbook' | 'case';
@@ -156,7 +158,10 @@ export interface Diagnosis {
   discussion: ChatMessage[];
 }
 
-export type TestStatus = 'recommended' | 'ordered' | 'pending' | 'completed';
+/** `ordered` is "running, waiting on the result"; `declined` is "I chose not
+ * to run this". Both keep a decision on the record rather than leaving a
+ * recommendation dangling. */
+export type TestStatus = 'recommended' | 'ordered' | 'pending' | 'declined' | 'completed';
 
 export interface TestRecommendation {
   id: string;
@@ -172,6 +177,12 @@ export interface TestRecommendation {
   result?: string;
   resultFlag?: Flag;
   resultDetail?: string;
+  note?: string;
+  /** Added by the doctor rather than recommended by Aura. */
+  custom?: boolean;
+  /** Which round of investigations this belongs to. The results analysis opens
+   * a new round when what's in hand doesn't settle the question. */
+  round?: number;
 }
 
 export interface CaseTimelineEvent {
@@ -208,6 +219,38 @@ export interface AIInsight {
   kind: InsightKind;
   title: string;
   text: string;
+}
+
+/** The doctor's own consultation with the patient, transcribed by
+ * HealthScribe — a second source of history alongside the AI interview, fed to
+ * every downstream AI step. Asked for once, when the doctor first opens the
+ * case; `prompted` records that the question has been put, whichever way it
+ * was answered. */
+export interface Consultation {
+  prompted: boolean;
+  hasRecording?: boolean;
+  answeredAt?: string;
+  answeredBy?: string;
+  jobName?: string;
+  summary?: ConsultationSummary;
+}
+
+export interface ConsultationSummary {
+  chief_complaint?: string | null;
+  history_of_present_illness?: string | null;
+  review_of_systems?: string | null;
+  past_medical_history?: string | null;
+}
+
+/** The verdict from the last results analysis. `no_results` is the honest
+ * answer when nothing has been resulted yet. */
+export interface CaseAnalysis {
+  verdict: 'no_results' | 'confident' | 'needs_more_tests';
+  message: string;
+  at?: string;
+  newTestCount?: number;
+  round?: number;
+  resultsConsidered?: { name: string; result: string; flag?: Flag }[];
 }
 
 export interface Vitals {
@@ -249,6 +292,12 @@ export interface PatientCase {
   associatedConditions?: string[];
   progress: ProgressStep[];
   documents?: CaseDocument[];
+  consultation?: Consultation;
+  /** Which round of investigations the workup is on. */
+  testRound?: number;
+  analysis?: CaseAnalysis;
+  /** Why the doctor reopened a case that was on treatment. */
+  reopenReason?: string;
   /** The nurse who admitted this patient. */
   createdByNurseId?: string;
   /** The doctor this case is routed to. Assignment is the access boundary:

@@ -279,11 +279,39 @@ for everyone — downloads go through a presigned URL.
 
 ---
 
+## `POST /cases/{caseId}/consultation` — answer the recording prompt
+- **Purpose:** Record whether the doctor has a recording of their own
+  consultation with the patient, and attach its transcription summary if so.
+  The doctor is asked exactly once, the first time they open a case routed to
+  them, because everything the AI generates downstream (summary, exams, tests,
+  differential) reasons over this alongside the AI interview.
+- **Who:** requires `cases.view_clinical` (doctor, admin).
+- **Wants (JSON body):**
+  | Field | Required | Description |
+  |-------|:--:|-------------|
+  | `hasRecording` | **yes** | `false` is a real answer — it records that the question was put and stops it being asked again. |
+  | `summary` | only when `hasRecording` | The HealthScribe clinical summary (see `GET /cases/{caseId}/transcribe/{jobName}`). |
+  | `jobName` | no | The transcription job it came from. |
+  | `s3Key` | no | Where the audio was uploaded. |
+- **Sends back:** `{ case, consultation }`.
+
+---
+
 ## `POST /cases/{caseId}/exams` — get suggested physical exams
 - **Purpose:** Ask the AI which examinations matter for this case.
 - **Who:** requires `exams.manage` (doctor, admin).
 - **Sends back:** `{ case, exams }` — `exams` is a list of *ExamRecommendation*
   (status `pending`).
+
+## `POST /cases/{caseId}/exams/custom` — record an exam the AI didn't suggest
+- **Purpose:** A doctor examines the patient in front of them, not the one in
+  the model's prompt. This puts an examination they actually performed onto the
+  case, where the AI reads it exactly like a recommended one.
+- **Who:** requires `exams.manage` (doctor, admin).
+- **Wants (JSON body):** `name` (**required**), plus optional `finding`,
+  `reason`, `flag`, `note`.
+- **Sends back:** `{ case, exam }` — the exam lands `complete` (it describes
+  something that has already happened) with `custom: true`.
 
 ## `PUT /cases/{caseId}/exams/{examId}` — enter what the doctor found
 - **Purpose:** Save the result of one examination.
@@ -325,6 +353,22 @@ for everyone — downloads go through a presigned URL.
   | `diagnosisId` | no | Scope to one diagnosis; if given, the Q&A is saved in that diagnosis's `discussion`. |
 - **Sends back:** `{ case, aiMessage }` — the AI's answer (a *ChatMessage*).
 
+## `POST /cases/{caseId}/diagnoses/analyze` — weigh the results
+- **Purpose:** The differential's main entry point once a workup is underway.
+  Compares each recommended test against the result the doctor entered, then
+  answers honestly rather than always producing a ranking.
+- **Who:** requires `diagnoses.manage` (doctor, admin).
+- **Sends back:** `{ case, verdict, message, diagnoses, newTests }`
+  | `verdict` | Meaning |
+  |-----------|---------|
+  | `no_results` | Nothing has been resulted, so there is nothing to reason over. No case change beyond recording the verdict. |
+  | `confident` | The results settle it; `diagnoses` is the re-ranked differential. Moves `InProgress` → `ResultsDiscussion`. |
+  | `needs_more_tests` | The results narrow the field without closing it. `newTests` have been written onto the case as a new round and the case goes back to `InProgress`. |
+- **What a new round does to `tests`:** everything `ordered` or `completed`
+  keeps its `round` number and stays as history; recommendations the doctor
+  never acted on are dropped, since they are the guesses this analysis just
+  superseded. `case.testRound` is incremented.
+
 ## `POST /cases/{caseId}/diagnoses/rerank` — re-reason once results are in
 - **Purpose:** Have the AI update the differential with the new results. Moves the
   case to `ResultsDiscussion`.
@@ -339,19 +383,67 @@ for everyone — downloads go through a presigned URL.
 - **Who:** requires `diagnoses.manage` (doctor, admin).
 - **Sends back:** `{ case, finalDiagnosis }` — a *FinalDiagnosis* (status `proposed`).
 
-## `PUT /cases/{caseId}/final-diagnosis` — doctor signs off (closes the case)
-- **Purpose:** Physician accepts the final diagnosis. Moves the case to `Closed`.
-- **Who:** requires `diagnoses.manage` (doctor, admin).
+## `PUT /cases/{caseId}/final-diagnosis` — doctor signs off
+- **Purpose:** Physician accepts the final diagnosis. Moves the case to
+  `Treatment` — **not** `Closed`. Sign-off is not resolution: the patient still
+  has to be treated, and treatment is where an unexpected outcome shows up.
+- **Who:** requires `final_diagnosis.accept` (doctor, admin).
 - **Wants (JSON body):** `note` (no, optional sign-off note).
 - **Sends back:** `{ case, finalDiagnosis }` — `finalDiagnosis.status` is now
-  `accepted`; the case is `Closed`.
+  `accepted`; the case is on `Treatment`.
 - **Example:**
   ```bash
   curl -X PUT "$API_URL/cases/AUR-1042/final-diagnosis" -H "Authorization: Bearer $TOKEN" \
     -H "Content-Type: application/json" -d '{"note":"Agree, treating as bacterial."}'
   ```
 
+## `POST /cases/{caseId}/resolve` — the patient got better; close the case
+- **Purpose:** The one thing that actually closes a case (`Treatment` →
+  `Closed`), and the only thing that unlocks `POST /cases/{caseId}/feedback`.
+- **Who:** requires `cases.manage_state` (doctor, admin).
+- **Wants (JSON body):** optional `outcome` (defaults to the final diagnosis's
+  name) and `note`.
+- **Sends back:** `{ case }`.
+- **Errors:** `ValidationError` if the case is not on `Treatment`.
+
+## `POST /cases/{caseId}/reopen` — the outcome wasn't what was predicted
+- **Purpose:** Withdraw the sign-off and re-reason. Moves `Treatment` →
+  `ResultsDiscussion`, writes the doctor's account of what happened onto the
+  case as a note the AI reads, sets `finalDiagnosis.status` back to `proposed`,
+  and then runs `POST /cases/{caseId}/diagnoses/analyze` immediately — so a
+  reopen usually lands the doctor on a fresh round of tests.
+- **Who:** requires `cases.manage_state` (doctor, admin).
+- **Wants (JSON body):** `reason` (**required**).
+- **Sends back:** the analyze response — `{ case, verdict, message, diagnoses, newTests }`.
+
 ---
+
+## `POST /cases/{caseId}/tests/recommend` — get suggested investigations
+- **Purpose:** Stock the workup with AI-recommended tests without first
+  committing to a differential (the differential is results-driven and has
+  nothing to say until something comes back). Merges by name, so calling it
+  again adds only what's new, tagged with the current `case.testRound`.
+- **Who:** requires `tests.manage` (doctor, admin).
+- **Sends back:** `{ case, tests }` — the full list.
+
+## `POST /cases/{caseId}/tests/custom` — record a test the AI didn't suggest
+- **Purpose:** A recommendation is a suggestion, not a work order. This puts an
+  investigation the doctor ordered themselves onto the case.
+- **Who:** requires `tests.manage` (doctor, admin).
+- **Wants (JSON body):** `name` (**required**), plus optional `category`,
+  `reason`, `expectedFinding`, `priority`.
+- **Sends back:** `{ case, test }` — the test starts at `ordered` (awaiting
+  results, since it has already been ordered) with `custom: true`.
+
+## `PUT /cases/{caseId}/tests/{testId}` — change a test's status
+- **Purpose:** Mark a test awaiting results, or record that the doctor chose
+  not to run it.
+- **Who:** requires `tests.manage` (doctor, admin).
+- **Wants (JSON body):** `status` (**required**) — one of `recommended`,
+  `ordered` (awaiting results), `pending`, `declined`; optional `note`.
+  `completed` is rejected: a test becomes complete by having a result recorded,
+  never by a status flip.
+- **Sends back:** `{ case, test }`.
 
 ## `POST /cases/{caseId}/tests/{testId}/order` — order a recommended test
 - **Purpose:** Mark a test as ordered. The **first** order moves the case to
@@ -482,7 +574,12 @@ for everyone — downloads go through a presigned URL.
   — distinct from the structured accept/reject flywheel above. Stored per
   doctor, and folded back into that doctor's future AI prompts as a
   preference history.
-- **Who:** anyone who can see the case.
+- **Who:** anyone who can see the case — **and only once the case is
+  `Closed`.** How the AI reasoned can only be judged once the patient's outcome
+  is known, so an open case rejects feedback with a `ValidationError`. Mark the
+  case resolved (`POST /cases/{caseId}/resolve`) first. This is a server rule,
+  not a UI convention: the client offers the form in exactly one place because
+  this is the only state that accepts it.
 - **Wants (JSON body):**
   | Field | Required | Description |
   |-------|:--:|-------------|
@@ -666,11 +763,17 @@ POST /cases                                     (admit the patient)
 
 DOCTOR
 GET  /cases                                     (their assigned cases)
+  → POST /cases/{caseId}/consultation           (asked once, on first open)
   → POST /cases/{caseId}/exams → PUT /cases/{caseId}/exams/{examId}
-  → POST /cases/{caseId}/diagnoses → POST /cases/{caseId}/diagnoses/ask
-  → POST /cases/{caseId}/tests/{testId}/order → PUT /cases/{caseId}/tests/{testId}/result
-    → POST /cases/{caseId}/diagnoses/rerank
+  → POST /cases/{caseId}/tests/recommend        (or /tests/custom)
+  → PUT  /cases/{caseId}/tests/{testId}         (mark awaiting results)
+  → PUT  /cases/{caseId}/tests/{testId}/result  (enter what came back)
+  → POST /cases/{caseId}/diagnoses/analyze      ⤵ loop while verdict is
+      needs_more_tests: a new round is on the workup, enter its results
+      and analyze again
   → POST /cases/{caseId}/final-diagnosis → PUT /cases/{caseId}/final-diagnosis
+  → POST /cases/{caseId}/resolve                (or /reopen if it went wrong)
+  → POST /cases/{caseId}/feedback               (only once resolved)
 ```
 
 Every screen starts with `GET /me` to learn what it is allowed to show.
