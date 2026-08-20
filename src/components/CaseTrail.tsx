@@ -56,7 +56,7 @@ function currentBlocker(c: PatientCase): { text: string; icon: React.ReactNode }
   if (analysis?.verdict === 'no_results') {
     return {
       icon: <MessageSquareWarning className="h-4 w-4" />,
-      text: 'Aura has no results to reason over. Enter a test result on the Workup tab.',
+      text: 'Aura has no results to reason over. Enter a test result on the Tests tab.',
     };
   }
   if (c.status === 'AI Interview') {

@@ -144,7 +144,7 @@ function TreatmentPanel({ caseData: c }: { caseData: PatientCase }) {
             {mode === 'reopen' && (
               <p className="text-[12px] text-muted-foreground">
                 Aura will read this, re-weigh the results, and usually add a new round of tests to the
-                Workup tab.
+                Tests tab.
               </p>
             )}
           </div>

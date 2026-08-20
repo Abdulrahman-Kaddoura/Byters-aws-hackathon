@@ -78,8 +78,8 @@ function VerdictBanner({ caseData: c }: { caseData: PatientCase }) {
       </div>
 
       {(needsTests || noResults) && (
-        <Button size="sm" variant="outline" onClick={() => navigate(`/cases/${c.id}/workup`)}>
-          Go to Workup
+        <Button size="sm" variant="outline" onClick={() => navigate(`/cases/${c.id}/tests`)}>
+          Go to Tests
         </Button>
       )}
     </div>
@@ -108,8 +108,8 @@ export function CaseDifferential({ caseData: c }: { caseData: PatientCase }) {
         <EmptyState
           icon={<Brain className="h-6 w-6" />}
           title="No results to reason over"
-          description="The differential works from test results. Order the tests Aura recommends on the Workup tab (or add your own), enter at least one result, then come back here."
-          action={<WorkupLink caseId={c.id} />}
+          description="The differential works from test results. Order the tests Aura recommends on the Tests tab (or add your own), enter at least one result, then come back here."
+          action={<TestsLink caseId={c.id} />}
         />
       </div>
     );
@@ -131,7 +131,7 @@ export function CaseDifferential({ caseData: c }: { caseData: PatientCase }) {
                     ? `Aura weighs each recommended test against the ${resulted.length} result${
                         resulted.length > 1 ? 's' : ''
                       } you entered, then either names a diagnosis or asks for more tests.`
-                    : 'No test results have been entered yet — enter one on the Workup tab to run the analysis.'}
+                    : 'No test results have been entered yet — enter one on the Tests tab to run the analysis.'}
                 </p>
               </div>
             </div>
@@ -178,11 +178,11 @@ export function CaseDifferential({ caseData: c }: { caseData: PatientCase }) {
   );
 }
 
-function WorkupLink({ caseId }: { caseId: string }) {
+function TestsLink({ caseId }: { caseId: string }) {
   const [, navigate] = useLocation();
   return (
-    <Button onClick={() => navigate(`/cases/${caseId}/workup`)}>
-      <FlaskConical className="h-4 w-4" /> Go to Workup
+    <Button onClick={() => navigate(`/cases/${caseId}/tests`)}>
+      <FlaskConical className="h-4 w-4" /> Go to Tests
     </Button>
   );
 }
