@@ -23,6 +23,12 @@ from ..models import new_id, recent_update, timeline_event
 from .cases import _apply_state
 from .helpers import find, touch_progress
 
+#: Hard ceiling on how many new recommendations one AI call can add, enforced
+#: here rather than trusted to the prompt — models don't reliably honour a
+#: soft "at most N" instruction, and an unbounded list is what made the tests
+#: tab unusable (dozens of recommendations after a couple of clicks).
+_MAX_NEW_RECOMMENDATIONS = 5
+
 
 def order_test(ctx: AuthContext, args: dict[str, Any]) -> dict[str, Any]:
     """Physician orders a recommended test (recommended -> ordered)."""
@@ -59,6 +65,8 @@ def recommend_tests(ctx: AuthContext, args: dict[str, Any]) -> dict[str, Any]:
     seen = {str(t.get("name", "")).strip().lower() for t in existing}
     added = []
     for t in result.value or []:
+        if len(added) >= _MAX_NEW_RECOMMENDATIONS:
+            break
         name = str(t.get("name", "")).strip()
         if not name or name.lower() in seen:
             continue

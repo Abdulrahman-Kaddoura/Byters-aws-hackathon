@@ -12,6 +12,7 @@ from ..errors import NotFoundError, ValidationError
 from ..models import chat_message, new_id, now_iso, recent_update, timeline_event
 from .cases import _apply_state
 from .helpers import find, touch_progress
+from .tests import _MAX_NEW_RECOMMENDATIONS
 
 
 def request_recommendations(ctx: AuthContext, args: dict[str, Any]) -> dict[str, Any]:
@@ -24,7 +25,7 @@ def request_recommendations(ctx: AuthContext, args: dict[str, Any]) -> dict[str,
     tests = ai.recommend_tests(case)
     case["diagnoses"] = dx.value
     if not case.get("tests"):
-        case["tests"] = tests.value
+        case["tests"] = (tests.value or [])[:_MAX_NEW_RECOMMENDATIONS]
     if case["diagnoses"]:
         case["primaryImpression"] = case["diagnoses"][0].get("name", case.get("primaryImpression", ""))
     touch_progress(case, "differential")
@@ -236,6 +237,8 @@ def _start_new_test_round(case: dict[str, Any], proposed: list[dict[str, Any]]) 
     seen = {str(t.get("name", "")).strip().lower() for t in kept}
     fresh: list[dict[str, Any]] = []
     for t in proposed:
+        if len(fresh) >= _MAX_NEW_RECOMMENDATIONS:
+            break
         name = str(t.get("name", "")).strip()
         if not name or name.lower() in seen:
             continue
