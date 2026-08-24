@@ -35,19 +35,82 @@ interface CaseEnvelope {
   case: PatientCase;
 }
 
+/** Flatten one AI-produced list entry into a line of prose.
+ *
+ * Mirrors `models._flatten_to_text` on the server, which is the authoritative
+ * fix — this is the second line of defense, because the failure mode is
+ * severe and the client can hit a Lambda that predates that fix. Asked for a
+ * `treatment` list the model returns
+ * `[{name, details, confidence}]`; these fields are typed `string[]` and
+ * rendered straight as React children, so an object child throws (minified
+ * React error #31) and blanks the whole Diagnosis tab. */
+const PROSE_NOISE_KEYS = new Set(['confidence', 'score', 'probability', 'certainty', 'id', 'priority', 'rank']);
+const PROSE_PRIMARY_KEYS = [
+  'name', 'title', 'item', 'test', 'parameter', 'action', 'step',
+  'finding', 'text', 'description', 'detail', 'details', 'value',
+  'reason', 'rationale', 'note', 'dose', 'dosage', 'route',
+  'frequency', 'duration', 'timing', 'when',
+];
+
+function flattenToText(value: unknown): string {
+  if (value === null || value === undefined || typeof value === 'boolean') return '';
+  if (typeof value === 'string') return value.trim();
+  if (typeof value === 'number') return String(value);
+  if (Array.isArray(value)) return value.map(flattenToText).filter(Boolean).join('; ');
+  if (typeof value === 'object') {
+    const obj = value as Record<string, unknown>;
+    const keys = Object.keys(obj);
+    const ordered = [
+      ...PROSE_PRIMARY_KEYS.filter((k) => k in obj),
+      ...keys.filter((k) => !PROSE_PRIMARY_KEYS.includes(k)),
+    ];
+    const parts: string[] = [];
+    for (const key of ordered) {
+      if (PROSE_NOISE_KEYS.has(key.toLowerCase())) continue;
+      const part = flattenToText(obj[key]);
+      if (part && !parts.includes(part)) parts.push(part);
+    }
+    return parts.join(' — ');
+  }
+  return String(value).trim();
+}
+
+function textList(value: unknown): string[] {
+  if (value === null || value === undefined) return [];
+  const arr = Array.isArray(value) ? value : [value];
+  return arr.map(flattenToText).filter(Boolean);
+}
+
+function ruledOutList(value: unknown): { name: string; reason: string }[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => {
+      if (item && typeof item === 'object' && !Array.isArray(item)) {
+        const obj = item as Record<string, unknown>;
+        const name = flattenToText(obj.name ?? obj.diagnosis ?? obj.title ?? obj.condition ?? '');
+        const reason = flattenToText(obj.reason ?? obj.rationale ?? obj.why ?? obj.explanation ?? '');
+        if (!name && !reason) return { name: flattenToText(obj), reason: '' };
+        return { name, reason };
+      }
+      return { name: flattenToText(item), reason: '' };
+    })
+    .filter((r) => r.name || r.reason);
+}
+
 /** Defends the Diagnosis tab against records the server hasn't backfilled yet.
  * `Diagnosis`/`FinalDiagnosis` array fields are typed as required, but a
  * record written before the server started defaulting them (or one an AI
- * call left incomplete) can still arrive with a key missing or `null` —
- * every consumer reads `.length`/`.map` on these unconditionally, so that
- * crashes the tab instead of just rendering an empty section. */
+ * call left incomplete) can still arrive with a key missing, `null`, or —
+ * see `flattenToText` above — holding objects where prose is expected. Every
+ * consumer reads `.length`/`.map` on these unconditionally and renders the
+ * entries directly, so either shape crashes the tab. */
 function normalizeDiagnosis(d: Diagnosis): Diagnosis {
   return {
     ...d,
-    supporting: d.supporting ?? [],
-    contradicting: d.contradicting ?? [],
-    missing: d.missing ?? [],
-    recommendedTests: d.recommendedTests ?? [],
+    supporting: textList(d.supporting),
+    contradicting: textList(d.contradicting),
+    missing: textList(d.missing),
+    recommendedTests: textList(d.recommendedTests),
     references: d.references ?? [],
     similarCases: d.similarCases ?? [],
     trend: d.trend ?? [],
@@ -59,12 +122,14 @@ function normalizeFinalDiagnosis(fd: FinalDiagnosis | undefined): FinalDiagnosis
   if (!fd) return fd;
   return {
     ...fd,
-    evidenceSummary: fd.evidenceSummary ?? [],
-    ruledOut: fd.ruledOut ?? [],
-    treatment: fd.treatment ?? [],
-    monitoring: fd.monitoring ?? [],
-    complications: fd.complications ?? [],
-    followUp: fd.followUp ?? [],
+    name: flattenToText(fd.name),
+    reasoning: flattenToText(fd.reasoning),
+    evidenceSummary: textList(fd.evidenceSummary),
+    ruledOut: ruledOutList(fd.ruledOut),
+    treatment: textList(fd.treatment),
+    monitoring: textList(fd.monitoring),
+    complications: textList(fd.complications),
+    followUp: textList(fd.followUp),
   };
 }
 

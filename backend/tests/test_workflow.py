@@ -197,6 +197,58 @@ def test_a_probability_confidence_is_read_as_a_percentage(
     assert stored["diagnoses"][0]["confidence"] == 82
 
 
+def test_object_entries_in_prose_arrays_are_flattened_to_strings(
+    aws, nurse, doctor, sample_intake, seeded_users, monkeypatch
+):
+    """Asked for a `treatment` list the model returns
+    `[{"name": ..., "details": ..., "confidence": 85}]` rather than strings.
+    `src/types.ts` types these as string[] and the UI renders each entry
+    directly as a React child, so an object there throws React's minified
+    error #31 and blanks the whole Diagnosis tab. Flatten rather than drop —
+    the doctor still needs the dose and the frequency."""
+    from sehati.ai.base import AIResult
+    from tests.fakes.ai_double import FakeAIService
+
+    cid = _drive_to_doctor_review(nurse, doctor, sample_intake)
+    resolve("requestRecommendations", doctor, {"caseId": cid})
+    monkeypatch.setattr(
+        FakeAIService, "propose_final_diagnosis",
+        lambda self, case: AIResult(
+            value={
+                "name": "Community-acquired pneumonia",
+                "confidence": 84,
+                "reasoning": "Consolidation on CXR with raised inflammatory markers.",
+                "evidenceSummary": ["RLL infiltrate on chest film"],
+                "ruledOut": [{"name": "Pulmonary embolism", "reason": "D-dimer negative"}, "Pneumothorax"],
+                "treatment": [{"name": "Amoxicillin 500mg", "details": "TDS for 7 days", "confidence": 85}],
+                "monitoring": [{"parameter": "Temperature", "frequency": "every 4 hours", "confidence": 90}],
+                "complications": [{"name": "Empyema", "details": "Consider if fever persists", "confidence": 30}],
+                "followUp": [{"timing": "2 weeks", "action": "Repeat chest X-ray", "confidence": 80}],
+            },
+            model_version="test",
+        ),
+    )
+
+    fd = resolve("proposeFinalDiagnosis", doctor, {"caseId": cid})["finalDiagnosis"]
+    for field in ("evidenceSummary", "treatment", "monitoring", "complications", "followUp"):
+        assert all(isinstance(x, str) for x in fd[field]), f"{field} must be plain strings"
+    # The structure is flattened into the line, not thrown away.
+    assert fd["treatment"] == ["Amoxicillin 500mg — TDS for 7 days"]
+    assert fd["monitoring"] == ["Temperature — every 4 hours"]
+    assert fd["followUp"] == ["Repeat chest X-ray — 2 weeks"]
+    # The score is noise once the entry is prose.
+    assert "85" not in fd["treatment"][0]
+    # A bare string in ruledOut becomes a proper {name, reason} pair.
+    assert fd["ruledOut"] == [
+        {"name": "Pulmonary embolism", "reason": "D-dimer negative"},
+        {"name": "Pneumothorax", "reason": ""},
+    ]
+
+    # And it survives the round-trip through storage, so a later GET is safe.
+    stored = resolve("getCase", doctor, {"id": cid})["finalDiagnosis"]
+    assert stored["treatment"] == ["Amoxicillin 500mg — TDS for 7 days"]
+
+
 def test_final_diagnosis_is_normalized_when_the_model_omits_optional_arrays(
     aws, nurse, doctor, sample_intake, seeded_users, monkeypatch
 ):

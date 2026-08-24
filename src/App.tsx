@@ -71,7 +71,14 @@ function App() {
                       <NewCase />
                     </RequirePermission>
                   </Route>
-                  <Route path="/cases/list/:filter" component={CasesBrowser} />
+                  {/* The filter is optional: CasesBrowser already falls back
+                      to "active" without one. It has to be, because the
+                      catch-all below would otherwise swallow a bare
+                      /cases/list as a case whose id is "list" and spend the
+                      page fetching GET /cases/list — a 404 loop behind an
+                      empty workspace. Order matters here too: this must stay
+                      above the :id route. */}
+                  <Route path="/cases/list/:filter?" component={CasesBrowser} />
                   <Route path="/cases/:id/:tab?" component={CaseWorkspace} />
 
                   <Route path="/knowledge">
