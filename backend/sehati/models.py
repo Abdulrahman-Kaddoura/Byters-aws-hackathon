@@ -179,16 +179,22 @@ def recent_update(text: str, actor: Speaker) -> dict[str, Any]:
 # when an AI call site first stores one (resolvers/diagnosis.py) and again
 # whenever a case is read back (db/cases_repo.py) — so a record written before
 # this defaulting existed, or one an AI call left incomplete, still renders.
-DIAGNOSIS_LIST_FIELDS = (
+# Arrays the UI renders one entry at a time as a React child — they must be
+# plain strings or React throws. See coerce_text_list.
+DIAGNOSIS_TEXT_LIST_FIELDS = (
     "supporting",
     "contradicting",
     "missing",
     "recommendedTests",
+)
+# Arrays of objects, read field by field; defaulted but never flattened.
+DIAGNOSIS_OBJECT_LIST_FIELDS = (
     "references",
     "similarCases",
     "trend",
     "discussion",
 )
+DIAGNOSIS_LIST_FIELDS = DIAGNOSIS_TEXT_LIST_FIELDS + DIAGNOSIS_OBJECT_LIST_FIELDS
 DIAGNOSIS_STR_FIELDS = (
     "name",
     "category",
@@ -199,14 +205,105 @@ DIAGNOSIS_STR_FIELDS = (
     "riskAssessment",
     "nextAction",
 )
-FINAL_DIAGNOSIS_LIST_FIELDS = (
+FINAL_DIAGNOSIS_TEXT_LIST_FIELDS = (
     "evidenceSummary",
-    "ruledOut",
     "treatment",
     "monitoring",
     "complications",
     "followUp",
 )
+FINAL_DIAGNOSIS_LIST_FIELDS = FINAL_DIAGNOSIS_TEXT_LIST_FIELDS + ("ruledOut",)
+
+
+# Keys that carry no meaning in a rendered bullet — a score attached to a
+# treatment line is noise once the line is prose, and an id is never prose.
+_TEXT_NOISE_KEYS = frozenset(
+    {"confidence", "score", "probability", "certainty", "id", "priority", "rank"}
+)
+
+# Preferred reading order when an object has to be flattened into one line, so
+# "Review chest X-ray — in 2 weeks" comes out that way round rather than
+# "in 2 weeks — Review chest X-ray". Keys not listed keep their own order,
+# after these.
+_TEXT_PRIMARY_KEYS = (
+    "name", "title", "item", "test", "parameter", "action", "step",
+    "finding", "text", "description", "detail", "details", "value",
+    "reason", "rationale", "note", "dose", "dosage", "route",
+    "frequency", "duration", "timing", "when",
+)
+
+
+def _flatten_to_text(value: Any) -> str:
+    """Render one AI-produced list entry as a single line of prose.
+
+    The prompts ask for arrays of plain strings, but the model reaches for an
+    object whenever the item has structure — a treatment becomes
+    ``{"name": ..., "details": ..., "confidence": 85}``, a monitoring item
+    becomes ``{"parameter": ..., "frequency": ...}``. ``src/types.ts`` types
+    all of these as ``string[]`` and the UI renders each entry directly as a
+    React child, so an object there is not a cosmetic problem: React throws
+    (minified error #31) and the whole Diagnosis tab goes blank.
+
+    Rather than drop the content, flatten it — the doctor still gets the dose
+    and the frequency, just as one line.
+    """
+    if value is None or isinstance(value, bool):
+        return ""
+    if isinstance(value, str):
+        return value.strip()
+    if isinstance(value, (int, float)):
+        return str(value)
+    if isinstance(value, (list, tuple)):
+        return "; ".join(part for part in (_flatten_to_text(v) for v in value) if part)
+    if isinstance(value, dict):
+        remaining = [k for k in value if k not in _TEXT_PRIMARY_KEYS]
+        ordered = [k for k in _TEXT_PRIMARY_KEYS if k in value] + remaining
+        parts: list[str] = []
+        for key in ordered:
+            if key.lower() in _TEXT_NOISE_KEYS:
+                continue
+            part = _flatten_to_text(value[key])
+            if part and part not in parts:
+                parts.append(part)
+        return " — ".join(parts)
+    return str(value).strip()
+
+
+def coerce_text_list(value: Any) -> list[str]:
+    """Coerce an AI-produced list into the ``string[]`` the frontend expects."""
+    if value is None:
+        return []
+    if isinstance(value, (str, dict)):
+        value = [value]
+    if not isinstance(value, (list, tuple)):
+        return []
+    return [line for line in (_flatten_to_text(v) for v in value) if line]
+
+
+def coerce_ruled_out(value: Any) -> list[dict[str, str]]:
+    """Normalise ``ruledOut`` to the ``{name, reason}`` pairs the UI reads.
+
+    A bare string here renders as two blank lines rather than crashing, so it
+    is quieter than the arrays above — and just as wrong.
+    """
+    if not isinstance(value, (list, tuple)):
+        return []
+    out: list[dict[str, str]] = []
+    for item in value:
+        if isinstance(item, dict):
+            name = _flatten_to_text(
+                next((item[k] for k in ("name", "diagnosis", "title", "condition") if item.get(k)), "")
+            )
+            reason = _flatten_to_text(
+                next((item[k] for k in ("reason", "rationale", "why", "explanation") if item.get(k)), "")
+            )
+            if not name and not reason:
+                name = _flatten_to_text(item)
+        else:
+            name, reason = _flatten_to_text(item), ""
+        if name or reason:
+            out.append({"name": name, "reason": reason})
+    return out
 
 
 def coerce_confidence(value: Any) -> int:
@@ -244,8 +341,10 @@ def normalize_diagnosis(d: dict[str, Any]) -> dict[str, Any]:
     d["confidence"] = coerce_confidence(d.get("confidence"))
     d["priority"] = d.get("priority") or "Medium"
     for field in DIAGNOSIS_STR_FIELDS:
-        d[field] = d.get(field) or ""
-    for field in DIAGNOSIS_LIST_FIELDS:
+        d[field] = _flatten_to_text(d.get(field))
+    for field in DIAGNOSIS_TEXT_LIST_FIELDS:
+        d[field] = coerce_text_list(d.get(field))
+    for field in DIAGNOSIS_OBJECT_LIST_FIELDS:
         d[field] = d.get(field) or []
     return d
 
@@ -256,11 +355,12 @@ def normalize_diagnoses(diagnoses: list[dict[str, Any]] | None) -> list[dict[str
 
 def normalize_final_diagnosis(d: dict[str, Any]) -> dict[str, Any]:
     d = dict(d)
-    d["name"] = d.get("name") or ""
+    d["name"] = _flatten_to_text(d.get("name"))
     d["confidence"] = coerce_confidence(d.get("confidence"))
-    d["reasoning"] = d.get("reasoning") or ""
-    for field in FINAL_DIAGNOSIS_LIST_FIELDS:
-        d[field] = d.get(field) or []
+    d["reasoning"] = _flatten_to_text(d.get("reasoning"))
+    for field in FINAL_DIAGNOSIS_TEXT_LIST_FIELDS:
+        d[field] = coerce_text_list(d.get(field))
+    d["ruledOut"] = coerce_ruled_out(d.get("ruledOut"))
     d["status"] = d.get("status") or "proposed"
     return d
 

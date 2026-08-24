@@ -56,6 +56,19 @@ _CONFIDENCE_SCALE = (
     "string with a percent sign. "
 )
 
+# Appended wherever the schema names an array the UI renders one entry at a
+# time. Asked for a "treatment" list the model reaches for
+# [{"name": ..., "details": ..., "confidence": 85}]; `src/types.ts` types these
+# as string[] and React throws on an object child, blanking the tab.
+# `models.coerce_text_list` flattens one that slips through; this stops it
+# being emitted.
+_PROSE_ARRAYS = (
+    "supporting, contradicting, missing, recommendedTests, evidenceSummary, "
+    "treatment, monitoring, complications and followUp are arrays of PLAIN "
+    "STRINGS — one complete sentence or phrase per entry, with any dose, "
+    "frequency or timing written into that sentence. Never objects. "
+)
+
 
 def _case_context(case: PatientCase) -> dict[str, Any]:
     """A compact, de-identified-ish view of the case for the prompt.
@@ -269,6 +282,7 @@ class BedrockAIService(AIService):
             "confidenceExplanation, whyNot100, riskAssessment, nextAction, references[], "
             "similarCases[], trend[{label,value}], discussion[]). "
             + _CONFIDENCE_SCALE
+            + _PROSE_ARRAYS
             + "Every clinical claim must "
             "be grounded in the retrieved evidence; cite only real retrieved passages."
         )
@@ -301,6 +315,7 @@ class BedrockAIService(AIService):
             "UPDATED prioritised differential in the same Diagnosis JSON array shape, "
             "adjusting confidence and adding a trend point labelled 'Results'. "
             + _CONFIDENCE_SCALE
+            + _PROSE_ARRAYS
         )
         value, evidence = self._converse_json(
             task_instruction=instruction, case=case, retrieval_query=case.get("chiefComplaint")
@@ -334,7 +349,7 @@ class BedrockAIService(AIService):
             "\"newTests\": [TestRecommendation objects with keys id, name, category, "
             "reason, expectedFinding, priority, cost, urgency, diagnosticValue(0-100), "
             "status('recommended')] — empty when verdict is 'confident', at most 5 "
-            "otherwise}. " + _CONFIDENCE_SCALE
+            "otherwise}. " + _CONFIDENCE_SCALE + _PROSE_ARRAYS
         )
         value, evidence = self._converse_json(
             task_instruction=instruction,
@@ -350,6 +365,7 @@ class BedrockAIService(AIService):
             "status('proposed'), reasoning, evidenceSummary[], ruledOut[{name,reason}], "
             "treatment[], monitoring[], complications[], followUp[]). "
             + _CONFIDENCE_SCALE
+            + _PROSE_ARRAYS
             + "Confidence is a qualitative judgment, not a validated probability."
         )
         value, evidence = self._converse_json(
