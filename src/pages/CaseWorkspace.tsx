@@ -18,6 +18,7 @@ import { LoadingState } from '@/components/common';
 import { useCase } from '@/hooks/useCases';
 import { PERMISSIONS, useSession } from '@/lib/session';
 import { AssignDoctor } from '@/components/AssignDoctor';
+import { CompleteCaseButton } from '@/components/CaseCompletion';
 import { ConsultationPrompt } from '@/components/ConsultationPrompt';
 import { TagEditor } from '@/components/TagEditor';
 
@@ -47,6 +48,7 @@ export function CaseWorkspace() {
   const { can, caseTags } = useSession();
 
   const clinical = can(PERMISSIONS.casesViewClinical);
+  const canCompleteCase = can(PERMISSIONS.casesManageState);
 
   const allTabs = [
     { id: 'overview', label: 'Overview', icon: User, clinicalOnly: false },
@@ -118,6 +120,11 @@ export function CaseWorkspace() {
             <div className="text-xs text-muted-foreground">Current stage</div>
             <div className="font-medium capitalize text-primary">{caseData.stage}</div>
           </div>
+          {/* Ending the case is reachable from every tab and every stage, not
+              only from the diagnosis sign-off. A case doesn't always end by
+              reaching a diagnosis — the patient is discharged, referred on, or
+              never comes back — and the record still has to be closed. */}
+          {canCompleteCase && <CompleteCaseButton caseData={caseData} />}
         </div>
       </div>
 

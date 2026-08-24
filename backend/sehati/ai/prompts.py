@@ -87,7 +87,8 @@ def summary_prompt(case: dict[str, Any]) -> str:
 def differential_prompt(case: dict[str, Any]) -> str:
     doc_context = case.get("documentContext", "")
     return (
-        "Generate a prioritised differential diagnosis list for this case with confidences, "
+        "Generate a prioritised differential diagnosis list for this case with confidences "
+        "as integer percentages from 0 to 100 (never 0-1 probabilities), "
         "based on the document and if you are not sure about the answer state it clearly, "
         "using retrieved clinical context where relevant.\n\n"
         f"Case: {case}\n"
@@ -149,7 +150,8 @@ def final_diagnosis_prompt(case: dict[str, Any]) -> str:
         "confidences, based on the document and if you are not sure about the answer state it clearly.\n\n"
         f"Case: {case}\n"
         f"Uploaded document context: {doc_context}\n\n"
-        'Respond ONLY with JSON: {"name": str, "confidence": float, "reasoning": str, "status": "proposed"}'
+        'Respond ONLY with JSON: {"name": str, "confidence": int (0-100 percentage, '
+        'never a 0-1 probability), "reasoning": str, "status": "proposed"}'
     )
 
 

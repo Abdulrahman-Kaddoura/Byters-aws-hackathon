@@ -209,10 +209,39 @@ FINAL_DIAGNOSIS_LIST_FIELDS = (
 )
 
 
+def coerce_confidence(value: Any) -> int:
+    """Coerce whatever the model emitted for a confidence into a 0-100 integer.
+
+    The prompts ask for an integer percentage, but a language model asked for a
+    "confidence" reaches for a probability just as readily, and it has also been
+    seen returning the string ``"82%"``. Left alone, ``0.82`` renders as a bar
+    that is 0.82% wide with the label ``0.82%`` next to it — which is what the
+    confidence looking like zero on every diagnosis actually was. Normalising
+    here rather than at the call site means it applies on read too
+    (``db/cases_repo._normalize_case``), so cases already stored with a 0-1
+    confidence render correctly without a backfill.
+    """
+    if isinstance(value, bool) or value is None:
+        return 0
+    if isinstance(value, str):
+        cleaned = value.strip().rstrip("%").strip()
+        try:
+            value = float(cleaned)
+        except ValueError:
+            return 0
+    if not isinstance(value, (int, float)):
+        return 0
+    # A value in (0, 1] is a probability, not a percentage. 1 itself is
+    # ambiguous — read it as 1%, since a model that means certainty writes 100.
+    if 0 < value < 1:
+        value = value * 100
+    return max(0, min(100, round(value)))
+
+
 def normalize_diagnosis(d: dict[str, Any]) -> dict[str, Any]:
     d = dict(d)
     d["id"] = d.get("id") or new_id("DX")
-    d["confidence"] = d.get("confidence") or 0
+    d["confidence"] = coerce_confidence(d.get("confidence"))
     d["priority"] = d.get("priority") or "Medium"
     for field in DIAGNOSIS_STR_FIELDS:
         d[field] = d.get(field) or ""
@@ -228,7 +257,7 @@ def normalize_diagnoses(diagnoses: list[dict[str, Any]] | None) -> list[dict[str
 def normalize_final_diagnosis(d: dict[str, Any]) -> dict[str, Any]:
     d = dict(d)
     d["name"] = d.get("name") or ""
-    d["confidence"] = d.get("confidence") or 0
+    d["confidence"] = coerce_confidence(d.get("confidence"))
     d["reasoning"] = d.get("reasoning") or ""
     for field in FINAL_DIAGNOSIS_LIST_FIELDS:
         d[field] = d.get(field) or []

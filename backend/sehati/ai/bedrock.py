@@ -44,6 +44,18 @@ GUARDRAIL_VERSION = os.environ.get("BEDROCK_GUARDRAIL_VERSION", "DRAFT")
 KNOWLEDGE_BASE_ID = os.environ.get("BEDROCK_KNOWLEDGE_BASE_ID", "")
 REGION = os.environ.get("AWS_REGION", "us-east-1")
 
+# Appended to every instruction that asks for a confidence. Without it the
+# model reaches for a probability (0.82) as readily as a percentage (82), and
+# the UI — which renders the number straight into `width: {value}%` and a
+# "{value}%" label — then draws every diagnosis at effectively zero.
+# `models.coerce_confidence` repairs a probability that slips through; this
+# stops it being emitted in the first place.
+_CONFIDENCE_SCALE = (
+    "Every `confidence` field is an INTEGER PERCENTAGE from 0 to 100 (e.g. 82 "
+    "for 82% confident). Never express it as a 0-1 probability, and never as a "
+    "string with a percent sign. "
+)
+
 
 def _case_context(case: PatientCase) -> dict[str, Any]:
     """A compact, de-identified-ish view of the case for the prompt.
@@ -255,7 +267,9 @@ class BedrockAIService(AIService):
             "(keys: id, name, confidence, priority, category, tagline, reasoning, "
             "supporting[], contradicting[], missing[], recommendedTests[], "
             "confidenceExplanation, whyNot100, riskAssessment, nextAction, references[], "
-            "similarCases[], trend[{label,value}], discussion[]). Every clinical claim must "
+            "similarCases[], trend[{label,value}], discussion[]). "
+            + _CONFIDENCE_SCALE
+            + "Every clinical claim must "
             "be grounded in the retrieved evidence; cite only real retrieved passages."
         )
         value, evidence = self._converse_json(
@@ -285,7 +299,8 @@ class BedrockAIService(AIService):
         instruction = (
             "Test results are now available in the case context. Re-reason and return the "
             "UPDATED prioritised differential in the same Diagnosis JSON array shape, "
-            "adjusting confidence and adding a trend point labelled 'Results'."
+            "adjusting confidence and adding a trend point labelled 'Results'. "
+            + _CONFIDENCE_SCALE
         )
         value, evidence = self._converse_json(
             task_instruction=instruction, case=case, retrieval_query=case.get("chiefComplaint")
@@ -319,7 +334,7 @@ class BedrockAIService(AIService):
             "\"newTests\": [TestRecommendation objects with keys id, name, category, "
             "reason, expectedFinding, priority, cost, urgency, diagnosticValue(0-100), "
             "status('recommended')] — empty when verdict is 'confident', at most 5 "
-            "otherwise}."
+            "otherwise}. " + _CONFIDENCE_SCALE
         )
         value, evidence = self._converse_json(
             task_instruction=instruction,
@@ -333,8 +348,9 @@ class BedrockAIService(AIService):
         instruction = (
             "Propose a final diagnosis as a JSON FinalDiagnosis object (keys: name, confidence, "
             "status('proposed'), reasoning, evidenceSummary[], ruledOut[{name,reason}], "
-            "treatment[], monitoring[], complications[], followUp[]). Confidence is a qualitative "
-            "judgment, not a validated probability."
+            "treatment[], monitoring[], complications[], followUp[]). "
+            + _CONFIDENCE_SCALE
+            + "Confidence is a qualitative judgment, not a validated probability."
         )
         value, evidence = self._converse_json(
             task_instruction=instruction, case=case, retrieval_query=case.get("chiefComplaint")
