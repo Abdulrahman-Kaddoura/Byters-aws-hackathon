@@ -385,8 +385,10 @@ for everyone — downloads go through a presigned URL.
 
 ## `PUT /cases/{caseId}/final-diagnosis` — doctor signs off
 - **Purpose:** Physician accepts the final diagnosis. Moves the case to
-  `Treatment` — **not** `Closed`. Sign-off is not resolution: the patient still
+  `Treatment` — **not** `Closed`. Sign-off is not completion: the patient still
   has to be treated, and treatment is where an unexpected outcome shows up.
+  This is also the point feedback unlocks — the UI pops the feedback dialog the
+  moment this returns.
 - **Who:** requires `final_diagnosis.accept` (doctor, admin).
 - **Wants (JSON body):** `note` (no, optional sign-off note).
 - **Sends back:** `{ case, finalDiagnosis }` — `finalDiagnosis.status` is now
@@ -397,14 +399,18 @@ for everyone — downloads go through a presigned URL.
     -H "Content-Type: application/json" -d '{"note":"Agree, treating as bacterial."}'
   ```
 
-## `POST /cases/{caseId}/resolve` — the patient got better; close the case
-- **Purpose:** The one thing that actually closes a case (`Treatment` →
-  `Closed`), and the only thing that unlocks `POST /cases/{caseId}/feedback`.
+## `POST /cases/{caseId}/resolve` — mark the case complete
+- **Purpose:** The one thing that closes a case (→ `Closed`). Callable from
+  **any** open state, not just `Treatment`: the doctor has a "Mark complete"
+  action in the case header at every stage, because a case doesn't always end
+  by reaching a diagnosis — the patient is discharged, referred on, or never
+  comes back — and the record still has to be closed.
 - **Who:** requires `cases.manage_state` (doctor, admin).
 - **Wants (JSON body):** optional `outcome` (defaults to the final diagnosis's
   name) and `note`.
 - **Sends back:** `{ case }`.
-- **Errors:** `ValidationError` if the case is not on `Treatment`.
+- **Errors:** `ValidationError` if the case is already `Closed`, so a second
+  click can't rewrite a settled outcome.
 
 ## `POST /cases/{caseId}/reopen` — the outcome wasn't what was predicted
 - **Purpose:** Withdraw the sign-off and re-reason. Moves `Treatment` →
@@ -574,12 +580,13 @@ for everyone — downloads go through a presigned URL.
   — distinct from the structured accept/reject flywheel above. Stored per
   doctor, and folded back into that doctor's future AI prompts as a
   preference history.
-- **Who:** anyone who can see the case — **and only once the case is
-  `Closed`.** How the AI reasoned can only be judged once the patient's outcome
-  is known, so an open case rejects feedback with a `ValidationError`. Mark the
-  case resolved (`POST /cases/{caseId}/resolve`) first. This is a server rule,
-  not a UI convention: the client offers the form in exactly one place because
-  this is the only state that accepts it.
+- **Who:** anyone who can see the case — **and only once a final diagnosis has
+  been accepted** (`Treatment` or `Closed`). Feedback is a judgement of how the
+  AI reasoned, so a case whose reasoning the doctor hasn't ruled on yet rejects
+  it with a `ValidationError`; sign off first
+  (`PUT /cases/{caseId}/final-diagnosis`). This is a server rule, not a UI
+  convention: the client asks in exactly one place — a dialog that opens the
+  moment the doctor accepts — because these are the states that accept it.
 - **Wants (JSON body):**
   | Field | Required | Description |
   |-------|:--:|-------------|
@@ -772,8 +779,8 @@ GET  /cases                                     (their assigned cases)
       needs_more_tests: a new round is on the workup, enter its results
       and analyze again
   → POST /cases/{caseId}/final-diagnosis → PUT /cases/{caseId}/final-diagnosis
-  → POST /cases/{caseId}/resolve                (or /reopen if it went wrong)
-  → POST /cases/{caseId}/feedback               (only once resolved)
+  → POST /cases/{caseId}/feedback               (once the diagnosis is accepted)
+  → POST /cases/{caseId}/resolve                (mark complete; or /reopen if it went wrong)
 ```
 
 Every screen starts with `GET /me` to learn what it is allowed to show.

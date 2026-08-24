@@ -24,6 +24,13 @@ import { cn } from '@/lib/utils';
  *   needs_more_tests  the results narrow the field without closing it, so a
  *                     fresh round of investigations has been written onto the
  *                     workup tab and the doctor is told to go and fill it in.
+ *
+ * The action is offered once per round rather than as a standing "re-analyse"
+ * button. Pressing it again on unchanged evidence only reshuffles the ranking,
+ * and on a `needs_more_tests` verdict it replaces the open recommendations
+ * with another round — so a new round of tests is something Aura asks for when
+ * it isn't sure, not something a doctor can produce by clicking twice. A new
+ * result re-arms it, because then there is something new to weigh.
  */
 
 /** The banner carrying the last analysis's verdict.
@@ -93,10 +100,21 @@ export function CaseDifferential({ caseData: c }: { caseData: PatientCase }) {
   const resulted = c.tests.filter((t) => t.status === 'completed' && t.result);
   const hasResults = resulted.length > 0;
 
-  const analyzeButton = (
+  // The analysis is offered once per round, not as a button the doctor can
+  // keep pressing. Re-running it on the same evidence only reshuffles the
+  // ranking and can silently replace the workup with a fresh round of tests —
+  // so a new round is something Aura asks for when it isn't sure
+  // (verdict 'needs_more_tests'), never something a stray click produces.
+  // Entering another result re-arms it, because then there genuinely is
+  // something new to weigh.
+  const analysedThisRound =
+    c.analysis?.verdict === 'confident' &&
+    (c.analysis.resultsConsidered?.length ?? 0) >= resulted.length;
+
+  const analyzeButton = analysedThisRound ? null : (
     <Button onClick={() => analyze.mutate()} disabled={analyze.isPending || !hasResults}>
       {analyze.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-      {c.analysis ? 'Re-analyse results' : 'Analyse results'}
+      Analyse results
     </Button>
   );
 
@@ -127,11 +145,15 @@ export function CaseDifferential({ caseData: c }: { caseData: PatientCase }) {
               <div>
                 <h2 className="text-base font-semibold">Differential diagnosis</h2>
                 <p className="mt-0.5 text-sm text-muted-foreground">
-                  {hasResults
-                    ? `Aura weighs each recommended test against the ${resulted.length} result${
+                  {analysedThisRound
+                    ? `Weighed against the ${resulted.length} result${
                         resulted.length > 1 ? 's' : ''
-                      } you entered, then either names a diagnosis or asks for more tests.`
-                    : 'No test results have been entered yet — enter one on the Tests tab to run the analysis.'}
+                      } you entered. Enter another result to have Aura reconsider.`
+                    : hasResults
+                      ? `Aura weighs each recommended test against the ${resulted.length} result${
+                          resulted.length > 1 ? 's' : ''
+                        } you entered, then either names a diagnosis or asks for more tests.`
+                      : 'No test results have been entered yet — enter one on the Tests tab to run the analysis.'}
                 </p>
               </div>
             </div>

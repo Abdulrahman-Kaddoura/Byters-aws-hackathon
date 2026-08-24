@@ -38,8 +38,8 @@ doctor works it up.
 6. **Recommended tests & results** — investigations with reason, expected finding, priority, cost, urgency and diagnostic value. The doctor marks each one awaiting results or declined, enters what came back, and can add tests they ordered themselves when none of the AI's are the right one.
 7. **Differential diagnosis** — driven by the results, not the intake. It weighs each recommended test against the result that actually came back and answers honestly: nothing resulted yet (it says so rather than guessing), a ranked differential it's confident in, or "not sure yet" — in which case it writes a **new round of tests** onto the workup and tells the doctor to go and fill them in. Earlier rounds stay as history. Each diagnosis card carries full **explainability** (how confidence was calculated, why not 100%, risk, next action, guideline/paper/textbook references, similar historical cases).
 8. **AI discussion** — every diagnosis has its own chat where the doctor can challenge the reasoning ("Why not pulmonary embolism?", "What would increase confidence?"), answered by the backend AI seam (Amazon Bedrock).
-9. **Final diagnosis, then treatment** — proposed diagnosis with evidence summary, ruled-out alternatives, treatment, monitoring, complications and follow-up. Signing it off doesn't close the case: the patient still has to be treated, so the case parks in **Treatment** until the doctor either marks it **resolved** or reopens it with an account of what went wrong — which withdraws the sign-off and re-runs the analysis on what actually happened.
-10. **Feedback, once and at the end** — only after a case is resolved is the doctor asked how Aura did. It's the single place in the app feedback can be given, enforced server-side, because how the AI reasoned can only be judged once the patient's outcome is known. It's kept as memory for future cases.
+9. **Final diagnosis, then done** — proposed diagnosis with evidence summary, ruled-out alternatives, treatment, monitoring, complications and follow-up. Accepting it is one button, and accepting opens one dialog that carries the whole ending: how did Aura do, then mark the case complete. The doctor can defer the second half — **Mark complete** sits in the case header at every stage, because a case doesn't always end by reaching a diagnosis (the patient is discharged, referred on, or never comes back) and the record still has to be closed.
+10. **Feedback, once, the moment the diagnosis is signed off** — accepting a diagnosis pops the question centre-screen, while the reasoning is still fresh, and it's skippable. It's the single place in the app feedback can be given, enforced server-side (a case with no accepted diagnosis rejects it), and it's saved per doctor as their preferences — memory that feeds back into how Aura reasons on their future cases.
 11. **Timeline & completion** — a vertical case timeline and read-only archived cases with outcomes and lessons learned.
 
 A persistent, case-aware **Aura Assistant** panel is available throughout for
@@ -253,7 +253,8 @@ src/
                  # Conversations, Examination, Differential, Tests, Diagnosis,
                  # Timeline), rendered inside CaseWorkspace
   components/    # Reusable UI: sidebar, cards, chat, charts, the consultation
-                 # prompt, end-of-case feedback, badges…
+                 # prompt, the sign-off feedback + completion dialogs
+                 # (CaseCompletion.tsx), badges…
   hooks/         # React Query hooks wrapping lib/api.ts (one per endpoint)
   lib/           # api.ts (fetch client), auth.ts (Cognito), theme, utils
   data/          # UI helpers (data/helpers.ts) and suggested-prompt labels for

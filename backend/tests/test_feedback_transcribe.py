@@ -17,9 +17,10 @@ def _assigned_case(nurse, doctor, sample_intake) -> str:
     return case["id"]
 
 
-def _resolved_case(nurse, doctor, sample_intake) -> str:
-    """A case driven all the way to resolved — the only state feedback is
-    accepted in (see resolvers/feedback.py)."""
+def _signed_off_case(nurse, doctor, sample_intake) -> str:
+    """A case driven to an accepted final diagnosis — the point the UI pops the
+    feedback dialog, and the earliest state the server takes feedback in (see
+    resolvers/feedback.py)."""
     cid = _assigned_case(nurse, doctor, sample_intake)
     for _ in range(6):
         if resolve("postInterviewMessage", nurse, {"caseId": cid, "text": "some answer"})["complete"]:
@@ -32,6 +33,12 @@ def _resolved_case(nurse, doctor, sample_intake) -> str:
     resolve("rerankAfterResults", doctor, {"caseId": cid})
     resolve("proposeFinalDiagnosis", doctor, {"caseId": cid})
     resolve("acceptFinalDiagnosis", doctor, {"caseId": cid})
+    return cid
+
+
+def _resolved_case(nurse, doctor, sample_intake) -> str:
+    """A signed-off case the doctor then marked complete."""
+    cid = _signed_off_case(nurse, doctor, sample_intake)
     resolve("resolveCase", doctor, {"caseId": cid})
     return cid
 
@@ -51,11 +58,23 @@ def test_submit_feedback(aws, nurse, doctor, sample_intake, seeded_users):
     assert history == ["The differential missed a common cause."]
 
 
-def test_feedback_is_refused_until_the_case_is_resolved(
+def test_feedback_is_accepted_as_soon_as_the_diagnosis_is_signed_off(
     aws, nurse, doctor, sample_intake, seeded_users
 ):
-    """Feedback is an end-of-case judgement, so an open case rejects it — the
-    UI offers the form in one place because the server takes it in one state."""
+    """The dialog pops the moment the doctor accepts, so the server has to take
+    feedback then — not only once the case is also marked complete."""
+    cid = _signed_off_case(nurse, doctor, sample_intake)
+    result = resolve("submitFeedback", doctor, {
+        "caseId": cid, "feedback": "Ranked the right diagnosis first.", "category": "diagnosis",
+    })
+    assert result["status"] == "success"
+
+
+def test_feedback_is_refused_before_a_diagnosis_is_signed_off(
+    aws, nurse, doctor, sample_intake, seeded_users
+):
+    """Feedback is a judgement of the reasoning, so a case whose reasoning the
+    doctor hasn't ruled on yet rejects it."""
     cid = _assigned_case(nurse, doctor, sample_intake)
     with pytest.raises(ValidationError):
         resolve("submitFeedback", doctor, {"caseId": cid, "feedback": "Too early to say."})

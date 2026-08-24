@@ -16,11 +16,17 @@ so the case document renders correctly in the existing UI.
     unexpected outcome     -> ResultsDiscussion     (loop)
     doctor marks resolved  -> Closed
 
-Accepting a diagnosis is not the end of the case. The patient still has to be
-treated, and treatment is where an unexpected outcome shows up. So sign-off
-lands in ``Treatment``, from which the doctor either marks the case resolved
-(``Closed``) or reopens it (``ResultsDiscussion``) when the patient doesn't
-respond the way the diagnosis predicted.
+Accepting a diagnosis parks the case in ``Treatment`` — the patient still has
+to be treated, and treatment is where an unexpected outcome shows up, so the
+reopen path (``ResultsDiscussion``) stays available from there.
+
+``Closed`` is reachable from **every** non-terminal state, not just
+``Treatment``. The doctor has a "Mark case complete" action in the case header
+that is always available, and a lifecycle that only let them finish from one
+state would mean the button is dead most of the time. Closing early is a
+deliberate clinical decision (the patient was discharged, referred, or never
+came back); the graph's job is to stop *accidental* moves, not to refuse the
+doctor an exit.
 """
 
 from __future__ import annotations
@@ -61,6 +67,14 @@ _ALLOWED: dict[LifecycleState, set[LifecycleState]] = {
     },
     LifecycleState.CLOSED: set(),  # terminal; record retained immutably
 }
+
+# The doctor can end a case from wherever it happens to be — see the module
+# docstring. Added after the graph literal so each state's clinical successors
+# above stay readable as the workflow they describe.
+for _state in LifecycleState:
+    if _state is not LifecycleState.CLOSED:
+        _ALLOWED[_state].add(LifecycleState.CLOSED)
+del _state
 
 # Default frontend (status, stage) presentation for each lifecycle state.
 # Frontend types: CaseStatus and StageKey in src/types.ts.

@@ -65,7 +65,7 @@ function currentBlocker(c: PatientCase): { text: string; icon: React.ReactNode }
   if (c.status === 'Treatment') {
     return {
       icon: <Clock className="h-4 w-4" />,
-      text: 'Patient is on treatment. Mark the case resolved, or reopen it if the outcome was unexpected.',
+      text: 'Diagnosis signed off. Mark the case complete when you\'re done with it.',
     };
   }
   return null;

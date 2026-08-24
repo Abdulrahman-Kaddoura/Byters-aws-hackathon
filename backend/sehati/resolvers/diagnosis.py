@@ -327,18 +327,20 @@ def accept_final_diagnosis(ctx: AuthContext, args: dict[str, Any]) -> dict[str, 
 
 
 def resolve_case(ctx: AuthContext, args: dict[str, Any]) -> dict[str, Any]:
-    """The patient responded to treatment: close the case for good.
+    """Close the case for good — the doctor is done with it.
 
-    This — not accepting a diagnosis — is what "resolved" means, and it is the
-    only thing that unlocks the doctor's feedback form (resolvers/feedback.py).
+    Callable from any open state, not just ``Treatment``. The case header
+    carries a "Mark case complete" action the doctor can reach at any point,
+    and the usual route (accept the diagnosis, then complete) is the common
+    case rather than the only one: a patient can be discharged, referred on, or
+    simply never come back, and the doctor still needs to close the record.
+    Already-closed is the one thing this refuses, so a second click can't
+    rewrite a settled outcome.
     """
     ctx.require_permission("cases.manage_state")
     case = cases_repo.get_case(_require(args, "caseId"), ctx)
-    if case.get("lifecycleState") != "Treatment":
-        raise ValidationError(
-            "Only a case on treatment can be marked resolved. Accept a final "
-            "diagnosis first."
-        )
+    if case.get("lifecycleState") == "Closed":
+        raise ValidationError("This case is already complete.")
 
     outcome = args.get("outcome") or case.get("finalDiagnosis", {}).get("name", "")
     case["outcome"] = outcome

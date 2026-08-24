@@ -99,9 +99,10 @@ def test_accept_recommendation_records_feedback(aws, nurse, doctor, sample_intak
 def test_illegal_manual_state_transition_rejected(aws, nurse, doctor, sample_intake, seeded_users):
     case = resolve("submitIntake", nurse, sample_intake)
     resolve("assignCase", nurse, {"caseId": case["id"], "doctorId": doctor.sub})
-    # Intake/AIInterview -> Closed is not allowed.
+    # AIInterview -> Diagnosis skips the whole workup and is not allowed.
+    # (AIInterview -> Closed *is*: the doctor can always end a case.)
     with pytest.raises(StateTransitionError):
-        resolve("setCaseState", doctor, {"caseId": case["id"], "state": "Closed"})
+        resolve("setCaseState", doctor, {"caseId": case["id"], "state": "Diagnosis"})
 
 
 def test_explainability_chat_persists_to_diagnosis(aws, nurse, doctor, sample_intake, seeded_users):
@@ -162,6 +163,38 @@ def test_diagnoses_are_normalized_when_the_model_omits_optional_arrays(
     # intact, so a later GET never re-exposes the gap.
     stored = resolve("getCase", doctor, {"id": cid})
     assert stored["diagnoses"][0]["references"] == []
+
+
+def test_a_probability_confidence_is_read_as_a_percentage(
+    aws, nurse, doctor, sample_intake, seeded_users, monkeypatch
+):
+    """A model asked for a "confidence" reaches for 0.82 as readily as 82. The
+    UI renders the number straight into `width: {value}%` and a "{value}%"
+    label, so an unconverted probability drew every diagnosis at effectively
+    zero — which is what confidence showing as 0 on every card actually was."""
+    from sehati.ai.base import AIResult
+    from tests.fakes.ai_double import FakeAIService
+
+    cid = _drive_to_doctor_review(nurse, doctor, sample_intake)
+    monkeypatch.setattr(
+        FakeAIService, "differential",
+        lambda self, case: AIResult(
+            value=[
+                {"id": "DX-prob", "name": "Community-acquired pneumonia", "confidence": 0.82},
+                {"id": "DX-str", "name": "Acute bronchitis", "confidence": "45%"},
+                {"id": "DX-none", "name": "Pulmonary embolism"},
+            ],
+            model_version="test",
+        ),
+    )
+
+    dx = resolve("requestRecommendations", doctor, {"caseId": cid})["diagnoses"]
+    assert [d["confidence"] for d in dx] == [82, 45, 0]
+
+    # Normalisation also runs on read, so a case stored before this existed
+    # renders correctly without a backfill.
+    stored = resolve("getCase", doctor, {"id": cid})
+    assert stored["diagnoses"][0]["confidence"] == 82
 
 
 def test_final_diagnosis_is_normalized_when_the_model_omits_optional_arrays(
@@ -313,10 +346,23 @@ def _to_treatment(nurse, doctor, sample_intake) -> str:
     return cid
 
 
-def test_cannot_resolve_a_case_that_is_not_on_treatment(
+def test_a_case_can_be_completed_before_a_diagnosis_is_signed_off(
     aws, nurse, doctor, sample_intake, seeded_users
 ):
+    """The doctor's "Mark case complete" action is available at any point — a
+    patient can be discharged or referred on mid-workup and the record still
+    has to be closed."""
     cid = _drive_to_doctor_review(nurse, doctor, sample_intake)
+    case = resolve("resolveCase", doctor, {"caseId": cid, "outcome": "Referred to cardiology"})["case"]
+    assert case["lifecycleState"] == "Closed"
+    assert case["outcome"] == "Referred to cardiology"
+
+
+def test_a_completed_case_cannot_be_completed_twice(
+    aws, nurse, doctor, sample_intake, seeded_users
+):
+    cid = _to_treatment(nurse, doctor, sample_intake)
+    resolve("resolveCase", doctor, {"caseId": cid})
     with pytest.raises(ValidationError):
         resolve("resolveCase", doctor, {"caseId": cid})
 
