@@ -1,0 +1,5 @@
+# Deployed into the Lambda package by the CDK asset bundling step
+# (infra/stacks/sehati_stack.py). boto3 is preinstalled in the AWS Lambda
+# Python runtime, so it's deliberately left out to keep the package small.
+pypdf>=4.0.0
+python-docx>=1.1.0

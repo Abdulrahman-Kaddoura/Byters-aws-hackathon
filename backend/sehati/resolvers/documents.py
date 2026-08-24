@@ -71,6 +71,12 @@ def upload_case_document(ctx: AuthContext, args: dict[str, Any]) -> dict[str, An
         Bucket=bucket, Key=key, Body=raw_bytes, ContentType=content_type
     )
 
+    # Capped to _MAX_CONTEXT_CHARS: the full case item (all documents' text,
+    # plus everything else on the case) has to fit in DynamoDB's 400KB item
+    # limit, and this is already the most any one document contributes to the
+    # AI's grounding context regardless.
+    extracted_text = extract_document_text(raw_bytes, file_ext)[:_MAX_CONTEXT_CHARS]
+
     document = {
         "id": document_id,
         "name": args.get("fileName") or f"document.{file_ext}",
@@ -82,7 +88,7 @@ def upload_case_document(ctx: AuthContext, args: dict[str, Any]) -> dict[str, An
         "uploadedAt": now_iso(),
         "s3Key": key,
         "s3Uri": f"s3://{bucket}/{key}",
-        "text": extract_document_text(raw_bytes, file_ext),
+        "text": extracted_text,
     }
     case.setdefault("documents", []).append(document)
     _rebuild_document_context(case)
