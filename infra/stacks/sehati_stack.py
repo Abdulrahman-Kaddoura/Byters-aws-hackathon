@@ -18,6 +18,7 @@ import os
 
 import jsii
 from aws_cdk import (
+    BundlingOptions,
     CfnOutput,
     Duration,
     RemovalPolicy,
@@ -321,13 +322,28 @@ class SehatiStack(Stack):
                     "scripts",
                     "**/__pycache__",
                     "*.md",
-                    "requirements*.txt",
+                    "requirements.txt",
                     "sehati/data",
                     ".venv",
                     "venv",
                     "**/*.egg-info",
                     ".pytest_cache",
                 ],
+                # `from_asset` alone just zips the source tree — it never installs
+                # third-party deps, so pypdf/python-docx (needed by text_extract.py)
+                # silently went missing from the deployed package. Install the
+                # runtime-only deps (requirements-lambda.txt; boto3 is preinstalled
+                # by the Lambda runtime, pytest/moto are dev-only) into the asset
+                # before it's zipped.
+                bundling=BundlingOptions(
+                    image=lambda_.Runtime.PYTHON_3_12.bundling_image,
+                    command=[
+                        "bash", "-c",
+                        "pip install -r requirements-lambda.txt -t /asset-output "
+                        "&& cp -au . /asset-output "
+                        "&& rm -f /asset-output/requirements-lambda.txt",
+                    ],
+                ),
             ),
             timeout=Duration.seconds(60),
             memory_size=512,
