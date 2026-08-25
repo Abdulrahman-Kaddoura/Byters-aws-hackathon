@@ -1,12 +1,10 @@
 import { useRef, useState } from 'react';
 import {
   Download,
-  Eye,
   FileText,
   Loader2,
   Trash2,
   Upload,
-  X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -22,8 +20,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { EmptyState, LoadingState, SectionHeading } from '@/components/common';
 import type { CaseDocument, PatientCase } from '@/types';
-
-const PREVIEWABLE = /^(application\/pdf|image\/)/;
 
 function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -48,7 +44,6 @@ export function CaseDocuments({ caseData }: { caseData: PatientCase }) {
   const remove = useDeleteCaseDocument(caseData.id);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const [preview, setPreview] = useState<{ doc: CaseDocument; url: string } | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const mayDelete = can(PERMISSIONS.casesViewClinical);
@@ -68,12 +63,11 @@ export function CaseDocuments({ caseData }: { caseData: PatientCase }) {
     }
   }
 
-  async function open(doc: CaseDocument, mode: 'preview' | 'download') {
+  async function open(doc: CaseDocument) {
     setBusyId(doc.id);
     try {
       const { url } = await api.getCaseDocument(caseData.id, doc.id);
-      if (mode === 'preview') setPreview({ doc, url });
-      else window.open(url, '_blank', 'noopener');
+      window.open(url, '_blank', 'noopener');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Could not open that document.');
     } finally {
@@ -144,29 +138,18 @@ export function CaseDocuments({ caseData }: { caseData: PatientCase }) {
                   </p>
                 </div>
 
-                {PREVIEWABLE.test(doc.contentType) && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    aria-label={`Preview ${doc.name}`}
-                    disabled={busyId === doc.id}
-                    onClick={() => void open(doc, 'preview')}
-                  >
-                    {busyId === doc.id ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Eye className="h-4 w-4" />
-                    )}
-                  </Button>
-                )}
                 <Button
                   variant="ghost"
                   size="icon"
                   aria-label={`Download ${doc.name}`}
                   disabled={busyId === doc.id}
-                  onClick={() => void open(doc, 'download')}
+                  onClick={() => void open(doc)}
                 >
-                  <Download className="h-4 w-4" />
+                  {busyId === doc.id ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Download className="h-4 w-4" />
+                  )}
                 </Button>
                 {mayDelete && (
                   <Button
@@ -185,42 +168,6 @@ export function CaseDocuments({ caseData }: { caseData: PatientCase }) {
           ))}
         </div>
       )}
-
-      {preview && <PreviewOverlay doc={preview.doc} url={preview.url} onClose={() => setPreview(null)} />}
-    </div>
-  );
-}
-
-function PreviewOverlay({
-  doc,
-  url,
-  onClose,
-}: {
-  doc: CaseDocument;
-  url: string;
-  onClose: () => void;
-}) {
-  const isImage = doc.contentType.startsWith('image/');
-  return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-background/95 backdrop-blur-sm">
-      <div className="flex items-center justify-between border-b bg-card px-6 py-3">
-        <div className="min-w-0">
-          <p className="truncate text-sm font-semibold">{doc.name}</p>
-          <p className="text-xs text-muted-foreground">
-            {doc.uploadedByName} · {timeAgo(doc.uploadedAt)}
-          </p>
-        </div>
-        <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close preview">
-          <X className="h-5 w-5" />
-        </Button>
-      </div>
-      <div className="flex flex-1 items-center justify-center overflow-auto p-4">
-        {isImage ? (
-          <img src={url} alt={doc.name} className="max-h-full max-w-full rounded-lg object-contain" />
-        ) : (
-          <iframe src={url} title={doc.name} className="h-full w-full rounded-lg border bg-white" />
-        )}
-      </div>
     </div>
   );
 }
