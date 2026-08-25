@@ -427,7 +427,7 @@ class SehatiStack(Stack):
             f"arn:aws:bedrock:*::foundation-model/{model_name}",
             f"arn:aws:bedrock:{self.region}:{self.account}:inference-profile/{bedrock_model_id}",
         ]
-        fn.add_to_role_policy(
+               fn.add_to_role_policy(
             iam.PolicyStatement(
                 actions=[
                     "bedrock:InvokeModel",
@@ -438,6 +438,16 @@ class SehatiStack(Stack):
                 resources=model_resources,
             )
         )
+
+        # Textract: structured extraction (forms + tables) for uploaded case
+        # documents that are images or scanned/image-only PDFs.
+        fn.add_to_role_policy(
+            iam.PolicyStatement(
+                actions=["textract:AnalyzeDocument"],
+                resources=["*"],
+            )
+        )
+
         if bedrock_guardrail_id:
             fn.add_to_role_policy(
                 iam.PolicyStatement(
@@ -456,7 +466,6 @@ class SehatiStack(Stack):
                     ],
                 )
             )
-
         # --- API Gateway (HTTP API) ------------------------------------------
         # HTTP API instead of REST API: lower per-request latency/cost, and a
         # (marginally) longer hard integration-timeout ceiling for the
