@@ -91,7 +91,7 @@ def upload_case_document(ctx: AuthContext, args: dict[str, Any]) -> dict[str, An
     # AI's grounding context regardless.
     extracted_text = extract_document_text(raw_bytes, file_ext)[:_MAX_CONTEXT_CHARS]
 
-    document = {
+      document = {
         "id": document_id,
         "name": args.get("fileName") or f"document.{file_ext}",
         "contentType": content_type,
@@ -100,9 +100,10 @@ def upload_case_document(ctx: AuthContext, args: dict[str, Any]) -> dict[str, An
         "uploadedBy": ctx.sub,
         "uploadedByName": ctx.username,
         "uploadedAt": now_iso(),
-        "s3Key": key,
-        "s3Uri": f"s3://{bucket}/{key}",
-        "text": extracted_text,
+        "s3Key": original_key,
+        "s3JsonKey": json_key,
+        "s3Uri": f"s3://{bucket}/{original_key}",
+        "text": extract_document_text(raw_bytes, file_ext),
     }
     case.setdefault("documents", []).append(document)
     _rebuild_document_context(case)
