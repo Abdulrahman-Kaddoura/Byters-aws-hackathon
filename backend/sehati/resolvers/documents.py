@@ -20,6 +20,7 @@ from functools import lru_cache
 from typing import Any
 
 import boto3
+from botocore.config import Config
 
 from ..context import AuthContext
 from ..db import audit_repo, cases_repo
@@ -35,7 +36,15 @@ _DOWNLOAD_URL_TTL_SECONDS = 300
 
 @lru_cache(maxsize=1)
 def _s3_client():
-    return boto3.client("s3", region_name=os.environ.get("AWS_REGION", "us-east-1"))
+    # The documents bucket uses SSE-KMS (see infra), which SigV2 presigned
+    # URLs can't authenticate against — "Requests specifying Server Side
+    # Encryption with AWS KMS managed keys require AWS Signature Version 4."
+    # Force SigV4 explicitly rather than relying on botocore's default.
+    return boto3.client(
+        "s3",
+        region_name=os.environ.get("AWS_REGION", "us-east-1"),
+        config=Config(signature_version="s3v4"),
+    )
 
 
 def _rebuild_document_context(case: dict[str, Any]) -> None:
