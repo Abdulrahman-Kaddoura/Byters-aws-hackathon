@@ -351,7 +351,17 @@ class SehatiStack(Stack):
                     command=[
                         "bash", "-c",
                         "pip install -r requirements-lambda.txt -t /asset-output "
-                        "&& cp -au . /asset-output "
+                        # Not `cp -a`: archive mode implies -p, and preserving
+                        # timestamps on the bind-mounted /asset-output fails as
+                        # the non-root bundling user on a Docker Desktop volume
+                        # ("cp: preserving times for '/asset-output/.':
+                        # Operation not permitted"), which kills the whole
+                        # deploy. Nothing downstream cares about the mtimes —
+                        # the asset is zipped and hashed by content — so a
+                        # plain recursive copy is what this step actually
+                        # needs. -u is kept: it is what stops the source tree
+                        # from overwriting anything pip just installed.
+                        "&& cp -ru . /asset-output "
                         "&& rm -f /asset-output/requirements-lambda.txt",
                     ],
                 ),
