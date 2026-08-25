@@ -351,7 +351,7 @@ class SehatiStack(Stack):
                     command=[
                         "bash", "-c",
                         "pip install -r requirements-lambda.txt -t /asset-output "
-                        "&& cp -au . /asset-output "
+                        "&& cp -ru . /asset-output "
                         "&& rm -f /asset-output/requirements-lambda.txt",
                     ],
                 ),
