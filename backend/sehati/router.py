@@ -81,6 +81,7 @@ ROUTES: dict[str, Resolver] = {
     "listCaseDocuments": documents.list_case_documents,
     "getCaseDocument": documents.get_case_document,
     "deleteCaseDocument": documents.delete_case_document,
+    "createCaseAudioUpload": documents.create_case_audio_upload,
     "uploadCaseAudio": documents.upload_case_audio,
     # Transcription (AWS HealthScribe)
     "startTranscription": transcribe.transcribe_audio,

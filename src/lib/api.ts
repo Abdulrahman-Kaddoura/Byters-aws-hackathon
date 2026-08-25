@@ -332,7 +332,14 @@ export function addCustomExam(
  * back; the case then runs on the AI interview alone. */
 export function setConsultation(
   caseId: string,
-  payload: { hasRecording: boolean; summary?: ConsultationSummary; jobName?: string; s3Key?: string }
+  payload: {
+    hasRecording: boolean;
+    summary?: ConsultationSummary;
+    jobName?: string;
+    /** The case document the recording was stored as. */
+    documentId?: string;
+    s3Key?: string;
+  }
 ): Promise<CaseEnvelope & { consultation: Consultation }> {
   return request('POST', `/cases/${enc(caseId)}/consultation`, payload);
 }
@@ -571,28 +578,62 @@ export function deleteCaseDocument(caseId: string, documentId: string): Promise<
   return request('DELETE', `/cases/${enc(caseId)}/documents/${enc(documentId)}`);
 }
 
-export function uploadCaseAudio(
+export interface AudioUploadTicket {
+  documentId: string;
+  s3Key: string;
+  bucket: string;
+  uploadUrl: string;
+  contentType: string;
+  expiresIn: number;
+}
+
+/** Ask for a presigned PUT and send the recording straight to S3.
+ *
+ * Not base64 through the API: API Gateway rejects a request body over 10MB
+ * (Lambda, 6MB) and base64 adds a third on top, so anything past a few minutes
+ * of audio never reached the backend at all. Only the metadata goes through
+ * the API; the bytes go to the bucket.
+ */
+export async function uploadCaseAudio(
   caseId: string,
-  payload: { fileBase64: string; fileExtension?: string; contentType?: string }
-): Promise<CaseEnvelope & { s3Key: string; bucket: string }> {
-  return request('POST', `/cases/${enc(caseId)}/audio`, payload);
+  file: File | Blob,
+  meta: { fileName?: string; fileExtension?: string; contentType?: string } = {}
+): Promise<AudioUploadTicket> {
+  const ticket: AudioUploadTicket = await request(
+    'POST',
+    `/cases/${enc(caseId)}/audio/upload-url`,
+    { ...meta, size: file.size }
+  );
+
+  const res = await fetch(ticket.uploadUrl, {
+    method: 'PUT',
+    // Must match the Content-Type the URL was signed with, or S3 rejects the
+    // signature.
+    headers: { 'Content-Type': ticket.contentType },
+    body: file,
+  });
+  if (!res.ok) {
+    throw new ApiError(res.status, 'UploadFailed', `Could not upload the recording (${res.status}).`);
+  }
+  return ticket;
 }
 
 export function startTranscription(
   caseId: string,
-  payload: { s3Key?: string; audioS3Uri?: string }
-): Promise<{ jobName: string; status: string }> {
+  payload: { documentId?: string; s3Key?: string; audioS3Uri?: string }
+): Promise<{ jobName: string; status: string; documentId?: string }> {
   return request('POST', `/cases/${enc(caseId)}/transcribe`, payload);
 }
 
 export interface TranscriptionStatus {
-  status: 'IN_PROGRESS' | 'COMPLETED' | 'FAILED';
-  summary?: {
-    chief_complaint: string | null;
-    history_of_present_illness: string | null;
-    review_of_systems: string | null;
-    past_medical_history: string | null;
-  };
+  status: 'IN_PROGRESS' | 'QUEUED' | 'COMPLETED' | 'FAILED';
+  summary?: ConsultationSummary;
+  /** The encounter as dialogue. Stored server-side on the case as document
+   * text, which is what the AI actually grounds on. */
+  transcript?: string;
+  documentId?: string;
+  /** A completed poll persists the transcript to the case and echoes it back. */
+  case?: PatientCase;
   reason?: string;
 }
 

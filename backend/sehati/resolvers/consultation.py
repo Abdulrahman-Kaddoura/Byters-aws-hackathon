@@ -50,10 +50,12 @@ def set_consultation(ctx: AuthContext, args: dict[str, Any]) -> dict[str, Any]:
     }
     if has_recording:
         consultation["summary"] = summary
-        if args.get("jobName"):
-            consultation["jobName"] = args["jobName"]
-        if args.get("s3Key"):
-            consultation["s3Key"] = args["s3Key"]
+        # Pointers back to the recording, which lives on the case as an audio
+        # document (resolvers/documents.py): the transcript itself is there,
+        # not here, because that is what makes it AI context.
+        for key in ("jobName", "documentId", "s3Key"):
+            if args.get(key):
+                consultation[key] = args[key]
     case["consultation"] = consultation
 
     if has_recording:

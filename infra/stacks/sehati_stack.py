@@ -239,6 +239,17 @@ class SehatiStack(Stack):
             removal_policy=RemovalPolicy.DESTROY,
             auto_delete_objects=True,
         )
+        # The browser PUTs consultation audio straight here with a presigned
+        # URL — a recording is far too large to pass through API Gateway as
+        # base64 — so the bucket has to answer the preflight itself. Reads stay
+        # presigned GETs, which need no CORS, but are allowed for symmetry.
+        documents.add_cors_rule(
+            allowed_methods=[s3.HttpMethods.PUT, s3.HttpMethods.GET, s3.HttpMethods.HEAD],
+            allowed_origins=["*"],
+            allowed_headers=["*"],
+            exposed_headers=["ETag"],
+            max_age=3000,
+        )
         # Immutable audit (WORM) — Object Lock in GOVERNANCE mode. RETAINED on
         # stack deletion (must be emptied manually) to honour immutability.
         audit_bucket = s3.Bucket(
@@ -362,6 +373,7 @@ class SehatiStack(Stack):
                 "SETTINGS_TABLE": settings.table_name,
                 "HEALTHSCRIBE_BUCKET": documents.bucket_name,
                 "HEALTHSCRIBE_ROLE_ARN": healthscribe_role.role_arn,
+                "DOCUMENTS_KMS_KEY_ARN": key.key_arn,
                 "BEDROCK_MODEL_ID": bedrock_model_id,
                 "BEDROCK_GUARDRAIL_ID": bedrock_guardrail_id,
                 "BEDROCK_GUARDRAIL_VERSION": bedrock_guardrail_version,
@@ -556,6 +568,10 @@ class SehatiStack(Stack):
             [apigatewayv2.HttpMethod.GET, apigatewayv2.HttpMethod.DELETE],
         )
         secured("/cases/{caseId}/audio", [apigatewayv2.HttpMethod.POST])
+        # Recordings are PUT straight to S3 from the browser (see
+        # resolvers/documents.create_case_audio_upload); this route only
+        # hands out the presigned URL.
+        secured("/cases/{caseId}/audio/upload-url", [apigatewayv2.HttpMethod.POST])
         secured("/cases/{caseId}/transcribe", [apigatewayv2.HttpMethod.POST])
         secured("/cases/{caseId}/transcribe/{jobName}", [apigatewayv2.HttpMethod.GET])
         secured("/cases/{caseId}/feedback", [apigatewayv2.HttpMethod.POST])

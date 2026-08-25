@@ -1,8 +1,10 @@
 import { useRef, useState } from 'react';
 import {
+  AlertTriangle,
   Download,
   FileText,
   Loader2,
+  Mic,
   Trash2,
   Upload,
 } from 'lucide-react';
@@ -25,6 +27,27 @@ function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/** What a consultation recording is doing right now.
+ *
+ * A recording is only grounding once HealthScribe has come back with its
+ * transcript, so the row says which of the two it is rather than looking like
+ * any other attachment. */
+function audioStatusLabel(doc: CaseDocument): string | null {
+  switch (doc.status) {
+    case 'pending':
+    case 'uploaded':
+      return 'Not transcribed yet';
+    case 'transcribing':
+      return 'Transcribing…';
+    case 'transcribed':
+      return 'Transcribed — used as AI context';
+    case 'failed':
+      return `Transcription failed: ${doc.failureReason ?? 'unknown error'}`;
+    default:
+      return null;
+  }
 }
 
 /**
@@ -89,7 +112,7 @@ export function CaseDocuments({ caseData }: { caseData: PatientCase }) {
     <div className="space-y-5 pb-8">
       <SectionHeading
         title="Documents"
-        subtitle="Referral letters, prior records, reports. Everything attached here is also used as grounding for the AI."
+        subtitle="Referral letters, prior records, reports, consultation recordings. Everything attached here is also used as grounding for the AI."
         icon={<FileText className="h-4 w-4" />}
         action={
           <Button onClick={() => inputRef.current?.click()} disabled={upload.isPending}>
@@ -129,13 +152,27 @@ export function CaseDocuments({ caseData }: { caseData: PatientCase }) {
             <Card key={doc.id}>
               <CardContent className="flex items-center gap-4 p-4">
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                  <FileText className="h-5 w-5" />
+                  {doc.kind === 'audio' ? <Mic className="h-5 w-5" /> : <FileText className="h-5 w-5" />}
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">{doc.name}</p>
                   <p className="truncate text-xs text-muted-foreground">
-                    {doc.uploadedByName} · {timeAgo(doc.uploadedAt)} · {formatSize(doc.size)}
+                    {doc.uploadedByName} · {timeAgo(doc.uploadedAt)}
+                    {doc.size > 0 && ` · ${formatSize(doc.size)}`}
                   </p>
+                  {doc.kind === 'audio' && audioStatusLabel(doc) && (
+                    <p
+                      className={
+                        doc.status === 'failed'
+                          ? 'mt-0.5 flex items-center gap-1 truncate text-xs text-rose-600 dark:text-rose-400'
+                          : 'mt-0.5 flex items-center gap-1 truncate text-xs text-muted-foreground'
+                      }
+                    >
+                      {doc.status === 'failed' && <AlertTriangle className="h-3 w-3 shrink-0" />}
+                      {doc.status === 'transcribing' && <Loader2 className="h-3 w-3 shrink-0 animate-spin" />}
+                      {audioStatusLabel(doc)}
+                    </p>
+                  )}
                 </div>
 
                 <Button

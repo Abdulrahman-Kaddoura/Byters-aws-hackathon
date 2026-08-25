@@ -15,7 +15,6 @@ from ..doc_extract import extract_document_json
 import base64
 import os
 import re
-import uuid
 from functools import lru_cache
 from typing import Any
 
@@ -185,35 +184,218 @@ def _public(document: dict[str, Any]) -> dict[str, Any]:
     return {k: v for k, v in document.items() if k not in ("text", "s3Key", "s3Uri")}
 
 
-def upload_case_audio(ctx: AuthContext, args: dict[str, Any]) -> dict[str, Any]:
-    """Upload a doctor-recorded audio file to S3 for HealthScribe transcription.
+# --- Audio: the doctor's consultation recording ------------------------------
+# An audio recording is a case document like any other. It arrives as bytes, it
+# is transcribed instead of text-extracted (``resolvers/transcribe.py`` ->
+# HealthScribe), and the transcript lands in the same ``text`` field every
+# uploaded document carries. That is the whole point of keeping it in
+# ``case["documents"]`` rather than a list of its own: the grounding context,
+# the retrieval tool the model calls, the document list and the delete path all
+# already work on that shape, so a recording becomes AI context on exactly the
+# same path a referral letter does.
 
-    Unlike upload_case_document, this does not attempt text extraction — the
-    bytes are opaque audio, not a document. Returns the S3 key so the caller
-    can immediately kick off transcribe.transcribe_audio with it.
+#: A recording is only *usable* context once HealthScribe has come back. These
+#: are the states a case's audio document moves through.
+AUDIO_KIND = "audio"
+AUDIO_PENDING = "pending"          # bytes not in S3 yet (presigned upload issued)
+AUDIO_UPLOADED = "uploaded"        # in S3, no transcription job started
+AUDIO_TRANSCRIBING = "transcribing"
+AUDIO_TRANSCRIBED = "transcribed"
+AUDIO_FAILED = "failed"
+
+_UPLOAD_URL_TTL_SECONDS = 900
+
+
+def create_case_audio_upload(ctx: AuthContext, args: dict[str, Any]) -> dict[str, Any]:
+    """A presigned PUT so the browser sends the audio straight to S3.
+
+    Audio does not fit the base64-in-JSON path the document upload uses. API
+    Gateway caps a request body at 10MB and Lambda at 6MB, and base64 inflates
+    the payload by a third — so anything past roughly four minutes of recording
+    was being rejected at the edge before a single line of our code ran. The
+    browser PUTs the raw bytes to S3 itself instead, and only the metadata
+    comes through the API.
+
+    The document row is created here, in ``pending``, so a recording that is
+    uploaded but never transcribed is still visible on the case rather than an
+    orphaned object in a bucket.
     """
+    ctx.require_permission("cases.view_clinical")
     case = cases_repo.get_case(_require(args, "caseId"), ctx)
-    file_base64 = _require(args, "fileBase64")
-    file_ext = args.get("fileExtension", "wav")
-
-    raw_bytes = base64.b64decode(file_base64)
 
     bucket = os.environ["DOCUMENTS_BUCKET"]
-    key = f"case-audio/{case['id']}/{uuid.uuid4()}.{file_ext}"
-    _s3_client().put_object(
-        Bucket=bucket,
-        Key=key,
-        Body=raw_bytes,
-        ContentType=args.get("contentType", "application/octet-stream"),
+    document = _new_audio_document(ctx, case, args, bucket)
+    content_type = document["contentType"]
+
+    url = _s3_client().generate_presigned_url(
+        "put_object",
+        Params={"Bucket": bucket, "Key": document["s3Key"], "ContentType": content_type},
+        ExpiresIn=_UPLOAD_URL_TTL_SECONDS,
     )
 
+    case.setdefault("documents", []).append(document)
+    cases_repo.save_case(case, ctx)
+    audit_repo.record(
+        ctx, case_id=case["id"], action="createCaseAudioUpload",
+        output={"documentId": document["id"], "s3Key": document["s3Key"]},
+    )
+    return {
+        "documentId": document["id"],
+        "s3Key": document["s3Key"],
+        "bucket": bucket,
+        "uploadUrl": url,
+        "contentType": content_type,
+        "expiresIn": _UPLOAD_URL_TTL_SECONDS,
+    }
+
+
+def upload_case_audio(ctx: AuthContext, args: dict[str, Any]) -> dict[str, Any]:
+    """Upload a recording through the API as base64 (small files only).
+
+    Kept for short clips and for callers that can't do a direct PUT; anything
+    of real length must go through :func:`create_case_audio_upload`, which is
+    not subject to the API's payload ceiling. No text extraction happens here —
+    the bytes are opaque audio, and the transcript arrives later from
+    HealthScribe via ``resolvers/transcribe.py``.
+    """
+    ctx.require_permission("cases.view_clinical")
+    case = cases_repo.get_case(_require(args, "caseId"), ctx)
+    raw_bytes = base64.b64decode(_require(args, "fileBase64"))
+
+    bucket = os.environ["DOCUMENTS_BUCKET"]
+    document = _new_audio_document(ctx, case, args, bucket, size=len(raw_bytes))
+    _s3_client().put_object(
+        Bucket=bucket,
+        Key=document["s3Key"],
+        Body=raw_bytes,
+        ContentType=document["contentType"],
+    )
+    document["status"] = AUDIO_UPLOADED
+
+    case.setdefault("documents", []).append(document)
     case.setdefault("recentUpdates", []).insert(0, recent_update("Audio recording uploaded", "doctor"))
     cases_repo.save_case(case, ctx)
     audit_repo.record(
         ctx, case_id=case["id"], action="uploadCaseAudio",
-        output={"s3Key": key},
+        output={"documentId": document["id"], "s3Key": document["s3Key"]},
     )
-    return {"case": case, "s3Key": key, "bucket": bucket}
+    return {
+        "case": case,
+        "documentId": document["id"],
+        "s3Key": document["s3Key"],
+        "bucket": bucket,
+    }
+
+
+def _new_audio_document(
+    ctx: AuthContext,
+    case: dict[str, Any],
+    args: dict[str, Any],
+    bucket: str,
+    size: int | None = None,
+) -> dict[str, Any]:
+    document_id = new_id()
+    # A file picked from a phone can arrive with no extension at all; an empty
+    # one would make the S3 key end in a bare dot and leave HealthScribe
+    # guessing at the media format.
+    file_ext = _audio_extension(args)
+    key = f"case-audio/{case['id']}/{document_id}.{file_ext}"
+    return {
+        "id": document_id,
+        "kind": AUDIO_KIND,
+        "status": AUDIO_PENDING,
+        "name": args.get("fileName") or "Consultation recording",
+        "contentType": args.get("contentType") or f"audio/{file_ext}",
+        "extension": file_ext,
+        "size": size if size is not None else int(args.get("size") or 0),
+        "uploadedBy": ctx.sub,
+        "uploadedByName": ctx.username,
+        "uploadedAt": now_iso(),
+        "s3Key": key,
+        "s3Uri": f"s3://{bucket}/{key}",
+        "text": "",
+    }
+
+
+def _audio_extension(args: dict[str, Any]) -> str:
+    ext = (args.get("fileExtension") or "").strip().lstrip(".").lower()
+    if not ext:
+        # `audio/webm;codecs=opus` -> webm
+        subtype = (args.get("contentType") or "").split("/")[-1].split(";")[0].strip()
+        ext = subtype or "wav"
+    return re.sub(r"[^a-z0-9]", "", ext) or "wav"
+
+
+def find_audio_document(
+    case: dict[str, Any], document_id: str | None = None, job_name: str | None = None
+) -> dict[str, Any] | None:
+    """The case's audio document, by id, by transcription job, or the newest."""
+    audio = [d for d in case.get("documents", []) if d.get("kind") == AUDIO_KIND]
+    if document_id:
+        match = next((d for d in audio if d.get("id") == document_id), None)
+        if match or not job_name:
+            return match
+    if job_name:
+        return next((d for d in audio if d.get("jobName") == job_name), None)
+    return audio[-1] if audio else None
+
+
+def mark_audio_transcribing(
+    case: dict[str, Any], document: dict[str, Any], job_name: str
+) -> None:
+    document["status"] = AUDIO_TRANSCRIBING
+    document["jobName"] = job_name
+    document.pop("failureReason", None)
+    case.setdefault("recentUpdates", []).insert(
+        0, recent_update("Consultation recording sent for transcription", "system")
+    )
+
+
+def attach_audio_transcription(
+    case: dict[str, Any],
+    document: dict[str, Any],
+    summary: dict[str, Any] | None,
+    transcript: str,
+) -> None:
+    """Fold a completed transcription into the case as document text.
+
+    This is the step that makes a recording count as context: once ``text`` is
+    populated the transcript is retrieved by the model's document tool and
+    concatenated into ``documentContext`` exactly like an uploaded report.
+    """
+    document["status"] = AUDIO_TRANSCRIBED
+    document["summary"] = summary or {}
+    document["transcribedAt"] = now_iso()
+    document["text"] = _audio_document_text(summary, transcript)[:_MAX_CONTEXT_CHARS]
+    _rebuild_document_context(case)
+    case.setdefault("recentUpdates", []).insert(
+        0, recent_update("Consultation recording transcribed", "system")
+    )
+
+
+def mark_audio_failed(case: dict[str, Any], document: dict[str, Any], reason: str) -> None:
+    document["status"] = AUDIO_FAILED
+    document["failureReason"] = reason
+
+
+def _audio_document_text(summary: dict[str, Any] | None, transcript: str) -> str:
+    """Summary sections first, then the verbatim turns.
+
+    Both go in. The summary is what a reader wants; the transcript is where the
+    detail the summary dropped still lives, and the retrieval in this module
+    scores chunks of it against whatever the model asked about.
+    """
+    parts = [
+        "Transcript of the doctor's consultation with the patient "
+        "(recorded in the room, transcribed by AWS HealthScribe)."
+    ]
+    for name, value in (summary or {}).items():
+        text = (value or "").strip() if isinstance(value, str) else ""
+        if text:
+            parts.append(f"{name.replace('_', ' ').capitalize()}: {text}")
+    if transcript.strip():
+        parts.append("Verbatim transcript:\n" + transcript.strip())
+    return "\n\n".join(parts)
 
 
 def _require(args: dict[str, Any], key: str) -> Any:

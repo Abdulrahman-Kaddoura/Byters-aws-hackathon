@@ -113,6 +113,54 @@ def test_upload_case_audio(aws, monkeypatch, nurse, doctor, sample_intake, seede
     assert result["s3Key"].endswith(".wav")
 
 
+def test_create_case_audio_upload_returns_a_presigned_put(
+    aws, monkeypatch, nurse, doctor, sample_intake, seeded_users
+):
+    """Recordings go straight to S3: base64 through API Gateway caps out at a
+    few megabytes, which is a couple of minutes of audio."""
+    import boto3
+
+    monkeypatch.setenv("DOCUMENTS_BUCKET", "sehati-documents-test")
+    boto3.client("s3", region_name="us-east-1").create_bucket(Bucket="sehati-documents-test")
+
+    cid = _assigned_case(nurse, doctor, sample_intake)
+
+    result = resolve("createCaseAudioUpload", doctor, {
+        "caseId": cid,
+        "fileName": "consult.m4a",
+        "fileExtension": "m4a",
+        "contentType": "audio/mp4",
+        "size": 24_000_000,
+    })
+    assert result["uploadUrl"].startswith("https://")
+    assert result["s3Key"].startswith(f"case-audio/{cid}/")
+    assert result["s3Key"].endswith(".m4a")
+
+    # The recording is on the case before a byte is uploaded, so a doctor who
+    # abandons the upload leaves a visible row rather than an orphaned object.
+    case = resolve("getCase", doctor, {"id": cid})
+    audio = [d for d in case["documents"] if d.get("kind") == "audio"]
+    assert len(audio) == 1
+    assert audio[0]["status"] == "pending"
+    assert audio[0]["id"] == result["documentId"]
+
+
+def test_audio_extension_falls_back_to_the_content_type(
+    aws, monkeypatch, nurse, doctor, sample_intake, seeded_users
+):
+    """A file picked on a phone can carry no extension at all."""
+    import boto3
+
+    monkeypatch.setenv("DOCUMENTS_BUCKET", "sehati-documents-test")
+    boto3.client("s3", region_name="us-east-1").create_bucket(Bucket="sehati-documents-test")
+
+    cid = _assigned_case(nurse, doctor, sample_intake)
+    result = resolve("createCaseAudioUpload", doctor, {
+        "caseId": cid, "fileExtension": "", "contentType": "audio/webm;codecs=opus",
+    })
+    assert result["s3Key"].endswith(".webm")
+
+
 def test_start_transcription_requires_source(
     aws, monkeypatch, nurse, doctor, sample_intake, seeded_users
 ):
@@ -188,3 +236,167 @@ def test_transcription_status_completed_fetches_summary(
     result = resolve("transcriptionStatus", doctor, {"caseId": cid, "jobName": "case-x-1"})
     assert result["status"] == "COMPLETED"
     assert result["summary"]["chief_complaint"] == "Headache."
+
+
+def _completed_job(clinical_doc, transcript_doc, bucket="sehati-healthscribe-test"):
+    """A COMPLETED job whose output URIs point at the two documents."""
+    return {
+        "MedicalScribeJob": {
+            "MedicalScribeJobStatus": "COMPLETED",
+            "MedicalScribeOutput": {
+                "ClinicalDocumentUri": f"s3://{bucket}/jobs/case-x-1/summary.json",
+                "TranscriptFileUri": f"s3://{bucket}/jobs/case-x-1/transcript.json",
+            },
+        }
+    }
+
+
+_CLINICAL_DOC = {
+    "ClinicalDocumentation": {
+        "Sections": [
+            {"SectionName": "CHIEF_COMPLAINT", "Summary": [{"SummarizedSegment": "Headache."}]},
+            {"SectionName": "ASSESSMENT", "Summary": [{"SummarizedSegment": "Likely migraine."}]},
+        ]
+    }
+}
+
+_TRANSCRIPT_DOC = {
+    "Conversation": {
+        "TranscriptSegments": [
+            {
+                "Content": "When did the headache start?",
+                "ParticipantDetails": {"ParticipantRole": "CLINICIAN_0"},
+            },
+            {
+                "Content": "Three days ago, behind my left eye.",
+                "ParticipantDetails": {"ParticipantRole": "PATIENT_0"},
+            },
+        ]
+    }
+}
+
+
+def _stub_healthscribe_output(monkeypatch, job_response):
+    """Point the HealthScribe seam at in-memory job output."""
+    import json
+
+    monkeypatch.setattr(healthscribe, "HEALTHSCRIBE_BUCKET", "sehati-healthscribe-test")
+    monkeypatch.setattr(
+        healthscribe._transcribe_client, "get_medical_scribe_job",
+        lambda **kwargs: job_response,
+    )
+
+    bodies = {
+        "jobs/case-x-1/summary.json": _CLINICAL_DOC,
+        "jobs/case-x-1/transcript.json": _TRANSCRIPT_DOC,
+    }
+
+    class _FakeBody:
+        def __init__(self, payload):
+            self._payload = payload
+
+        def read(self):
+            return json.dumps(self._payload).encode()
+
+    monkeypatch.setattr(
+        healthscribe._s3_client, "get_object",
+        lambda **kwargs: {"Body": _FakeBody(bodies[kwargs["Key"]])},
+    )
+
+
+def test_completed_job_is_read_from_the_uri_the_job_reports(
+    aws, monkeypatch, nurse, doctor, sample_intake, seeded_users
+):
+    """HealthScribe chooses where its output lands. Guessing an output key was
+    the bug: the fetch 404'd and every completed transcription surfaced as a
+    failure."""
+    _stub_healthscribe_output(monkeypatch, _completed_job(_CLINICAL_DOC, _TRANSCRIPT_DOC))
+
+    cid = _assigned_case(nurse, doctor, sample_intake)
+    result = resolve("transcriptionStatus", doctor, {"caseId": cid, "jobName": "case-x-1"})
+
+    assert result["status"] == "COMPLETED"
+    assert result["summary"]["chief_complaint"] == "Headache."
+    # Sections beyond the four the case has always carried come through too.
+    assert result["summary"]["assessment"] == "Likely migraine."
+    assert "PATIENT 0: Three days ago" in result["transcript"]
+
+
+def test_a_transcribed_recording_becomes_ai_context_like_a_document(
+    aws, monkeypatch, nurse, doctor, sample_intake, seeded_users
+):
+    """The point of the whole flow: once transcribed, the recording is
+    retrievable by the model's document tool and sits in documentContext,
+    exactly like an uploaded referral letter."""
+    import boto3
+
+    from sehati.resolvers import documents
+
+    monkeypatch.setenv("DOCUMENTS_BUCKET", "sehati-documents-test")
+    boto3.client("s3", region_name="us-east-1").create_bucket(Bucket="sehati-documents-test")
+    monkeypatch.setattr(healthscribe, "HEALTHSCRIBE_ROLE_ARN", "arn:aws:iam::123456789012:role/test")
+    monkeypatch.setattr(healthscribe, "HEALTHSCRIBE_BUCKET", "sehati-documents-test")
+    monkeypatch.setattr(
+        healthscribe._transcribe_client, "start_medical_scribe_job", lambda **kwargs: {}
+    )
+
+    cid = _assigned_case(nurse, doctor, sample_intake)
+    upload = resolve("createCaseAudioUpload", doctor, {
+        "caseId": cid, "fileName": "consult.wav", "fileExtension": "wav", "contentType": "audio/wav",
+    })
+    started = resolve("startTranscription", doctor, {"caseId": cid, "documentId": upload["documentId"]})
+    assert started["documentId"] == upload["documentId"]
+
+    case = resolve("getCase", doctor, {"id": cid})
+    assert documents.find_audio_document(case)["status"] == "transcribing"
+
+    _stub_healthscribe_output(monkeypatch, _completed_job(_CLINICAL_DOC, _TRANSCRIPT_DOC))
+    resolve("transcriptionStatus", doctor, {"caseId": cid, "jobName": started["jobName"]})
+
+    case = resolve("getCase", doctor, {"id": cid})
+    audio = documents.find_audio_document(case)
+    assert audio["status"] == "transcribed"
+    assert "behind my left eye" in audio["text"]
+    assert "behind my left eye" in case["documentContext"]
+
+    # And the tool the model actually calls returns it.
+    passages = documents.retrieve_document_passages(case, "headache")
+    assert any("headache" in p["text"].lower() for p in passages)
+    assert documents.document_count(case) == 1
+
+
+def test_a_failed_job_is_recorded_on_the_recording(
+    aws, monkeypatch, nurse, doctor, sample_intake, seeded_users
+):
+    import boto3
+
+    from sehati.resolvers import documents
+
+    monkeypatch.setenv("DOCUMENTS_BUCKET", "sehati-documents-test")
+    boto3.client("s3", region_name="us-east-1").create_bucket(Bucket="sehati-documents-test")
+    monkeypatch.setattr(healthscribe, "HEALTHSCRIBE_ROLE_ARN", "arn:aws:iam::123456789012:role/test")
+    monkeypatch.setattr(healthscribe, "HEALTHSCRIBE_BUCKET", "sehati-healthscribe-test")
+    monkeypatch.setattr(
+        healthscribe._transcribe_client, "start_medical_scribe_job", lambda **kwargs: {}
+    )
+    monkeypatch.setattr(
+        healthscribe._transcribe_client, "get_medical_scribe_job",
+        lambda **kwargs: {
+            "MedicalScribeJob": {
+                "MedicalScribeJobStatus": "FAILED",
+                "FailureReason": "Unsupported media format",
+            }
+        },
+    )
+
+    cid = _assigned_case(nurse, doctor, sample_intake)
+    upload = resolve("createCaseAudioUpload", doctor, {"caseId": cid, "fileExtension": "wav"})
+    started = resolve("startTranscription", doctor, {"caseId": cid, "documentId": upload["documentId"]})
+
+    result = resolve("transcriptionStatus", doctor, {"caseId": cid, "jobName": started["jobName"]})
+    assert result["status"] == "FAILED"
+
+    case = resolve("getCase", doctor, {"id": cid})
+    audio = documents.find_audio_document(case)
+    assert audio["status"] == "failed"
+    assert audio["failureReason"] == "Unsupported media format"

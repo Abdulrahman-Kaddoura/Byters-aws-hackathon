@@ -292,6 +292,7 @@ for everyone — downloads go through a presigned URL.
   | `hasRecording` | **yes** | `false` is a real answer — it records that the question was put and stops it being asked again. |
   | `summary` | only when `hasRecording` | The HealthScribe clinical summary (see `GET /cases/{caseId}/transcribe/{jobName}`). |
   | `jobName` | no | The transcription job it came from. |
+  | `documentId` | no | The audio document the recording is stored as. |
   | `s3Key` | no | Where the audio was uploaded. |
 - **Sends back:** `{ case, consultation }`.
 
@@ -530,7 +531,10 @@ for everyone — downloads go through a presigned URL.
 ## `GET /cases/{caseId}/documents` — list a case's documents
 - **Who:** requires `documents.manage`.
 - **Sends back:** `{ documents: [{ id, name, contentType, extension, size,
-  uploadedBy, uploadedByName, uploadedAt }] }`.
+  uploadedBy, uploadedByName, uploadedAt }] }`. A consultation recording is a
+  document too, and carries `kind: "audio"` plus `status`
+  (`pending` → `uploaded`/`transcribing` → `transcribed` | `failed`), `jobName`
+  and, once transcribed, its `summary`.
 
 ## `GET /cases/{caseId}/documents/{documentId}` — download or preview one
 - **Who:** requires `documents.manage`.
@@ -541,39 +545,72 @@ for everyone — downloads go through a presigned URL.
 - **Who:** requires `cases.view_clinical` (doctor, admin). A nurse can attach
   paperwork but not remove anything from the record.
 
-## `POST /cases/{caseId}/audio` — upload a doctor-recorded audio file
-- **Purpose:** Store a case's audio recording in S3 ahead of transcription — no
-  text extraction, unlike `.../documents`. Returns the S3 key to pass straight
-  into `.../transcribe`.
-- **Who:** requires `documents.manage`.
+## `POST /cases/{caseId}/audio/upload-url` — get a presigned PUT for a recording
+- **Purpose:** The normal way a consultation recording is uploaded. Audio does
+  not fit in a JSON request body: API Gateway caps a request at 10MB (Lambda at
+  6MB) and base64 adds a third on top, so anything past a few minutes of audio
+  is rejected at the edge. This returns a presigned `PUT` and the browser sends
+  the bytes straight to S3; only the metadata goes through the API.
+- **Who:** requires `cases.view_clinical`.
+- **Wants (JSON body):**
+  | Field | Required | Description |
+  |-------|:--:|-------------|
+  | `fileName` | recommended | Shown in the document list. Defaults to "Consultation recording". |
+  | `fileExtension` | no | `wav`, `mp3`, `m4a`, `webm`… Falls back to the content type's subtype. |
+  | `contentType` | no | MIME type. **The PUT must send exactly this value** or S3 rejects the signature. |
+  | `size` | no | Byte size, shown in the document list. |
+- **Sends back:** `{ documentId, s3Key, bucket, uploadUrl, contentType, expiresIn }`.
+- **Note:** The recording is registered on the case as an **audio document**
+  (`kind: "audio"`, `status: "pending"`) before the upload happens, so an
+  abandoned upload leaves a visible row rather than an orphaned S3 object.
+
+## `POST /cases/{caseId}/audio` — upload a recording as base64 (small files)
+- **Purpose:** The same thing in one call, for short clips and for callers that
+  can't do a direct PUT. Subject to the payload ceiling described above — use
+  `.../audio/upload-url` for anything of real length. No text extraction,
+  unlike `.../documents`: the transcript arrives later from HealthScribe.
+- **Who:** requires `cases.view_clinical`.
 - **Wants (JSON body):**
   | Field | Required | Description |
   |-------|:--:|-------------|
   | `fileBase64` | **yes** | The audio file, base64-encoded. |
   | `fileExtension` | no | `wav` (default), `mp3`, `m4a`, etc. |
   | `contentType` | no | MIME type stored on the S3 object. |
-- **Sends back:** `{ case, s3Key, bucket }`.
+- **Sends back:** `{ case, documentId, s3Key, bucket }`.
 
 ## `POST /cases/{caseId}/transcribe` — start a HealthScribe transcription job
 - **Purpose:** Kick off an AWS HealthScribe medical-scribe job against a case's
   uploaded audio. Returns immediately — a scribe job can run for minutes, well
   past any API Gateway integration timeout, so this never blocks waiting for
   it. Poll `.../transcribe/{jobName}` for the result.
-- **Who:** requires `documents.manage`.
+- **Who:** anyone who can see the case.
 - **Wants (JSON body):** one of:
   | Field | Required | Description |
   |-------|:--:|-------------|
-  | `s3Key` | one of these | The key returned by `.../audio` (resolved against the configured HealthScribe bucket). |
+  | `documentId` | one of these | The audio document from `.../audio/upload-url` or `.../audio`. The normal way in. |
+  | `s3Key` | one of these | A raw key, resolved against the configured HealthScribe bucket. |
   | `audioS3Uri` | one of these | A full `s3://bucket/key` URI, if you already have one. |
-- **Sends back:** `{ jobName, status: "IN_PROGRESS" }`.
+  With none of the three, the case's most recent recording is used.
+- **Sends back:** `{ jobName, status: "IN_PROGRESS", documentId? }`. The audio
+  document moves to `status: "transcribing"`.
 
 ## `GET /cases/{caseId}/transcribe/{jobName}` — poll a transcription job
-- **Purpose:** Check a HealthScribe job's status; once complete, returns the
-  structured clinical summary (chief complaint, HPI, review of systems, past
-  medical history) extracted from it.
-- **Who:** requires `documents.manage`.
-- **Sends back:** `{ status: "IN_PROGRESS" | "COMPLETED" | "FAILED", summary?, reason? }`
-  — `summary` is present only when `status` is `COMPLETED`; `reason` only when `FAILED`.
+- **Purpose:** Check a HealthScribe job's status, **and persist its result**.
+  On the first poll that sees `COMPLETED`, the summary and the verbatim
+  transcript are written onto the case's audio document, which is what turns a
+  recording into AI grounding: from that point the transcript is retrieved by
+  the model's `retrieve_case_documents` tool and concatenated into
+  `documentContext`, exactly like an uploaded referral letter. Persisting
+  server-side rather than in the browser means a doctor who closes the tab
+  mid-job still gets the transcript on the case.
+- **Who:** anyone who can see the case.
+- **Sends back:** `{ status: "IN_PROGRESS" | "COMPLETED" | "FAILED", summary?,
+  transcript?, documentId?, case?, reason? }` — `summary`/`transcript` only when
+  `COMPLETED`, `reason` only when `FAILED`. `summary` carries the four core
+  sections (chief complaint, HPI, review of systems, past medical history) plus
+  any further section HealthScribe emitted for the encounter.
+- **Note:** The output files are read from the URIs the job itself reports
+  (`MedicalScribeOutput`), not from a guessed output key.
 
 ## `POST /cases/{caseId}/feedback` — leave free-text feedback on a case
 - **Purpose:** A doctor's free-text note on the AI's performance for this case

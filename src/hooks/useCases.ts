@@ -260,18 +260,28 @@ export function useUploadCaseDocument(caseId: string) {
   });
 }
 
+/** Presigned PUT straight to S3 — the recording never passes through the API.
+ * The document row it creates is on the case already, so refresh the case. */
 export function useUploadCaseAudio(caseId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (vars: { fileBase64: string; fileExtension?: string; contentType?: string }) =>
-      api.uploadCaseAudio(caseId, vars),
-    onSuccess: (res) => applyCase(qc, res.case),
+    mutationFn: (vars: {
+      file: File | Blob;
+      fileName?: string;
+      fileExtension?: string;
+      contentType?: string;
+    }) => api.uploadCaseAudio(caseId, vars.file, vars),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['case', caseId] });
+      void qc.invalidateQueries({ queryKey: ['case-documents', caseId] });
+    },
   });
 }
 
 export function useStartTranscription(caseId: string) {
   return useMutation({
-    mutationFn: (vars: { s3Key?: string; audioS3Uri?: string }) => api.startTranscription(caseId, vars),
+    mutationFn: (vars: { documentId?: string; s3Key?: string; audioS3Uri?: string }) =>
+      api.startTranscription(caseId, vars),
   });
 }
 

@@ -99,6 +99,7 @@ _ROUTES = [
     _Route("GET", "/cases/{caseId}/documents/{documentId}", "getCaseDocument"),
     _Route("DELETE", "/cases/{caseId}/documents/{documentId}", "deleteCaseDocument"),
     _Route("POST", "/cases/{caseId}/audio", "uploadCaseAudio"),
+    _Route("POST", "/cases/{caseId}/audio/upload-url", "createCaseAudioUpload"),
     _Route("POST", "/cases/{caseId}/transcribe", "startTranscription"),
     _Route("GET", "/cases/{caseId}/transcribe/{jobName}", "transcriptionStatus"),
     _Route("POST", "/cases/{caseId}/feedback", "submitFeedback"),
