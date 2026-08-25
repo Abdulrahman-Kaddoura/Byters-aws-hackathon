@@ -400,3 +400,135 @@ def test_a_failed_job_is_recorded_on_the_recording(
     audio = documents.find_audio_document(case)
     assert audio["status"] == "failed"
     assert audio["failureReason"] == "Unsupported media format"
+
+
+def _client_error(code: str, message: str):
+    from botocore.exceptions import ClientError
+
+    return ClientError({"Error": {"Code": code, "Message": message}}, "GetMedicalScribeJob")
+
+
+def test_a_job_transcribe_has_never_heard_of_is_terminal_not_a_500(
+    aws, monkeypatch, nurse, doctor, sample_intake, seeded_users
+):
+    """The failure mode behind the doctor's 500 loop.
+
+    Transcribe answers a name it doesn't know with a *BadRequest*, which used
+    to escape as an unhandled error: every poll 500'd, the dialog spun, and the
+    recording sat in "transcribing" forever. It is terminal information — the
+    job is never going to appear — so it is recorded on the recording as a
+    failure with the reason, and polling stops.
+    """
+    import boto3
+
+    from sehati.resolvers import documents
+
+    monkeypatch.setenv("DOCUMENTS_BUCKET", "sehati-documents-test")
+    boto3.client("s3", region_name="us-east-1").create_bucket(Bucket="sehati-documents-test")
+    monkeypatch.setattr(healthscribe, "HEALTHSCRIBE_ROLE_ARN", "arn:aws:iam::123456789012:role/test")
+    monkeypatch.setattr(healthscribe, "HEALTHSCRIBE_BUCKET", "sehati-healthscribe-test")
+    monkeypatch.setattr(
+        healthscribe._transcribe_client, "start_medical_scribe_job", lambda **kwargs: {}
+    )
+
+    def _not_found(**kwargs):
+        raise _client_error("BadRequestException", "The requested job couldn't be found.")
+
+    monkeypatch.setattr(healthscribe._transcribe_client, "get_medical_scribe_job", _not_found)
+
+    cid = _assigned_case(nurse, doctor, sample_intake)
+    upload = resolve("createCaseAudioUpload", doctor, {"caseId": cid, "fileExtension": "mp3"})
+    started = resolve("startTranscription", doctor, {"caseId": cid, "documentId": upload["documentId"]})
+
+    result = resolve("transcriptionStatus", doctor, {"caseId": cid, "jobName": started["jobName"]})
+    assert result["status"] == "FAILED"
+    assert started["jobName"] in result["reason"]
+
+    case = resolve("getCase", doctor, {"id": cid})
+    audio = documents.find_audio_document(case)
+    assert audio["status"] == "failed"
+    assert "couldn't be found" in audio["failureReason"]
+
+
+def test_a_transcribe_outage_names_its_cause(aws, monkeypatch, nurse, doctor, sample_intake, seeded_users):
+    """Anything else from Transcribe is an upstream failure, and it carries the
+    AWS error code — the handler turns it into a 502 the caller can read."""
+    from sehati.ai.client import AgentInvokeError
+
+    def _denied(**kwargs):
+        raise _client_error("AccessDeniedException", "not authorized to GetMedicalScribeJob")
+
+    monkeypatch.setattr(healthscribe._transcribe_client, "get_medical_scribe_job", _denied)
+
+    cid = _assigned_case(nurse, doctor, sample_intake)
+    with pytest.raises(AgentInvokeError) as excinfo:
+        resolve("transcriptionStatus", doctor, {"caseId": cid, "jobName": "case-x-1"})
+    assert "AccessDeniedException" in str(excinfo.value)
+
+
+def test_a_completed_job_keeps_the_transcript_when_the_summary_cannot_be_read(
+    aws, monkeypatch, nurse, doctor, sample_intake, seeded_users
+):
+    """The summary and the transcript are two objects, and one can be
+    unreadable (a denied KMS decrypt, an output that never landed) while the
+    other is fine. The half that arrived is still the grounding context this
+    whole path exists to produce, so it is kept."""
+    import json
+
+    from sehati.resolvers import documents
+
+    monkeypatch.setattr(healthscribe, "HEALTHSCRIBE_BUCKET", "sehati-healthscribe-test")
+    monkeypatch.setattr(
+        healthscribe._transcribe_client, "get_medical_scribe_job",
+        lambda **kwargs: {
+            "MedicalScribeJob": {
+                "MedicalScribeJobStatus": "COMPLETED",
+                "MedicalScribeOutput": {
+                    "ClinicalDocumentUri": "s3://sehati-healthscribe-test/job/summary.json",
+                    "TranscriptFileUri": "s3://sehati-healthscribe-test/job/transcript.json",
+                },
+            }
+        },
+    )
+    transcript_doc = {
+        "Conversation": {
+            "TranscriptSegments": [
+                {"Content": "Where does it hurt?", "ParticipantDetails": {"ParticipantRole": "CLINICIAN"}},
+                {"Content": "Behind my left eye.", "ParticipantDetails": {"ParticipantRole": "PATIENT"}},
+            ]
+        }
+    }
+
+    class _FakeBody:
+        def read(self):
+            return json.dumps(transcript_doc).encode()
+
+    def _get_object(**kwargs):
+        if kwargs["Key"].endswith("summary.json"):
+            raise _client_error("AccessDenied", "KMS key access denied")
+        return {"Body": _FakeBody()}
+
+    monkeypatch.setattr(healthscribe._s3_client, "get_object", _get_object)
+
+    cid = _assigned_case(nurse, doctor, sample_intake)
+    result = resolve("transcriptionStatus", doctor, {"caseId": cid, "jobName": "case-x-1"})
+    assert result["status"] == "COMPLETED"
+    assert "Behind my left eye" in result["transcript"]
+
+
+def test_an_mp3_is_stored_with_an_extension_healthscribe_reads(
+    aws, monkeypatch, nurse, doctor, sample_intake, seeded_users
+):
+    """`audio/mpeg` is what a browser calls an mp3. Storing the MIME subtype
+    verbatim would key the object `.mpeg`, which HealthScribe does not read —
+    a failure that only shows up minutes after the upload."""
+    import boto3
+
+    monkeypatch.setenv("DOCUMENTS_BUCKET", "sehati-documents-test")
+    boto3.client("s3", region_name="us-east-1").create_bucket(Bucket="sehati-documents-test")
+
+    cid = _assigned_case(nurse, doctor, sample_intake)
+    result = resolve("createCaseAudioUpload", doctor, {
+        "caseId": cid, "fileExtension": "", "contentType": "audio/mpeg",
+    })
+    assert result["s3Key"].endswith(".mp3")

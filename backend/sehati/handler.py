@@ -27,9 +27,10 @@ import os
 from dataclasses import dataclass, field
 from typing import Any
 
+from .ai.client import AgentInvokeError
 from .context import AuthContext, from_apigw_claims
 from .db import cases_repo, users_repo
-from .errors import AppError, NotFoundError
+from .errors import AIServiceError, AppError, NotFoundError
 from .models import SUPER_ADMIN_USERNAME
 from .permissions import PERMISSIONS
 from .router import resolve
@@ -145,6 +146,14 @@ def handler(event: dict[str, Any], context: Any = None) -> dict[str, Any]:  # no
         args = _build_args(event, route)
         result = resolve(route.field, ctx, args)
         return _response(200, json.dumps(_project_result(result, ctx), default=str), cors)
+    except AgentInvokeError as exc:
+        # A Bedrock/HealthScribe call that failed is an upstream failure, not an
+        # internal one: it has a cause worth reading (a missing job, a denied
+        # KMS decrypt, a throttle), and swallowing it into a bare 500 left the
+        # doctor's screen — and CloudWatch — with nothing to act on.
+        logger.exception("ai_service_error resource=%s", resource)
+        wrapped = AIServiceError(str(exc))
+        return _response(wrapped.http_status, json.dumps(wrapped.to_dict()), cors)
     except AppError as exc:
         logger.warning("app_error resource=%s type=%s msg=%s", resource, exc.code, exc.message)
         return _response(exc.http_status, json.dumps(exc.to_dict()), cors)

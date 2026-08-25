@@ -92,3 +92,26 @@ def test_handler_options_preflight(aws):
     resp = handler({"httpMethod": "OPTIONS", "resource": "/cases"})
     assert resp["statusCode"] == 200
     assert resp["headers"]["Access-Control-Allow-Origin"] == "*"
+
+
+def test_handler_reports_an_upstream_ai_failure_rather_than_a_bare_500(_nurse_record, monkeypatch):
+    """A HealthScribe/Bedrock failure has a cause the caller can act on.
+
+    It used to escape as ``AgentInvokeError`` — not an ``AppError`` — and land
+    in the catch-all, so a doctor polling a transcription saw a 500 with
+    "An internal error occurred." and nothing else, on the screen or in the
+    response.
+    """
+    from sehati.ai.client import AgentInvokeError
+    from sehati import router
+
+    def _boom(ctx, args):
+        raise AgentInvokeError("Could not read transcription job 'case-x-1': AccessDeniedException: nope")
+
+    monkeypatch.setitem(router.ROUTES, "getCase", _boom)
+
+    resp = handler(_event("GET", "/cases/{caseId}", path_params={"caseId": "AUR-1"}))
+    assert resp["statusCode"] == 502
+    body = json.loads(resp["body"])
+    assert body["errorType"] == "AIServiceError"
+    assert "AccessDeniedException" in body["message"]

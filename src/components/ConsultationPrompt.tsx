@@ -20,6 +20,8 @@ import {
 } from '@/hooks/useCases';
 
 const POLL_INTERVAL_MS = 4000;
+/** How many polls in a row may fail before the doctor is told. */
+const MAX_CONSECUTIVE_POLL_FAILURES = 3;
 
 /** What AWS HealthScribe can actually ingest. Anything else is rejected by the
  * service minutes after upload, which is a miserable way to find out — so it is
@@ -67,6 +69,7 @@ export function ConsultationPrompt({ caseData: c }: { caseData: PatientCase }) {
   const [fileName, setFileName] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollFailuresRef = useRef(0);
   const qc = useQueryClient();
 
   const uploadAudio = useUploadCaseAudio(c.id);
@@ -111,9 +114,11 @@ export function ConsultationPrompt({ caseData: c }: { caseData: PatientCase }) {
   const pollJob = useCallback(
     (jobName: string, documentId?: string) => {
       stopPolling();
+      pollFailuresRef.current = 0;
       pollRef.current = setInterval(async () => {
         try {
           const status = await api.transcriptionStatus(c.id, jobName);
+          pollFailuresRef.current = 0;
           // Each poll returns the case with the transcript already folded in,
           // so the documents list and the AI's grounding stay in step.
           if (status.case) qc.setQueryData(['case', c.id], status.case);
@@ -124,7 +129,14 @@ export function ConsultationPrompt({ caseData: c }: { caseData: PatientCase }) {
             fail(status.reason ?? 'Transcription failed.');
           }
         } catch (err) {
-          fail((err as Error).message);
+          // A single failed poll is not a failed transcription — the job runs
+          // for minutes, and one throttled or dropped request in the middle of
+          // it is no reason to throw the recording away. Consecutive failures
+          // are a real problem and are reported with what the server said.
+          pollFailuresRef.current += 1;
+          if (pollFailuresRef.current >= MAX_CONSECUTIVE_POLL_FAILURES) {
+            fail(`Could not check the transcription: ${(err as Error).message}`);
+          }
         }
       }, POLL_INTERVAL_MS);
     },
