@@ -10,6 +10,7 @@ folder can't quietly blow out the model's context window.
 
 from __future__ import annotations
 
+from ..doc_extract import extract_document_json
 import base64
 import os
 import re
