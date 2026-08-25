@@ -25,13 +25,28 @@ def extract_document_json(raw_bytes: bytes, ext: str) -> dict[str, Any]:
 
 
 def _extract_via_textract(raw_bytes: bytes) -> dict[str, Any]:
+    """Runs Textract's AnalyzeDocument (FORMS+TABLES) on a single-page image
+    or single-page image-only PDF. Textract's synchronous AnalyzeDocument API
+    only accepts single-page input; a multi-page scanned PDF would need the
+    async StartDocumentAnalysis/GetDocumentAnalysis pair instead (SNS +
+    polling - not implemented here). Rather than let that surface as an
+    unhandled 500 on the upload endpoint, a rejected document degrades to an
+    empty extraction: the ORIGINAL file is still stored and downloadable
+    either way (that write already happened before this function is called)
+    - only the JSON side loses structured content, and callers can see why
+    via `error`.
+    """
     import boto3
+    from botocore.exceptions import ClientError
 
     textract = boto3.client("textract", region_name=os.environ.get("AWS_REGION", "us-east-1"))
-    resp = textract.analyze_document(
-        Document={"Bytes": raw_bytes},
-        FeatureTypes=["FORMS", "TABLES"],
-    )
+    try:
+        resp = textract.analyze_document(
+            Document={"Bytes": raw_bytes},
+            FeatureTypes=["FORMS", "TABLES"],
+        )
+    except ClientError as exc:
+        return {"kind": "extraction_failed", "text": "", "error": str(exc)}
     return _blocks_to_json(resp["Blocks"])
 
 
