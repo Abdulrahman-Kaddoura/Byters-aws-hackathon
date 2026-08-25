@@ -67,10 +67,21 @@ def upload_case_document(ctx: AuthContext, args: dict[str, Any]) -> dict[str, An
 
     bucket = os.environ["DOCUMENTS_BUCKET"]
     document_id = new_id()
-    key = f"case-documents/{case['id']}/{document_id}.{file_ext}"
+    prefix = f"case-documents/{case['id']}/{document_id}"
+    original_key = f"{prefix}/original.{file_ext}"
+    json_key = f"{prefix}/extracted.json"
     content_type = args.get("contentType", "application/octet-stream")
+
     _s3_client().put_object(
-        Bucket=bucket, Key=key, Body=raw_bytes, ContentType=content_type
+        Bucket=bucket, Key=original_key, Body=raw_bytes, ContentType=content_type
+    )
+
+    extracted = extract_document_json(raw_bytes, file_ext)
+    _s3_client().put_object(
+        Bucket=bucket,
+        Key=json_key,
+        Body=json.dumps(extracted).encode("utf-8"),
+        ContentType="application/json",
     )
 
     # Capped to _MAX_CONTEXT_CHARS: the full case item (all documents' text,
