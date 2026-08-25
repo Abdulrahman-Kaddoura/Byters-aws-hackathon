@@ -427,7 +427,7 @@ class SehatiStack(Stack):
             f"arn:aws:bedrock:*::foundation-model/{model_name}",
             f"arn:aws:bedrock:{self.region}:{self.account}:inference-profile/{bedrock_model_id}",
         ]
-               fn.add_to_role_policy(
+        fn.add_to_role_policy(
             iam.PolicyStatement(
                 actions=[
                     "bedrock:InvokeModel",
