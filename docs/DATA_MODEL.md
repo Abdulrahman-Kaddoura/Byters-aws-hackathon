@@ -88,7 +88,7 @@ plain numbers on a 0–100 scale (pain is 0–10). Higher = more/stronger.
 | `assignedPhysicianId` | text, optional | **The access boundary:** the one doctor this case is routed to. Absent until a nurse assigns it — and while absent, no doctor can open the case at all. |
 | `assignedAt` / `assignedBy` | text, optional | When the case was routed, and by whom. |
 | `documents` | list of *CaseDocument* | Files attached to the case (entity 18). |
-| `consultation` | object | The doctor's own consultation with the patient. `prompted` records that the once-only question was put; `hasRecording` how it was answered; `summary` the HealthScribe clinical summary, which every AI step reads alongside `interview`. |
+| `consultation` | object | The doctor's own consultation with the patient. `prompted` records that the once-only question was put; `hasRecording` how it was answered; `summary` the HealthScribe clinical summary, which every AI step reads alongside `interview`; `documentId` / `jobName` point at the recording, which is stored as an audio *CaseDocument* (entity 18). |
 | `testRound` | number | Which round of investigations the workup is on. Incremented when the results analysis needs more evidence; each *TestRecommendation* carries the `round` it belongs to. |
 | `analysis` | object, optional | The last results analysis: `verdict` (`no_results` / `confident` / `needs_more_tests`), the `message` shown to the doctor, `newTestCount`, and the results it weighed. |
 | `reopenReason` | text, optional | The doctor's account of why a case on treatment was reopened. Fed to the AI on the re-analysis. |
@@ -467,3 +467,17 @@ exact endpoint inputs and outputs.
 | `uploadedAt` | text | ISO timestamp. |
 | `s3Key` / `s3Uri` | text | **Server-side only** — never sent to a client; downloads go through a 5-minute presigned URL. |
 | `text` | text | **Server-side only** — extracted content, concatenated into the case's `documentContext` (capped ~40k chars, newest first) as AI grounding. |
+| `kind` | text, optional | `audio` for a consultation recording. Absent for an ordinary uploaded file. |
+| `status` | text, optional | Audio only: `pending` (presigned upload issued) → `uploaded` / `transcribing` → `transcribed` \| `failed`. |
+| `jobName` | text, optional | Audio only: the HealthScribe job transcribing it. |
+| `summary` | object, optional | Audio only: HealthScribe's sectioned clinical summary. |
+| `transcribedAt` / `failureReason` | text, optional | Audio only: when the transcript landed, or why it didn't. |
+
+> A **consultation recording is a `CaseDocument`**, not a separate concept.
+> Its transcript fills the same `text` field a PDF's extracted text fills, so
+> it becomes AI grounding on exactly the same path — retrieved by the model's
+> document tool, concatenated into `documentContext`. Until `status` reads
+> `transcribed`, `text` is empty and the recording is attached but not yet
+> context. The `consultation` object on the case points at it (`documentId`,
+> `jobName`) and carries the summary for display; the transcript itself lives
+> here.

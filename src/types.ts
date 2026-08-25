@@ -235,11 +235,15 @@ export interface Consultation {
   summary?: ConsultationSummary;
 }
 
+/** HealthScribe's sectioned summary. The four below are always present; the
+ * service emits further sections (assessment, plan, …) depending on the
+ * encounter, and those are passed through untouched. */
 export interface ConsultationSummary {
   chief_complaint?: string | null;
   history_of_present_illness?: string | null;
   review_of_systems?: string | null;
   past_medical_history?: string | null;
+  [section: string]: string | null | undefined;
 }
 
 /** The verdict from the last results analysis. `no_results` is the honest
@@ -308,7 +312,13 @@ export interface PatientCase {
 }
 
 /** A file attached to a case. The extracted text and the S3 key stay
- * server-side; downloads go through a short-lived presigned URL. */
+ * server-side; downloads go through a short-lived presigned URL.
+ *
+ * A consultation recording is one of these too: `kind: 'audio'`, with its
+ * HealthScribe transcript filling the same server-side text every other
+ * document carries, so the AI grounds on it the same way. `status` tracks it
+ * from upload through transcription — until it reads `transcribed`, the
+ * recording is on the case but not yet context. */
 export interface CaseDocument {
   id: string;
   name: string;
@@ -318,7 +328,20 @@ export interface CaseDocument {
   uploadedBy: string;
   uploadedByName: string;
   uploadedAt: string;
+  kind?: 'audio';
+  status?: AudioStatus;
+  jobName?: string;
+  summary?: ConsultationSummary;
+  transcribedAt?: string;
+  failureReason?: string;
 }
+
+export type AudioStatus =
+  | 'pending'
+  | 'uploaded'
+  | 'transcribing'
+  | 'transcribed'
+  | 'failed';
 
 // ---------------------------------------------------------------------------
 // Admin panel — hospital-provisioned accounts and custom permission groups.

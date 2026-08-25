@@ -285,14 +285,36 @@ note" feature stored per doctor rather than per case; `ai/bedrock.py` folds a
 doctor's recent feedback back into their own future prompts as a lightweight
 preference signal.
 
-**Transcription** (design doc §12, partial): `ai/healthscribe.py` +
+**Transcription** (design doc §12): `ai/healthscribe.py` +
 `resolvers/transcribe.py` wrap AWS HealthScribe (built on Amazon Transcribe
 Medical). `startTranscription` kicks off a medical-scribe job against a
 doctor-uploaded audio recording and returns immediately — a job can run
 minutes past any API Gateway integration timeout, so the Lambda never blocks
 waiting for it. The frontend polls `transcriptionStatus` until the job
 completes, then gets back a structured clinical summary (chief complaint,
-HPI, review of systems, past medical history).
+HPI, review of systems, past medical history, plus whatever further sections
+HealthScribe emitted) and the verbatim transcript.
+
+Three things about that flow are load-bearing:
+
+- **A recording is a case document.** It lives in `case["documents"]` with
+  `kind: "audio"`, and the transcript fills the same `text` field an uploaded
+  PDF's extracted text fills. That is what makes it *context*: the model's
+  `retrieve_case_documents` tool scores its passages and `documentContext`
+  carries it, on exactly the path a referral letter takes. Nothing about the
+  AI seam knows audio exists.
+- **The bytes never pass through the API.** API Gateway caps a request body at
+  10MB and Lambda at 6MB, and base64 inflates by a third — a few minutes of
+  audio is already over. `createCaseAudioUpload` hands out a presigned `PUT`
+  and the browser uploads straight to the documents bucket (which is why that
+  bucket carries a CORS rule).
+- **The result is persisted server-side, by the poll.** The first
+  `transcriptionStatus` call that sees `COMPLETED` writes the transcript onto
+  the case. A doctor who closes the tab mid-job does not lose the recording,
+  and the dialog that started it is a view, not the system of record.
+
+Where the output lands is HealthScribe's decision, so `get_job_status` reads
+the `MedicalScribeOutput` URIs off the job rather than guessing an output key.
 
 ## 7. Deliberate deviation: DynamoDB instead of Aurora
 
