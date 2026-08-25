@@ -9,6 +9,10 @@ This is the file the **AI team owns and tunes**. It wires the workflow to:
     upload a doc (e.g. a guideline for a specific condition) via
     ``resolvers/resources.py``, tagged with the topics it covers, and it's
     keyword-matched in here alongside any Knowledge Base results.
+  * the **case document tool** (``ai/tools.py``) — the one piece of retrieval
+    the model drives itself. The corpus and reference library are fetched up
+    front from a query we pick; the patient's own uploaded documents are pulled
+    on demand, by a query the model picks, mid-turn. See ``_converse``.
 
 It implements the :class:`~sehati.ai.base.AIService` contract. Where the model
 returns free text that must become a structured object (summary, differential
@@ -32,7 +36,7 @@ from botocore.exceptions import BotoCoreError, ClientError
 
 from ..errors import AIServiceError
 from ..models import PatientCase, chat_message
-from . import prompts
+from . import prompts, tools
 from .base import AIResult, AIService
 
 # Claude on Bedrock (2026). Override via env to pin a specific model/version.
@@ -181,8 +185,26 @@ class BedrockAIService(AIService):
         retrieval_query: str | None = None,
         max_tokens: int = 4096,
         evidence_k: int = 5,
+        use_document_tool: bool = True,
     ) -> tuple[str, list[dict[str, Any]]]:
+        """Run one agent turn: prompt the model, serve any tool calls it makes,
+        and return its final text plus everything that grounded it.
+
+        Two kinds of grounding meet here. ``_retrieve`` is *push* — the curated
+        corpus and reference library, fetched up front from a query we choose.
+        The document tool is *pull* — the model asks for this patient's own
+        uploaded paperwork, by a query it chooses, as many times as it needs.
+        Both end up in the returned evidence list, because the audit trail
+        makes no distinction: it records what the answer actually rested on.
+        """
         evidence = self._retrieve(retrieval_query, evidence_k) if retrieval_query else []
+        document_count = _document_count(case) if use_document_tool else 0
+        if document_count:
+            task_instruction = (
+                task_instruction.rstrip()
+                + "\n\n"
+                + prompts.document_tool_hint(document_count)
+            )
         messages = prompts.build_messages(
             task_instruction=task_instruction,
             case_context=_case_context(case),
@@ -200,12 +222,50 @@ class BedrockAIService(AIService):
                 "guardrailIdentifier": GUARDRAIL_ID,
                 "guardrailVersion": GUARDRAIL_VERSION,
             }
+        # The tool is offered whenever the path allows it, even with an empty
+        # folder: the model asking and being told "nothing here" is a better
+        # failure than it assuming a document it can't see says something.
+        if use_document_tool:
+            kwargs["toolConfig"] = tools.tool_config()
+
+        for _ in range(tools.MAX_TOOL_ROUNDS):
+            resp = self._call_converse(kwargs)
+            message = resp["output"]["message"]
+            tool_uses = [
+                block["toolUse"] for block in message.get("content", []) if "toolUse" in block
+            ]
+            if resp.get("stopReason") != "tool_use" or not tool_uses:
+                return _text_of(message), evidence
+
+            # Bedrock requires the assistant's tool_use message to be echoed
+            # back verbatim, followed by one toolResult per toolUse.
+            messages.append(message)
+            results = []
+            for use in tool_uses:
+                text, passages = tools.run_tool(
+                    use.get("name", ""), use.get("input") or {}, case
+                )
+                evidence.extend(passages)
+                results.append(
+                    {
+                        "toolResult": {
+                            "toolUseId": use.get("toolUseId"),
+                            "content": [{"text": text}],
+                        }
+                    }
+                )
+            messages.append({"role": "user", "content": results})
+
+        # Out of rounds. Ask once more with the tool withdrawn so the model has
+        # no option but to answer from what it has already retrieved.
+        kwargs.pop("toolConfig", None)
+        return _text_of(self._call_converse(kwargs)["output"]["message"]), evidence
+
+    def _call_converse(self, kwargs: dict[str, Any]) -> dict[str, Any]:
         try:
-            resp = self._runtime.converse(**kwargs)
+            return self._runtime.converse(**kwargs)
         except (ClientError, BotoCoreError) as exc:
             raise AIServiceError(f"AI model call failed: {exc}") from exc
-        text = resp["output"]["message"]["content"][0]["text"]
-        return text, evidence
 
     def _converse_json(
         self,
@@ -214,16 +274,20 @@ class BedrockAIService(AIService):
         case: PatientCase,
         retrieval_query: str | None = None,
         evidence_k: int = 5,
+        use_document_tool: bool = True,
     ) -> tuple[Any, list[dict[str, Any]]]:
         instruction = (
             task_instruction
-            + "\n\nRespond with ONLY valid JSON, no prose, no markdown fences."
+            + "\n\nRespond with ONLY valid JSON, no prose, no markdown fences. "
+            "The JSON is your FINAL answer — retrieve everything you need from "
+            "the tools first, then emit it."
         )
         text, evidence = self._converse(
             task_instruction=instruction,
             case=case,
             retrieval_query=retrieval_query,
             evidence_k=evidence_k,
+            use_document_tool=use_document_tool,
         )
         try:
             return _parse_json(text), evidence
@@ -249,7 +313,10 @@ class BedrockAIService(AIService):
             "patient-friendly). If enough has been gathered, reply with exactly the "
             "token DONE."
         )
-        text, _ = self._converse(task_instruction=instruction, case=case)
+        # Patient-facing: no data-access tools at all (design doc section 10.2).
+        text, _ = self._converse(
+            task_instruction=instruction, case=case, use_document_tool=False
+        )
         if text.strip().upper().startswith("DONE"):
             return AIResult(value=None, model_version=self.model_version)
         return AIResult(
@@ -413,8 +480,26 @@ class BedrockAIService(AIService):
             case=case,
             retrieval_query=last_patient_text or None,
             max_tokens=600,
+            # Patient-facing, like the intake interview: the patient is not the
+            # audience for what a referral letter says about them.
+            use_document_tool=False,
         )
         return AIResult(chat_message("ai", text.strip()), self.model_version, evidence)
+
+
+def _document_count(case: PatientCase) -> int:
+    from ..resolvers import documents
+
+    return documents.document_count(case)
+
+
+def _text_of(message: dict[str, Any]) -> str:
+    """Concatenate the text blocks of a Converse response message.
+
+    A message that reasoned before answering can carry several; taking only
+    content[0] used to drop everything after the first.
+    """
+    return "".join(block["text"] for block in message.get("content", []) if "text" in block)
 
 
 def _parse_json(text: str) -> Any:

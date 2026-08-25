@@ -255,6 +255,21 @@ The backend never hard-codes model behavior. `ai/base.AIService` is the contract
   `factory.get_ai_service` seam instead of a second production implementation
   (`backend/tests/fakes/ai_double.py`).
 
+- **The case document tool** (`ai/tools.py`): the model's own retrieval hook
+  into the documents a nurse or doctor uploaded to *this* case
+  (`resolvers/documents.py`). `_converse` offers it as a Bedrock
+  `toolConfig`; when the model emits a `toolUse` the agent runs
+  `documents.retrieve_document_passages`, hands the matching passages back as a
+  `toolResult` (wrapped in the same untrusted-data framing as
+  `<retrieved_evidence>` — a PDF is data, never instructions), and the model
+  answers with them in view. Up to `MAX_TOOL_ROUNDS` rounds, then the tool is
+  withdrawn so the turn always terminates. What was retrieved is merged into
+  `AIResult.retrieved_context`, so a document that shaped a recommendation is
+  reviewable in the audit trail like any other evidence. The tool takes a query
+  and no case id — the case is bound by the caller, so no query can reach
+  another patient's folder — and the patient-facing paths
+  (`next_interview_question`, `chat`) are not offered it at all (§10.2).
+
 **Confidence** (design doc §9.4) is carried as the frontend's qualitative fields
 (reasoning, `whyNot100`, `confidenceExplanation`, trend) — an honest band, not a
 spurious validated probability.
