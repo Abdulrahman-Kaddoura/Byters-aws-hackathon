@@ -68,7 +68,13 @@ class SehatiFrontendStack(Stack):
                         # hash if that inline <script> block's contents change.
                         "script-src 'self' 'sha256-rc+U/+m7lCtQ/CPTC9NdX2P5Nth+cL4DiCng/Ldd7FU='; "
                         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
-                        "img-src 'self' data:; "
+                        # Case-document previews (CaseDocuments.tsx) load an
+                        # image straight from a presigned S3 URL. Both S3
+                        # virtual-hosted-style forms are needed: the legacy
+                        # global endpoint (bucket.s3.amazonaws.com, used for
+                        # us-east-1) and the region-qualified one.
+                        f"img-src 'self' data: https://*.s3.amazonaws.com "
+                        f"https://*.s3.{self.region}.amazonaws.com; "
                         "font-src 'self' data: https://fonts.gstatic.com; "
                         f"connect-src 'self' https://cognito-idp.{self.region}.amazonaws.com "
                         f"https://*.execute-api.{self.region}.amazonaws.com; "
