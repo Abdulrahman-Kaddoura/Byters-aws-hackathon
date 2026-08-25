@@ -91,7 +91,7 @@ def upload_case_document(ctx: AuthContext, args: dict[str, Any]) -> dict[str, An
     # AI's grounding context regardless.
     extracted_text = extract_document_text(raw_bytes, file_ext)[:_MAX_CONTEXT_CHARS]
 
-      document = {
+    document = {
         "id": document_id,
         "name": args.get("fileName") or f"document.{file_ext}",
         "contentType": content_type,
