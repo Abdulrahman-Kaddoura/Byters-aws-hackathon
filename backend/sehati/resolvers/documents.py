@@ -317,13 +317,35 @@ def _new_audio_document(
     }
 
 
+#: HealthScribe reads the media format off the object's extension, and it
+#: knows only these. A MIME subtype is not one of them — an mp3 arrives as
+#: `audio/mpeg`, an m4a as `audio/x-m4a` — so a file picked with no extension
+#: would otherwise be stored as `.mpeg` and fail in the service minutes later.
+_AUDIO_EXTENSION_ALIASES = {
+    "mpeg": "mp3",
+    "mpeg3": "mp3",
+    "mpga": "mp3",
+    "xmp3": "mp3",
+    "xm4a": "m4a",
+    "mp4a": "m4a",
+    "xwav": "wav",
+    "wave": "wav",
+    "vndwave": "wav",
+    "xpnwav": "wav",
+    "xflac": "flac",
+    "opus": "ogg",
+    "oga": "ogg",
+}
+
+
 def _audio_extension(args: dict[str, Any]) -> str:
     ext = (args.get("fileExtension") or "").strip().lstrip(".").lower()
     if not ext:
         # `audio/webm;codecs=opus` -> webm
         subtype = (args.get("contentType") or "").split("/")[-1].split(";")[0].strip()
         ext = subtype or "wav"
-    return re.sub(r"[^a-z0-9]", "", ext) or "wav"
+    ext = re.sub(r"[^a-z0-9]", "", ext) or "wav"
+    return _AUDIO_EXTENSION_ALIASES.get(ext, ext)
 
 
 def find_audio_document(

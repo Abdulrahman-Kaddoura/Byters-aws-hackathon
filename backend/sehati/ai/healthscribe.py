@@ -22,6 +22,7 @@ document. Where those two files live is decided by HealthScribe, not by us:
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 import time
@@ -29,8 +30,11 @@ from typing import Any
 from urllib.parse import unquote, urlparse
 
 import boto3
+from botocore.exceptions import ClientError
 
 from .client import AgentInvokeError
+
+logger = logging.getLogger(__name__)
 
 _REGION = os.environ.get("AWS_REGION", "us-east-1")
 _transcribe_client = boto3.client("transcribe", region_name=_REGION)
@@ -80,7 +84,9 @@ def start_transcription(case_id: str, audio_s3_uri: str) -> dict:
     try:
         _transcribe_client.start_medical_scribe_job(**params)
     except Exception as exc:
-        raise AgentInvokeError(str(exc)) from exc
+        raise AgentInvokeError(
+            f"Could not start transcription job '{job_name}': {_aws_error(exc)}"
+        ) from exc
     return {"jobName": job_name, "status": "IN_PROGRESS"}
 
 
@@ -95,8 +101,30 @@ def get_job_status(job_name: str) -> dict:
     """
     try:
         resp = _transcribe_client.get_medical_scribe_job(MedicalScribeJobName=job_name)
+    except ClientError as exc:
+        code = _aws_error_code(exc)
+        # Transcribe has no record of this job: it never started, it was
+        # deleted, or the name on the case is from another account/region.
+        # That is terminal, not an outage — reporting it as FAILED lets the
+        # caller record the reason on the recording and stop polling, instead
+        # of every poll erroring out forever with the document stuck in
+        # "transcribing".
+        if code in _JOB_NOT_FOUND_CODES:
+            logger.warning("healthscribe job not found job=%s code=%s", job_name, code)
+            return {
+                "status": "FAILED",
+                "reason": (
+                    f"AWS HealthScribe has no job named '{job_name}' "
+                    f"({_aws_error(exc)})."
+                ),
+            }
+        raise AgentInvokeError(
+            f"Could not read transcription job '{job_name}': {_aws_error(exc)}"
+        ) from exc
     except Exception as exc:
-        raise AgentInvokeError(str(exc)) from exc
+        raise AgentInvokeError(
+            f"Could not read transcription job '{job_name}': {_aws_error(exc)}"
+        ) from exc
 
     job = resp["MedicalScribeJob"]
     status = job["MedicalScribeJobStatus"]
@@ -111,11 +139,25 @@ def get_job_status(job_name: str) -> dict:
     # actually wrote; the fallbacks are for a job record that omits them.
     clinical_uri = output.get("ClinicalDocumentUri") or f"{job_name}/summary.json"
     transcript_uri = output.get("TranscriptFileUri") or f"{job_name}/transcript.json"
-    return {
-        "status": status,
-        "summary": get_clinical_summary(clinical_uri),
-        "transcript": get_transcript(transcript_uri),
-    }
+    # Neither read is allowed to turn a finished job into a 500. Whatever of
+    # the two came back is worth keeping on the case; only losing *both* means
+    # the job produced nothing we can use, and that is reported as a failure
+    # with the reason rather than as an internal error.
+    try:
+        summary = get_clinical_summary(clinical_uri)
+    except AgentInvokeError as exc:
+        logger.warning("healthscribe summary unreadable job=%s error=%s", job_name, exc)
+        summary = None
+    transcript = get_transcript(transcript_uri)
+    if summary is None and not transcript:
+        return {
+            "status": "FAILED",
+            "reason": (
+                "The transcription finished but its output could not be read "
+                f"from {clinical_uri}."
+            ),
+        }
+    return {"status": status, "summary": summary, "transcript": transcript}
 
 
 def get_clinical_summary(clinical_document: str) -> dict:
@@ -183,7 +225,38 @@ def _load_json(location: str) -> dict[str, Any]:
         response = _s3_client.get_object(Bucket=bucket, Key=key)
         return json.loads(response["Body"].read())
     except Exception as exc:
-        raise AgentInvokeError(str(exc)) from exc
+        # Naming the object matters here: the usual causes are the output not
+        # being where the job said, or the Lambda lacking KMS decrypt on it,
+        # and neither is diagnosable from a bare botocore message.
+        raise AgentInvokeError(
+            f"Could not read s3://{bucket}/{key}: {_aws_error(exc)}"
+        ) from exc
+
+
+#: What Transcribe answers with when the job name is unknown to it. It reports
+#: a missing medical-scribe job as a bad request rather than a 404, so both are
+#: treated as "no such job".
+_JOB_NOT_FOUND_CODES = frozenset({"BadRequestException", "NotFoundException", "ResourceNotFoundException"})
+
+
+def _aws_error_code(exc: Exception) -> str:
+    if isinstance(exc, ClientError):
+        return str((exc.response.get("Error") or {}).get("Code") or "")
+    return ""
+
+
+def _aws_error(exc: Exception) -> str:
+    """A botocore failure as one short, safe, *diagnosable* line.
+
+    These messages reach the doctor's screen (see ``handler`` — a HealthScribe
+    failure is a 502 carrying this text, not an opaque 500), so they carry the
+    AWS error code and message and nothing from the case.
+    """
+    if isinstance(exc, ClientError):
+        error = exc.response.get("Error") or {}
+        code = error.get("Code") or exc.__class__.__name__
+        return f"{code}: {error.get('Message') or exc}"
+    return f"{exc.__class__.__name__}: {exc}"
 
 
 def _parse_s3_location(location: str) -> tuple[str, str]:
