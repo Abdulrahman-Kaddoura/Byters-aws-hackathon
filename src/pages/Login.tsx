@@ -132,7 +132,7 @@ export function Login({ onSignedIn }: { onSignedIn: () => void }) {
             <span className="mb-1 flex h-11 w-11 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
               <Activity className="h-5 w-5" />
             </span>
-            <h1 className="text-xl font-bold tracking-tight">Aura Platform</h1>
+            <h1 className="text-xl font-bold tracking-tight">Sehati</h1>
             <p className="text-xs text-muted-foreground">Clinical AI Decision Support</p>
           </div>
 

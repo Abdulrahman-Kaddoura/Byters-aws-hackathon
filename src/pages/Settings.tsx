@@ -22,7 +22,7 @@ export function Settings() {
     <div className="mx-auto max-w-3xl space-y-6 p-8">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Account Settings</h1>
-        <p className="mt-1 text-muted-foreground">Your Aura platform identity and session.</p>
+        <p className="mt-1 text-muted-foreground">Your Sehati platform identity and session.</p>
       </div>
 
       <Card>

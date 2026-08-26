@@ -18,7 +18,7 @@ from . import prompts
 from .client import invoke_agent
 from .result import AIResult
 
-MODEL_VERSION = "aura-agent-v1"
+MODEL_VERSION = "sehati-ai-agent-v1"
 
 
 class AIService:

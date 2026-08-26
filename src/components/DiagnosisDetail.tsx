@@ -97,7 +97,7 @@ function DoctorFeedback({ caseId, diagnosisId }: { caseId: string; diagnosisId: 
       <Button variant="outline" size="sm" onClick={() => setNoteOpen((o) => !o)}>
         <MessageSquare className="h-3.5 w-3.5" /> Add note
       </Button>
-      {vote && !noteOpen && <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400">Feedback recorded · Aura will factor this in</span>}
+      {vote && !noteOpen && <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400">Feedback recorded · Sehati AI will factor this in</span>}
       {noteOpen && (
         <div className="mt-2 w-full">
           <Textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} placeholder="Add a clinical note for this diagnosis…" />
@@ -171,7 +171,7 @@ export function DiagnosisDetail({
       <div className="pt-5">
         {tab === 'explanation' && (
           <div className="space-y-6">
-            <Block icon={<Sparkles className="h-4 w-4" />} title="Why Aura thinks this fits">
+            <Block icon={<Sparkles className="h-4 w-4" />} title="Why Sehati AI thinks this fits">
               {diagnosis.reasoning}
             </Block>
 
@@ -272,7 +272,7 @@ export function DiagnosisDetail({
         {tab === 'discussion' && (
           <div>
             <p className="mb-3 text-[13px] text-muted-foreground">
-              Ask Aura to justify its reasoning for <span className="font-semibold text-foreground">{diagnosis.name}</span>. It will explain rather than
+              Ask Sehati AI to justify its reasoning for <span className="font-semibold text-foreground">{diagnosis.name}</span>. It will explain rather than
               simply answer.
             </p>
             <ChatThread

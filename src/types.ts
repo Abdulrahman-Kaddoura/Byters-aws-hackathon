@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// Domain types for the Aura clinical decision support prototype.
+// Domain types for the Sehati clinical decision support prototype.
 // The live API contract shared by the client and backend/sehati/models.py.
 // ---------------------------------------------------------------------------
 
@@ -114,7 +114,7 @@ export interface ExamRecommendation {
   normalRange?: string;
   flag?: Flag;
   note?: string;
-  /** Performed by the doctor rather than recommended by Aura. */
+  /** Performed by the doctor rather than recommended by Sehati AI. */
   custom?: boolean;
 }
 
@@ -178,7 +178,7 @@ export interface TestRecommendation {
   resultFlag?: Flag;
   resultDetail?: string;
   note?: string;
-  /** Added by the doctor rather than recommended by Aura. */
+  /** Added by the doctor rather than recommended by Sehati AI. */
   custom?: boolean;
   /** Which round of investigations this belongs to. The results analysis opens
    * a new round when what's in hand doesn't settle the question. */

@@ -215,9 +215,9 @@ export function ConsultationPrompt({ caseData: c }: { caseData: PatientCase }) {
           <DialogTitle>Do you have a recording of your consultation?</DialogTitle>
           <DialogDescription>
             If you recorded yourself talking to {c.patient.name.split(' ')[0] || 'this patient'}, add
-            it now. Aura will transcribe it and reason over it together with the patient's AI
+            it now. Sehati AI will transcribe it and reason over it together with the patient's AI
             interview when it builds the summary, the examinations, the tests and the differential.
-            Without it, Aura works from the AI interview alone.
+            Without it, Sehati AI works from the AI interview alone.
           </DialogDescription>
         </DialogHeader>
 

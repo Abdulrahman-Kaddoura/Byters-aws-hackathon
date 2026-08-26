@@ -1,6 +1,6 @@
 """Physical examination resolvers (design doc section 6.2).
 
-Aura recommends manoeuvres, but a doctor examines the patient in front of them
+Sehati AI recommends manoeuvres, but a doctor examines the patient in front of them
 — so ``add_custom_exam`` lets a finding onto the case whether or not the AI
 thought to ask for it. It lands complete, because it describes something that
 has already happened.
@@ -34,7 +34,7 @@ def recommend_exams(ctx: AuthContext, args: dict[str, Any]) -> dict[str, Any]:
 
 
 def add_custom_exam(ctx: AuthContext, args: dict[str, Any]) -> dict[str, Any]:
-    """Record an examination the doctor performed that Aura didn't recommend."""
+    """Record an examination the doctor performed that Sehati AI didn't recommend."""
     ctx.require_permission("exams.manage")
     case = cases_repo.get_case(_require(args, "caseId"), ctx)
     name = _require(args, "name")

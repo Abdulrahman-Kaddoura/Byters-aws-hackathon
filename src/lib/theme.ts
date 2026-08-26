@@ -6,7 +6,7 @@ export type ThemeMode = 'light' | 'dark';
 // class synchronously, before this module loads, to avoid a light-mode flash).
 function getInitial(): ThemeMode {
   if (typeof window === 'undefined') return 'light';
-  const stored = window.localStorage.getItem('aura-theme');
+  const stored = window.localStorage.getItem('sehati-theme');
   if (stored === 'light' || stored === 'dark') return stored;
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
@@ -22,7 +22,7 @@ export function useTheme() {
 
   useEffect(() => {
     apply(mode);
-    window.localStorage.setItem('aura-theme', mode);
+    window.localStorage.setItem('sehati-theme', mode);
   }, [mode]);
 
   const toggle = useCallback(() => {

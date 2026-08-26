@@ -19,7 +19,7 @@ import { useSyncExternalStore } from 'react';
  * interview-scoped token minted per session; the lock stops navigation, not a
  * determined inspection of storage.
  */
-const KIOSK_KEY = 'aura.kiosk';
+const KIOSK_KEY = 'sehati.kiosk';
 
 export interface KioskLock {
   caseId: string;

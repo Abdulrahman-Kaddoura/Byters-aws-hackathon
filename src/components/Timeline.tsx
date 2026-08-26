@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 
 const ACTOR_META: Record<Speaker, { icon: typeof User; label: string; cls: string }> = {
   patient: { icon: User, label: 'Patient', cls: 'bg-primary/10 text-primary border-primary/20' },
-  ai: { icon: Sparkles, label: 'Aura AI', cls: 'bg-violet-50 text-violet-600 border-violet-200 dark:bg-violet-500/12 dark:text-violet-300 dark:border-violet-500/25' },
+  ai: { icon: Sparkles, label: 'Sehati AI', cls: 'bg-violet-50 text-violet-600 border-violet-200 dark:bg-violet-500/12 dark:text-violet-300 dark:border-violet-500/25' },
   doctor: { icon: Stethoscope, label: 'Physician', cls: 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-500/12 dark:text-emerald-300 dark:border-emerald-500/25' },
   system: { icon: Server, label: 'System', cls: 'bg-muted text-muted-foreground border-border' },
 };

@@ -50,7 +50,7 @@ def order_test(ctx: AuthContext, args: dict[str, Any]) -> dict[str, Any]:
 
 
 def recommend_tests(ctx: AuthContext, args: dict[str, Any]) -> dict[str, Any]:
-    """Ask Aura which investigations this case needs.
+    """Ask Sehati AI which investigations this case needs.
 
     Split out of ``requestRecommendations`` so the workup can be stocked
     without first committing to a differential — the differential is now
@@ -82,7 +82,7 @@ def recommend_tests(ctx: AuthContext, args: dict[str, Any]) -> dict[str, Any]:
     touch_progress(case, "tests")
     if added:
         case.setdefault("recentUpdates", []).insert(
-            0, recent_update(f"Aura recommended {len(added)} investigation(s)", "ai")
+            0, recent_update(f"Sehati AI recommended {len(added)} investigation(s)", "ai")
         )
     cases_repo.save_case(case, ctx)
     audit_repo.record(
@@ -94,7 +94,7 @@ def recommend_tests(ctx: AuthContext, args: dict[str, Any]) -> dict[str, Any]:
 
 
 def add_custom_test(ctx: AuthContext, args: dict[str, Any]) -> dict[str, Any]:
-    """Record an investigation the doctor ordered that Aura didn't suggest."""
+    """Record an investigation the doctor ordered that Sehati AI didn't suggest."""
     ctx.require_permission("tests.manage")
     case = cases_repo.get_case(_require(args, "caseId"), ctx)
     name = _require(args, "name")

@@ -34,7 +34,7 @@ const MIN_WIDTH = 340;
 const MAX_WIDTH = 900;
 const DEFAULT_WIDTH = 460;
 const WIDE_WIDTH = 760;
-const WIDTH_KEY = 'aura.assistant.width';
+const WIDTH_KEY = 'sehati.assistant.width';
 
 function storedWidth(): number {
   const raw = Number(localStorage.getItem(WIDTH_KEY));
@@ -141,7 +141,7 @@ export function AssistantWidget() {
               <div className="flex min-w-0 items-center gap-2">
                 <Sparkles className="h-4 w-4 shrink-0" />
                 <div className="min-w-0 leading-tight">
-                  <p className="text-sm font-semibold">Aura Assistant</p>
+                  <p className="text-sm font-semibold">Sehati Assistant</p>
                   <p className="truncate text-[11px] opacity-80">
                     {caseData.patient.name} · {caseData.id}
                   </p>
@@ -193,7 +193,7 @@ export function AssistantWidget() {
         <button
           onClick={() => setOpen(true)}
           className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform hover:scale-105 active:scale-95"
-          aria-label="Open Aura assistant"
+          aria-label="Open Sehati assistant"
         >
           <Sparkles className="h-6 w-6" />
         </button>

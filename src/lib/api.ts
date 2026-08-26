@@ -201,7 +201,7 @@ async function request<T>(method: string, path: string, body?: unknown, _retried
       throw new ApiError(
         res.status,
         'ServiceUnavailable',
-        "Aura's still working on this — the request took longer than the server allows. Please try again in a moment."
+        "Sehati AI's still working on this — the request took longer than the server allows. Please try again in a moment."
       );
     }
     throw new ApiError(res.status, data?.errorType ?? 'Error', data?.message ?? `Request failed (${res.status}).`);
@@ -318,7 +318,7 @@ export function recordExamFinding(
   return request('PUT', `/cases/${enc(caseId)}/exams/${enc(examId)}`, patch);
 }
 
-/** Record an examination the doctor performed that Aura didn't recommend. */
+/** Record an examination the doctor performed that Sehati AI didn't recommend. */
 export function addCustomExam(
   caseId: string,
   payload: { name: string; finding?: string; reason?: string; flag?: Flag; note?: string }
@@ -421,7 +421,7 @@ export function recommendTests(caseId: string): Promise<CaseEnvelope & { tests: 
   return request('POST', `/cases/${enc(caseId)}/tests/recommend`);
 }
 
-/** Record an investigation the doctor ordered that Aura didn't suggest. */
+/** Record an investigation the doctor ordered that Sehati AI didn't suggest. */
 export function addCustomTest(
   caseId: string,
   payload: { name: string; category?: string; reason?: string; expectedFinding?: string; priority?: string }

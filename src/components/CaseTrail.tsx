@@ -40,7 +40,7 @@ function currentBlocker(c: PatientCase): { text: string; icon: React.ReactNode }
   if (analysis?.verdict === 'needs_more_tests' && unstarted.length > 0) {
     return {
       icon: <FlaskConical className="h-4 w-4" />,
-      text: `Aura asked for ${unstarted.length} further investigation${
+      text: `Sehati AI asked for ${unstarted.length} further investigation${
         unstarted.length > 1 ? 's' : ''
       }. Mark them awaiting results once ordered.`,
     };
@@ -56,7 +56,7 @@ function currentBlocker(c: PatientCase): { text: string; icon: React.ReactNode }
   if (analysis?.verdict === 'no_results') {
     return {
       icon: <MessageSquareWarning className="h-4 w-4" />,
-      text: 'Aura has no results to reason over. Enter a test result on the Tests tab.',
+      text: 'Sehati AI has no results to reason over. Enter a test result on the Tests tab.',
     };
   }
   if (c.status === 'AI Interview') {

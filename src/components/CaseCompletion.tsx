@@ -39,8 +39,8 @@ export function isCaseComplete(c: PatientCase): boolean {
  *   2. "mark this case complete", which is the ending.
  *
  * Feedback is asked here rather than after the case closes because sign-off is
- * the moment the doctor has actually judged how Aura reasoned; days later,
- * nobody answers. It is saved per doctor and folded back into how Aura reasons
+ * the moment the doctor has actually judged how Sehati AI reasoned; days later,
+ * nobody answers. It is saved per doctor and folded back into how Sehati AI reasons
  * on their future cases, which is why the copy says so.
  */
 export function PostAcceptDialog({
@@ -98,7 +98,7 @@ export function PostAcceptDialog({
               <DialogTitle>Diagnosis accepted</DialogTitle>
               <DialogDescription>
                 <span className="font-medium text-foreground">{c.finalDiagnosis?.name}</span> is signed off.
-                Before you close this out — how did Aura do? This is kept as your preferences and feeds
+                Before you close this out — how did Sehati AI do? This is kept as your preferences and feeds
                 back into how it reasons on your future cases.
               </DialogDescription>
             </DialogHeader>

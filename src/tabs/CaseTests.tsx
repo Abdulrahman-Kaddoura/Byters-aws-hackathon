@@ -77,7 +77,7 @@ function ResultForm({ test, caseId, onDone }: { test: TestRecommendation; caseId
   );
 }
 
-/** The form for an investigation Aura didn't suggest.
+/** The form for an investigation Sehati AI didn't suggest.
  *
  * A recommendation is a suggestion, not a work order. If none of the AI's
  * tests are the right one — or the doctor ran something else entirely — this
@@ -281,7 +281,7 @@ export function CaseTests({ caseData: c }: { caseData: PatientCase }) {
         <EmptyState
           icon={<FlaskConical className="h-6 w-6" />}
           title="No investigations yet"
-          description="Ask Aura which tests this case needs, or add one you've already ordered."
+          description="Ask Sehati AI which tests this case needs, or add one you've already ordered."
           action={
             <div className="flex flex-wrap items-center justify-center gap-2">
               <Button onClick={() => recommend.mutate()} disabled={recommend.isPending}>
@@ -329,7 +329,7 @@ export function CaseTests({ caseData: c }: { caseData: PatientCase }) {
           <div className="mt-4 flex flex-wrap items-start gap-2 border-t pt-4">
             <Button variant="outline" size="sm" onClick={() => recommend.mutate()} disabled={recommend.isPending}>
               {recommend.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-              Ask Aura for more tests
+              Ask Sehati AI for more tests
             </Button>
             <CustomTestForm caseId={c.id} />
           </div>
@@ -343,7 +343,7 @@ export function CaseTests({ caseData: c }: { caseData: PatientCase }) {
 
       {currentRound > 1 && (
         <p className="px-1 text-[11px] font-semibold uppercase tracking-wide text-primary">
-          Round {currentRound} — requested by Aura after the last results
+          Round {currentRound} — requested by Sehati AI after the last results
         </p>
       )}
       <div className="space-y-3">

@@ -1,7 +1,7 @@
-# Aura — AI Clinical Decision Support (Prototype)
+# Sehati — AI Clinical Decision Support (Prototype)
 
 An interactive prototype of an AI-powered clinical decision support platform.
-Aura assists physicians throughout the entire diagnostic journey — organizing
+Sehati assists physicians throughout the entire diagnostic journey — organizing
 patient information, interviewing patients, brainstorming differential
 diagnoses, recommending examinations and tests, explaining its reasoning with
 confidence scores and references, and collaborating with the doctor until a
@@ -38,17 +38,17 @@ doctor works it up.
 6. **Recommended tests & results** — investigations with reason, expected finding, priority, cost, urgency and diagnostic value. The doctor marks each one awaiting results or declined, enters what came back, and can add tests they ordered themselves when none of the AI's are the right one.
 7. **Differential diagnosis** — driven by the results, not the intake. It weighs each recommended test against the result that actually came back and answers honestly: nothing resulted yet (it says so rather than guessing), a ranked differential it's confident in, or "not sure yet" — in which case it writes a **new round of tests** onto the workup and tells the doctor to go and fill them in. Earlier rounds stay as history. Each diagnosis card carries full **explainability** (how confidence was calculated, why not 100%, risk, next action, guideline/paper/textbook references, similar historical cases).
 8. **AI discussion** — every diagnosis has its own chat where the doctor can challenge the reasoning ("Why not pulmonary embolism?", "What would increase confidence?"), answered by the backend AI seam (Amazon Bedrock).
-9. **Final diagnosis, then done** — proposed diagnosis with evidence summary, ruled-out alternatives, treatment, monitoring, complications and follow-up. Accepting it is one button, and accepting opens one dialog that carries the whole ending: how did Aura do, then mark the case complete. The doctor can defer the second half — **Mark complete** sits in the case header at every stage, because a case doesn't always end by reaching a diagnosis (the patient is discharged, referred on, or never comes back) and the record still has to be closed.
-10. **Feedback, once, the moment the diagnosis is signed off** — accepting a diagnosis pops the question centre-screen, while the reasoning is still fresh, and it's skippable. It's the single place in the app feedback can be given, enforced server-side (a case with no accepted diagnosis rejects it), and it's saved per doctor as their preferences — memory that feeds back into how Aura reasons on their future cases.
+9. **Final diagnosis, then done** — proposed diagnosis with evidence summary, ruled-out alternatives, treatment, monitoring, complications and follow-up. Accepting it is one button, and accepting opens one dialog that carries the whole ending: how did Sehati AI do, then mark the case complete. The doctor can defer the second half — **Mark complete** sits in the case header at every stage, because a case doesn't always end by reaching a diagnosis (the patient is discharged, referred on, or never comes back) and the record still has to be closed.
+10. **Feedback, once, the moment the diagnosis is signed off** — accepting a diagnosis pops the question centre-screen, while the reasoning is still fresh, and it's skippable. It's the single place in the app feedback can be given, enforced server-side (a case with no accepted diagnosis rejects it), and it's saved per doctor as their preferences — memory that feeds back into how Sehati AI reasons on their future cases.
 11. **Timeline & completion** — a vertical case timeline and read-only archived cases with outcomes and lessons learned.
 
-A persistent, case-aware **Aura Assistant** panel is available throughout for
+A persistent, case-aware **Sehati Assistant** panel is available throughout for
 open-ended collaboration. Each case has a **Documents** tab (upload, list,
 download, inline preview — extracted text feeds every AI step as grounding,
 and nurses can attach referral letters at admission), and doctors can tag any
 case with **private labels** that nobody else can see. The **Knowledge Base**
 page holds a shared, tagged reference library (e.g. a diabetes guideline
-tagged "diabetes") that Aura pulls in as grounding evidence for any case whose
+tagged "diabetes") that Sehati AI pulls in as grounding evidence for any case whose
 chief complaint or a doctor's question matches — no per-case action needed.
 
 ### 🔑 Who sees what
