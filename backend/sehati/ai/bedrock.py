@@ -257,8 +257,13 @@ class BedrockAIService(AIService):
             messages.append({"role": "user", "content": results})
 
         # Out of rounds. Ask once more with the tool withdrawn so the model has
-        # no option but to answer from what it has already retrieved.
+        # no option but to answer from what it has already retrieved. Bedrock
+        # rejects a call carrying toolUse/toolResult blocks with no toolConfig
+        # ("The toolConfig field must be defined when using toolUse and
+        # toolResult content blocks"), so the tool exchanges are flattened into
+        # plain text — the retrieved passages stay in front of the model.
         kwargs.pop("toolConfig", None)
+        kwargs["messages"] = _without_tool_blocks(messages)
         return _text_of(self._call_converse(kwargs)["output"]["message"]), evidence
 
     def _call_converse(self, kwargs: dict[str, Any]) -> dict[str, Any]:
@@ -494,6 +499,37 @@ def _document_count(case: PatientCase) -> int:
     from ..resolvers import documents
 
     return documents.document_count(case)
+
+
+def _without_tool_blocks(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """A copy of ``messages`` with every tool exchange flattened into text.
+
+    A conversation that used the document tool carries ``toolUse`` blocks (from
+    the model) and ``toolResult`` blocks (from us). Bedrock only accepts those
+    alongside a ``toolConfig``, so a final tool-free call has to rewrite them
+    rather than drop the turns: what the model asked for, and the passages it
+    got back, both stay in the conversation as ordinary text.
+    """
+    out: list[dict[str, Any]] = []
+    for message in messages:
+        content: list[dict[str, Any]] = []
+        for block in message.get("content", []):
+            if "text" in block:
+                content.append(block)
+            elif "toolUse" in block:
+                use = block["toolUse"]
+                query = (use.get("input") or {}).get("query") or ""
+                content.append(
+                    {"text": f"[Requested {use.get('name', 'tool')}: {query}]".strip()}
+                )
+            elif "toolResult" in block:
+                text = "".join(
+                    c["text"] for c in block["toolResult"].get("content", []) if "text" in c
+                )
+                content.append({"text": f"[Tool result]\n{text}"})
+        if content:
+            out.append({**message, "role": message.get("role", "assistant"), "content": content})
+    return out
 
 
 def _text_of(message: dict[str, Any]) -> str:
