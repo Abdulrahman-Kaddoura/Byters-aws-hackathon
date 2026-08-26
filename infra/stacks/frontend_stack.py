@@ -76,8 +76,13 @@ class SehatiFrontendStack(Stack):
                         f"img-src 'self' data: https://*.s3.amazonaws.com "
                         f"https://*.s3.{self.region}.amazonaws.com; "
                         "font-src 'self' data: https://fonts.gstatic.com; "
+                        # Case-audio upload/playback (CaseAudio.tsx) PUTs/GETs
+                        # straight to a presigned S3 URL from the browser, so
+                        # S3 needs to be reachable from connect-src too (same
+                        # two virtual-hosted-style forms as img-src above).
                         f"connect-src 'self' https://cognito-idp.{self.region}.amazonaws.com "
-                        f"https://*.execute-api.{self.region}.amazonaws.com; "
+                        f"https://*.execute-api.{self.region}.amazonaws.com "
+                        f"https://*.s3.amazonaws.com https://*.s3.{self.region}.amazonaws.com; "
                         "object-src 'none'; "
                         "base-uri 'self'; "
                         "frame-ancestors 'none'"
