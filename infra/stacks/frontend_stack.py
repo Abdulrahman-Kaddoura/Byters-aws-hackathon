@@ -65,8 +65,9 @@ class SehatiFrontendStack(Stack):
                         # index.html (keeps 'unsafe-inline' off script-src,
                         # which would let any injected script run — this page
                         # holds bearer tokens in localStorage). Recompute this
-                        # hash if that inline <script> block's contents change.
-                        "script-src 'self' 'sha256-rc+U/+m7lCtQ/CPTC9NdX2P5Nth+cL4DiCng/Ldd7FU='; "
+                        # hash if that inline <script> block's contents change:
+                        #   python3 -c "import hashlib,base64,re; s=re.search(r'<script>(.*?)</script>', open('index.html').read(), re.S).group(1); print('sha256-' + base64.b64encode(hashlib.sha256(s.encode()).digest()).decode())"
+                        "script-src 'self' 'sha256-pY7Odisu+MU+WCYZc9mdC3VSmloi5q1T/RcpEq0am9c='; "
                         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
                         # Case-document previews (CaseDocuments.tsx) load an
                         # image straight from a presigned S3 URL. Both S3
