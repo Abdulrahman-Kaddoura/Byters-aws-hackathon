@@ -90,7 +90,7 @@ function FinalDiagnosisPanel({ caseData: c }: { caseData: PatientCase }) {
               <div className="mt-5 space-y-3">
                 {lead.missing.length > 0 && (
                   <div className="rounded-xl border bg-muted/30 p-4">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">To reach a confident final diagnosis, Aura needs</p>
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">To reach a confident final diagnosis, Sehati AI needs</p>
                     <ul className="mt-2.5 space-y-2">
                       {lead.missing.map((m, i) => (
                         <li key={i} className="flex items-start gap-2.5 text-[13px]">
@@ -124,7 +124,7 @@ function FinalDiagnosisPanel({ caseData: c }: { caseData: PatientCase }) {
           )}
         >
           {fd.status === 'accepted' ? <ShieldCheck className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />}
-          {fd.status === 'accepted' ? 'Diagnosis accepted by the doctor' : 'Aura proposes a final diagnosis'}
+          {fd.status === 'accepted' ? 'Diagnosis accepted by the doctor' : 'Sehati AI proposes a final diagnosis'}
         </div>
         <CardContent className="p-5 sm:p-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center">

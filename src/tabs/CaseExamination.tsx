@@ -97,7 +97,7 @@ function ExamItem({ exam, caseId }: { exam: ExamRecommendation; caseId: string }
   );
 }
 
-/** The form for an examination Aura didn't recommend.
+/** The form for an examination Sehati AI didn't recommend.
  *
  * A doctor examines the patient in front of them, not the one in the model's
  * prompt. This records what they actually did — and since it describes
@@ -157,7 +157,7 @@ export function CaseExamination({ caseData: c }: { caseData: PatientCase }) {
         <EmptyState
           icon={<Stethoscope className="h-6 w-6" />}
           title="No Examinations Recommended Yet"
-          description="Ask Aura which physical examinations matter for this case, or record one you've already performed."
+          description="Ask Sehati AI which physical examinations matter for this case, or record one you've already performed."
           action={
             <div className="flex flex-wrap items-center justify-center gap-2">
               <Button onClick={() => recommend.mutate()} disabled={recommend.isPending}>
@@ -183,7 +183,7 @@ export function CaseExamination({ caseData: c }: { caseData: PatientCase }) {
           <SectionHeading
             icon={<Stethoscope className="h-[18px] w-[18px]" />}
             title="Physical Examination"
-            subtitle="Targeted examination maneuvers recommended by Aura based on the clinical presentation."
+            subtitle="Targeted examination maneuvers recommended by Sehati AI based on the clinical presentation."
             action={
               <Badge variant="brand">
                 {completedExams.length}/{c.exams.length} complete
@@ -193,7 +193,7 @@ export function CaseExamination({ caseData: c }: { caseData: PatientCase }) {
           <div className="mt-4 flex flex-wrap items-start gap-2 border-t pt-4">
             <Button variant="outline" size="sm" onClick={() => recommend.mutate()} disabled={recommend.isPending}>
               {recommend.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-              Ask Aura for more exams
+              Ask Sehati AI for more exams
             </Button>
             <CustomExamForm caseId={c.id} />
           </div>

@@ -1,9 +1,9 @@
 {
-  "name": "aura-clinical-decision-support",
+  "name": "sehati-clinical-decision-support",
   "private": true,
   "version": "0.2.0",
   "type": "module",
-  "description": "Aura — AI Clinical Decision Support, wired to the live SEHATI-AI backend on AWS",
+  "description": "Sehati — AI Clinical Decision Support, wired to the live SEHATI-AI backend on AWS",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",

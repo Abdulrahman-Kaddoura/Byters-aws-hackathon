@@ -66,7 +66,7 @@ export function CaseTimeline({ caseData: c }: { caseData: PatientCase; isClinici
           <SectionHeading icon={<GitBranch className="h-[18px] w-[18px]" />} title="Case timeline" subtitle="Every step of the diagnostic journey, from intake to resolution" />
           <div className="mt-4 flex flex-wrap gap-3 border-t pt-4 text-xs text-muted-foreground">
             <LegendDot icon={<User className="h-3 w-3" />} label="Patient" cls="text-primary" />
-            <LegendDot icon={<Sparkles className="h-3 w-3" />} label="Aura AI" cls="text-violet-500 dark:text-violet-400" />
+            <LegendDot icon={<Sparkles className="h-3 w-3" />} label="Sehati AI" cls="text-violet-500 dark:text-violet-400" />
             <LegendDot icon={<Stethoscope className="h-3 w-3" />} label="Physician" cls="text-emerald-500 dark:text-emerald-400" />
             <LegendDot icon={<Server className="h-3 w-3" />} label="System" cls="text-slate-400" />
           </div>

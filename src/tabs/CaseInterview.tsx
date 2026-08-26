@@ -71,8 +71,8 @@ function ConsultationRecord({ caseData: c }: { caseData: PatientCase }) {
             <h3 className="text-sm font-semibold">Doctor's consultation</h3>
             <p className="text-xs text-muted-foreground">
               {consultation.hasRecording
-                ? 'Transcribed by AWS HealthScribe and used alongside the AI interview for every Aura step on this case.'
-                : 'No recording was provided — Aura works from the AI interview alone on this case.'}
+                ? 'Transcribed by AWS HealthScribe and used alongside the AI interview for every Sehati AI step on this case.'
+                : 'No recording was provided — Sehati AI works from the AI interview alone on this case.'}
             </p>
           </div>
         </div>
@@ -166,7 +166,7 @@ function PrimaryInterview({ caseData: c }: { caseData: PatientCase }) {
             <div ref={scrollRef} className="mx-auto max-w-3xl space-y-6">
               <div className="mb-8 text-center text-xs text-muted-foreground">Interview started {c.createdAt && new Date(c.createdAt).toLocaleDateString()}</div>
               <Transcript messages={c.interview} />
-              {postMessage.isPending && <p className="text-center text-xs text-muted-foreground">Aura is thinking…</p>}
+              {postMessage.isPending && <p className="text-center text-xs text-muted-foreground">Sehati AI is thinking…</p>}
             </div>
           </ScrollArea>
 

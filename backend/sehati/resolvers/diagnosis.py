@@ -195,9 +195,9 @@ def analyze_results(ctx: AuthContext, args: dict[str, Any]) -> dict[str, Any]:
     case.setdefault("recentUpdates", []).insert(
         0,
         recent_update(
-            "Aura analysed the results and requested more tests"
+            "Sehati AI analysed the results and requested more tests"
             if verdict == "needs_more_tests"
-            else "Aura analysed the results and reached a leading diagnosis",
+            else "Sehati AI analysed the results and reached a leading diagnosis",
             "ai",
         ),
     )

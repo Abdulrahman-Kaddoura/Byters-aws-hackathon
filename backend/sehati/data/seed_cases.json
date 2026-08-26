@@ -68,7 +68,7 @@
     "interview": [
       {
         "role": "ai",
-        "text": "Hello Robert, I'm Aura, an AI assistant helping Dr. Nolan prepare for your visit. I'd like to ask a few questions about your symptoms. Can you describe the cough you've been having?",
+        "text": "Hello Robert, I'm Sehati AI, an AI assistant helping Dr. Nolan prepare for your visit. I'd like to ask a few questions about your symptoms. Can you describe the cough you've been having?",
         "time": "08:13"
       },
       {
@@ -804,7 +804,7 @@
       {
         "kind": "warning",
         "title": "Penicillin allergy on file",
-        "text": "Avoid amoxicillin/co-amoxiclav. Aura has filtered antibiotic suggestions to non-penicillin options."
+        "text": "Avoid amoxicillin/co-amoxiclav. Sehati AI has filtered antibiotic suggestions to non-penicillin options."
       },
       {
         "kind": "success",
@@ -968,7 +968,7 @@
     "interview": [
       {
         "role": "ai",
-        "text": "Hi Sofia, I'm Aura. I'd like to understand your abdominal pain. Where did it start and where is it now?",
+        "text": "Hi Sofia, I'm Sehati AI. I'd like to understand your abdominal pain. Where did it start and where is it now?",
         "time": "11:31"
       },
       {
@@ -1448,7 +1448,7 @@
       {
         "kind": "critical",
         "title": "Time-sensitive surgical case",
-        "text": "Risk of perforation rises after 24–48h. Aura recommends surgical review now, in parallel with imaging."
+        "text": "Risk of perforation rises after 24–48h. Sehati AI recommends surgical review now, in parallel with imaging."
       },
       {
         "kind": "success",
@@ -1615,7 +1615,7 @@
     "interview": [
       {
         "role": "ai",
-        "text": "Hello Margaret, I'm Aura. Can you tell me how your breathing has changed over the past week?",
+        "text": "Hello Margaret, I'm Sehati AI. Can you tell me how your breathing has changed over the past week?",
         "time": "16:06"
       },
       {
@@ -2081,7 +2081,7 @@
       {
         "kind": "critical",
         "title": "Cardiorenal risk",
-        "text": "CKD stage 3 plus aggressive diuresis risks worsening renal function — Aura recommends daily U&E and cautious diuretic titration."
+        "text": "CKD stage 3 plus aggressive diuresis risks worsening renal function — Sehati AI recommends daily U&E and cautious diuretic titration."
       },
       {
         "kind": "suggestion",
@@ -2244,7 +2244,7 @@
     "interview": [
       {
         "role": "ai",
-        "text": "Hi Daniel, I'm Aura. Tell me about your breathing over the last few weeks — when is it worst?",
+        "text": "Hi Daniel, I'm Sehati AI. Tell me about your breathing over the last few weeks — when is it worst?",
         "time": "13:21"
       },
       {
@@ -2587,7 +2587,7 @@
       {
         "kind": "warning",
         "title": "Reliever overuse",
-        "text": "Using salbutamol 3–4×/day with no preventer is a recognized risk marker for severe attacks — Aura recommends starting an inhaled corticosteroid."
+        "text": "Using salbutamol 3–4×/day with no preventer is a recognized risk marker for severe attacks — Sehati AI recommends starting an inhaled corticosteroid."
       },
       {
         "kind": "suggestion",
@@ -2604,7 +2604,7 @@
     "recentUpdates": [
       {
         "time": "35 min ago",
-        "text": "Examination recommended by Aura",
+        "text": "Examination recommended by Sehati AI",
         "actor": "ai"
       },
       {
@@ -2737,7 +2737,7 @@
     "interview": [
       {
         "role": "ai",
-        "text": "Hi Priya, I'm Aura. Can you describe your headaches — where they are and what they feel like?",
+        "text": "Hi Priya, I'm Sehati AI. Can you describe your headaches — where they are and what they feel like?",
         "time": "14:51"
       },
       {
@@ -3028,7 +3028,7 @@
       {
         "kind": "critical",
         "title": "Contraception safety flag",
-        "text": "Migraine with aura + combined oral contraceptive raises stroke risk (UKMEC category 4). Aura recommends reviewing contraception."
+        "text": "Migraine with aura + combined oral contraceptive raises stroke risk (UKMEC category 4). Sehati AI recommends reviewing contraception."
       },
       {
         "kind": "success",
@@ -3180,7 +3180,7 @@
     "interview": [
       {
         "role": "ai",
-        "text": "Hello James, I'm Aura. You mentioned feeling tired and thirsty — can you tell me more about the thirst?",
+        "text": "Hello James, I'm Sehati AI. You mentioned feeling tired and thirsty — can you tell me more about the thirst?",
         "time": "09:41"
       },
       {
@@ -3743,7 +3743,7 @@
     "interview": [
       {
         "role": "ai",
-        "text": "Hello Ahmed, I'm Aura. Can you describe the pain — where it is and how it behaves?",
+        "text": "Hello Ahmed, I'm Sehati AI. Can you describe the pain — where it is and how it behaves?",
         "time": "22:11"
       },
       {
@@ -4144,7 +4144,7 @@
       {
         "kind": "suggestion",
         "title": "Recurrence prevention",
-        "text": "Second stone with a family history — Aura recommends a metabolic stone screen and hydration/dietary advice."
+        "text": "Second stone with a family history — Sehati AI recommends a metabolic stone screen and hydration/dietary advice."
       }
     ],
     "nextSteps": [

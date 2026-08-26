@@ -168,7 +168,7 @@ function Topbar() {
           <Activity className="h-[18px] w-[18px]" strokeWidth={2.5} />
         </span>
         <span className="hidden leading-tight sm:block">
-          <span className="block text-[15px] font-bold tracking-tight">Aura</span>
+          <span className="block text-[15px] font-bold tracking-tight">Sehati</span>
           <span className="block text-[10px] font-medium text-muted-foreground">
             Clinical Decision Support
           </span>

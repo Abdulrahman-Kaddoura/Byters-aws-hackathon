@@ -49,7 +49,7 @@ function ReferenceLibrary() {
         <SectionHeading
           icon={<FileUp className="h-[18px] w-[18px]" />}
           title="Reference library"
-          subtitle="Upload guideline/reference documents (e.g. a diabetes guideline, tagged “diabetes”) — Aura pulls in matching ones as grounding evidence whenever a case's chief complaint or a doctor's question overlaps their tags."
+          subtitle="Upload guideline/reference documents (e.g. a diabetes guideline, tagged “diabetes”) — Sehati AI pulls in matching ones as grounding evidence whenever a case's chief complaint or a doctor's question overlaps their tags."
         />
 
         <div className="mt-4 grid gap-2.5 sm:grid-cols-2">
@@ -137,7 +137,7 @@ export function KnowledgeBase() {
     <div className="mx-auto max-w-6xl space-y-6 p-8">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Knowledge Base</h1>
-        <p className="mt-1 text-muted-foreground">The clinical evidence Aura has cited across your cases — guidelines, papers, textbooks and similar historical cases.</p>
+        <p className="mt-1 text-muted-foreground">The clinical evidence Sehati AI has cited across your cases — guidelines, papers, textbooks and similar historical cases.</p>
       </div>
 
       <ReferenceLibrary />
@@ -153,7 +153,7 @@ export function KnowledgeBase() {
         <EmptyState
           icon={<BookOpen className="h-5 w-5" />}
           title="No evidence yet"
-          description="References appear here automatically once Aura generates a differential diagnosis on one of your cases."
+          description="References appear here automatically once Sehati AI generates a differential diagnosis on one of your cases."
         />
       ) : (
         <div className="grid gap-6 lg:grid-cols-2">

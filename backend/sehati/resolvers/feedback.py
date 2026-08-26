@@ -25,7 +25,7 @@ from ..db import cases_repo, feedback_repo
 from ..errors import ValidationError
 
 # Accepting the final diagnosis lands the case in ``Treatment``; completing it
-# lands it in ``Closed``. Both mean the doctor has passed judgment on how Aura
+# lands it in ``Closed``. Both mean the doctor has passed judgment on how Sehati AI
 # reasoned, so both take feedback.
 _FEEDBACK_STATES = ("Treatment", "Closed")
 

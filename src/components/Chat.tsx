@@ -96,7 +96,7 @@ export function ChatThread({
   diagnosis,
   seed,
   suggestions,
-  placeholder = 'Ask Aura anything…',
+  placeholder = 'Ask Sehati AI anything…',
   compact = false,
 }: {
   caseId: string;
@@ -140,7 +140,7 @@ export function ChatThread({
         : (await assistantChat.mutateAsync(trimmed)).aiMessage;
       setMessages((m) => [...m, aiMessage]);
     } catch (err) {
-      setMessages((m) => [...m, { role: 'system', text: `Could not reach Aura: ${(err as Error).message}`, time: 'now' }]);
+      setMessages((m) => [...m, { role: 'system', text: `Could not reach Sehati AI: ${(err as Error).message}`, time: 'now' }]);
     }
   }
 

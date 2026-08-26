@@ -1,6 +1,6 @@
 import { config } from './config';
 
-const STORAGE_KEY = 'aura.session';
+const STORAGE_KEY = 'sehati.session';
 const IDP_TARGET = 'AWSCognitoIdentityProviderService';
 
 export interface Session {
