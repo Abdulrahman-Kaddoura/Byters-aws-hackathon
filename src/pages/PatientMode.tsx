@@ -42,7 +42,7 @@ export function PatientMode() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [exiting, setExiting] = useState(false);
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
 
   const postInterviewMessage = usePostInterviewMessage(caseId);
   const generateSummary = useGenerateSummary(caseId);
@@ -94,7 +94,7 @@ export function PatientMode() {
   }, [caseId, conversationId]);
 
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [messages.length, isPending]);
 
   async function send() {
@@ -155,7 +155,7 @@ export function PatientMode() {
       </div>
 
       <ScrollArea className="flex-1 bg-muted/20 p-6">
-        <div ref={scrollRef} className="mx-auto max-w-2xl space-y-6">
+        <div className="mx-auto max-w-2xl space-y-6">
           {error && (
             <p className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-center text-sm text-rose-700 dark:border-rose-500/25 dark:bg-rose-500/10 dark:text-rose-300">
               {error}
@@ -182,6 +182,7 @@ export function PatientMode() {
               This interview has already been completed.
             </p>
           )}
+          <div ref={bottomRef} />
         </div>
       </ScrollArea>
 

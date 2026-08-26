@@ -452,7 +452,10 @@ class BedrockAIService(AIService):
             case=case,
             physician_question=question,
             retrieval_query=question,
-            max_tokens=600,
+            # Physician answers reason before they conclude and can run to
+            # several hundred words of clinical explanation — the original
+            # 600 cap (sized for a short reply) was truncating them mid-turn.
+            max_tokens=2000,
         )
         return AIResult(chat_message("ai", text.strip()), self.model_version, evidence)
 
