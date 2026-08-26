@@ -13,6 +13,7 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
+from botocore.exceptions import ClientError
 
 from sehati.ai import tools
 from sehati.ai.bedrock import BedrockAIService
@@ -110,8 +111,35 @@ class FakeRuntime:
         self.calls: list[dict[str, Any]] = []
 
     def converse(self, **kwargs: Any) -> dict[str, Any]:
+        _reject_like_bedrock(kwargs)
         self.calls.append(kwargs)
         return self._responses[min(len(self.calls) - 1, len(self._responses) - 1)]
+
+
+def _reject_like_bedrock(kwargs: dict[str, Any]) -> None:
+    """Bedrock's own validation: tool blocks require a ``toolConfig``.
+
+    Without this the double happily accepts a call the real Converse API
+    answers with "The toolConfig field must be defined when using toolUse and
+    toolResult content blocks".
+    """
+    if "toolConfig" in kwargs:
+        return
+    for message in kwargs.get("messages", []):
+        for block in message.get("content", []):
+            if "toolUse" in block or "toolResult" in block:
+                raise ClientError(
+                    {
+                        "Error": {
+                            "Code": "ValidationException",
+                            "Message": (
+                                "The toolConfig field must be defined when using "
+                                "toolUse and toolResult content blocks."
+                            ),
+                        }
+                    },
+                    "Converse",
+                )
 
 
 def _tool_use(query: str, use_id: str = "tu-1") -> dict[str, Any]:
@@ -222,6 +250,32 @@ def test_tool_loop_is_bounded_and_still_answers(service):
 
     assert result.value == {"answered": True}
     assert len(service._runtime.calls) == tools.MAX_TOOL_ROUNDS + 1
+
+
+def test_the_final_tool_free_call_carries_no_tool_blocks(service):
+    """Withdrawing the tool means the history can no longer contain toolUse or
+    toolResult blocks — Bedrock rejects that pairing outright, which surfaced
+    as a ValidationException whenever a model spent every tool round."""
+
+    class AlwaysAsking(FakeRuntime):
+        def converse(self, **kwargs: Any) -> dict[str, Any]:
+            _reject_like_bedrock(kwargs)
+            self.calls.append(kwargs)
+            if "toolConfig" in kwargs:
+                return _tool_use("again", f"tu-{len(self.calls)}")
+            return _final('{"answered": true}')
+
+    service._runtime = AlwaysAsking()
+
+    result = service.recommend_tests(_case(_doc("ct-chest.txt", "CT chest: embolism.")))
+
+    assert result.value == {"answered": True}
+    final_call = service._runtime.calls[-1]
+    assert "toolConfig" not in final_call
+    blocks = [b for m in final_call["messages"] for b in m["content"]]
+    assert all("toolUse" not in b and "toolResult" not in b for b in blocks)
+    # The passages the model already retrieved survive as plain text.
+    assert any("CT chest: embolism." in b.get("text", "") for b in blocks)
 
 
 def test_multi_block_answers_are_not_truncated(service):
