@@ -452,7 +452,6 @@ class BedrockAIService(AIService):
             case=case,
             physician_question=question,
             retrieval_query=question,
-            max_tokens=600,
         )
         return AIResult(chat_message("ai", text.strip()), self.model_version, evidence)
 
