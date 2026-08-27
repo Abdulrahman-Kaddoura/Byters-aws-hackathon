@@ -9,7 +9,8 @@ This repository's backend owns: the **API**, the **clinical workflow + state
 machine**, the **data model + persistence**, **security/authorization**, the
 **audit trail**, and the **feedback flywheel**. It exposes a clean seam for the
 **AI team** (model/prompts/RAG) and an HTTP API contract for the **frontend team**.
-CDN/CloudFront is out of scope for now.
+A second CDK stack (`SehatiFrontend`) serves the built React app from S3 behind
+CloudFront; edge security (WAF / Verified Access) is still out of scope (§8).
 
 ## 2. System design (design doc §5)
 
@@ -20,7 +21,7 @@ Tablet / Web (frontend team)
   → AWS Lambda (Python) ..... orchestration; the authorization boundary
         ├─ AIService seam ... Amazon Bedrock (Claude) + Guardrails + KB (both optional)
         ├─ AWS HealthScribe . doctor-uploaded audio → structured clinical summary
-        ├─ Amazon DynamoDB .. cases · audit · feedback · doctor feedback · users · groups · resources (KMS-encrypted, on-demand)
+        ├─ Amazon DynamoDB .. cases · audit · feedback · doctor feedback · users · groups · resources · settings (KMS-encrypted, on-demand)
         └─ Amazon S3 + KMS .. documents/audio/images · immutable WORM audit (Object Lock)
   Observability ............ CloudWatch Logs + API Gateway access logs + X-ray
 ```
@@ -41,7 +42,7 @@ requirement is confirmed later.
 | 5. Explainability dialogue + accept/reject (logged) | `askDiagnosis`, `accept/rejectRecommendation` |
 | 6. Case state management | `state_machine.py`, `setCaseState`, `orderTest` |
 | 7. Results ingestion + diagnostic dialogue | `recordTestResult`, `rerankAfterResults`, `assistantChat` |
-| 8. Case closure, immutable record | `acceptFinalDiagnosis` → `Closed` + audit |
+| 8. Case closure, immutable record | `acceptFinalDiagnosis` → `Treatment`, then `resolveCase` → `Closed` + audit |
 | 9–11. Multilingual / voice / imaging | Frontend + AI team + Transcribe/Translate (future, §8 below) |
 | 12. Similar-case cohort signal | Diagnosis `similarCases` field; production path = pgvector (§8) |
 
@@ -55,10 +56,19 @@ The lifecycle states and transitions in `state_machine.py` implement the design
 doc's §7 diagram exactly:
 
 ```
-Intake → AIInterview → DoctorReview → InProgress → ResultsDiscussion → Diagnosis → Closed
+Intake → AIInterview → DoctorReview → InProgress → ResultsDiscussion → Diagnosis → Treatment → Closed
                                           ↑______________|  (needs more tests)
-                                   ResultsDiscussion ← Diagnosis  (doctor forces re-eval)
+                                   ResultsDiscussion ← Diagnosis   (doctor forces re-eval)
+                                   ResultsDiscussion ← Treatment   (unexpected outcome; reopen)
 ```
+
+Signing off a final diagnosis parks the case in `Treatment` rather than closing
+it — the patient still has to be treated, and treatment is where an unexpected
+outcome shows up, so the reopen arrow stays available from there. `Closed` is
+additionally reachable from **every** non-terminal state: the doctor has a "Mark
+complete" action in the case header at all times, because a case does not always
+end by reaching a diagnosis. The graph's job is to stop *accidental* moves, not
+to refuse the doctor an exit.
 
 Each state also maps to the frontend's richer `status`/`stage` fields
 (`STATE_PRESENTATION`) so the existing UI renders unchanged. Illegal transitions
@@ -332,7 +342,9 @@ cohort/similar-case retrieval (design doc §10.4: Comprehend Medical de-identifi
 
 ## 8. Out of scope now / documented next steps
 
-- **CDN/CloudFront + WAF/Verified Access** at the edge (hospital-only access).
+- **WAF / Verified Access** at the edge (hospital-only access). The CDN itself
+  is built — `infra/stacks/frontend_stack.py` serves the app from S3 behind
+  CloudFront — but nothing restricts *who* may reach it beyond Cognito login.
 - **Real model/prompt/RAG tuning** — AI team owns `ai/bedrock.py` + the curated,
   versioned corpus (design doc §11: PMC OA + ClinicalTrials.gov + openFDA/RxNorm +
   WHO/CDC + ICD-10-CM), ingested via Bedrock Knowledge Bases → S3 Vectors, with

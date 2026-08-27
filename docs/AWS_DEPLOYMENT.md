@@ -5,7 +5,8 @@ self-contained job with a clear goal, the exact commands, what you should see, a
 **checkpoint** so you know it worked before moving on. Do them in order.
 
 You run **most sets once**. After the first deploy, day-to-day you'll only use
-Task Set 8 (update) and occasionally Task Set 9 (teardown).
+Task Set 9 (update), Task Set 11 (frontend redeploy), and occasionally Task
+Set 10 (teardown).
 
 | Task Set | Goal | Run it… |
 |---|---|---|
@@ -25,9 +26,10 @@ Task Set 8 (update) and occasionally Task Set 9 (teardown).
 
 **What you're building:** one CloudFormation stack called `SehatiBackend` in the
 **us-east-1 (N. Virginia)** region, containing API Gateway (the HTTP API),
-Lambda (the logic), DynamoDB (7 tables — cases, audit, feedback, doctor
-feedback, the shared reference-document library, plus the admin panel's users
-and permission groups), Cognito (logins), S3 + KMS (files, audit, encryption).
+Lambda (the logic), DynamoDB (8 tables — cases, audit, feedback, doctor
+feedback, the shared reference-document library, the admin panel's users and
+permission groups, plus hospital settings), Cognito (logins), S3 + KMS (files,
+audit, encryption).
 
 **Cost:** ~$150–500/month at pilot scale, dominated by AI tokens; **near-zero
 when idle**. There is no offline/no-cost mode — every deploy talks to real
@@ -139,7 +141,7 @@ aws cloudformation describe-stacks --stack-name SehatiBackend \
 **Goal:** create one **nurse** and one **doctor** so you can walk the whole
 flow. Replace `<UserPoolId>` with your saved value.
 
-> The easier path is to bootstrap the admin account (Task Set 6) and create
+> The easier path is to bootstrap the admin account (Task Set 5b) and create
 > these two from the `/admin` panel — that writes the `sehati-users` record as
 > well, which the CLI below does not. See the note after the snippet.
 
@@ -189,7 +191,7 @@ aws cognito-idp admin-get-user --user-pool-id $POOL --username dr.karim \
 
 ## Task Set 5b — Bootstrap the admin panel
 
-**Goal:** seed the 4 system permission groups and create the fixed,
+**Goal:** seed the 3 system permission groups and create the fixed,
 always-available **super admin** account, so you can sign in and provision
 every other user from `/admin` instead of the AWS CLI from here on.
 
@@ -236,8 +238,9 @@ export AWS_REGION=us-east-1
 # Assign who owns the seeded cases (use the subs from Task Set 5):
 export SEED_NURSE_SUB=<nurse.rima-sub>
 export SEED_DOCTOR_SUB=<dr.karim-sub>
+export CASES_TABLE=<CasesTableName from Task Set 4>
 
-python scripts/seed_cases.py
+python -m scripts.seed_cases
 ```
 
 **Checkpoint:** it prints "Seeded 7 cases into sehati-cases".
@@ -334,9 +337,11 @@ this stack can raise (REST API's equivalent ceiling was 29s; switching API
 types doesn't meaningfully change this). The Lambda's own timeout is 60s, so a slow Bedrock call can finish
 successfully server-side (visible in CloudWatch as a normal, non-error
 `REPORT` line) while the doctor-facing request already failed client-side
-with a generic error a second earlier. `ai/bedrock.py`'s `answer()` (case chat)
-caps `maxTokens` at 600 to keep replies fast and reliably under that ceiling;
-`_converse`/`_converse_json` still default to 2000 tokens for the
+with a generic error a second earlier. In `ai/bedrock.py`, the patient-facing
+`chat()` caps `maxTokens` at 600 to keep those replies short and fast;
+`answer()` (the doctor's case chat and diagnosis Q&A) uses 2000, because a
+clinical explanation reasons before it concludes and a 600 cap was truncating
+replies mid-turn; `_converse`/`_converse_json` default to 4096 for the
 structured, JSON-shaped calls (differential, summary, etc.) that need the room.
 If you still see intermittent timeouts, that's Bedrock-side latency/throttling
 variance, not a code bug — retry, or space out requests.
@@ -393,7 +398,7 @@ Task Set 4 / `scripts/deploy.sh`) baked into the build before it's uploaded.
 
 **What you're adding:** a second stack, `SehatiFrontend` — a private S3 bucket
 (no public access) served through CloudFront (HTTPS, CDN, and 403/404s rewritten
-to `/index.html` so React Router's client-side routes work on refresh/deep-link).
+to `/index.html` so the app's client-side routes work on refresh/deep-link).
 
 1. Make sure `.env` has the real values (Task Set 4) — `cdk synth`/`deploy` for
    `SehatiFrontend` doesn't need AWS creds for this, but the **build** needs
@@ -460,7 +465,7 @@ request to the API base URL. All endpoints and shapes are in
 |---|---|
 | `cdk deploy` says "bootstrap" | Do Task Set 2 for this account/region. |
 | `Unauthorized` from the API | Login token missing/expired — get a fresh one (Task Set 7) — or missing the `Bearer ` prefix on the `Authorization` header (HTTP API's JWT authorizer requires it). |
-| Patient gets `Forbidden` on another case | Correct behaviour — patients only see their own. |
+| Doctor gets `Forbidden` on a case | Correct behaviour — a doctor reaches only the cases assigned to them. Route it first (`POST /cases/{caseId}/assign`). |
 | `listCases` is empty | Run the seed step (Task Set 6), and check you're in `us-east-1`. |
 | Bedrock `ValidationException: ... isn't supported ... inference profile` | Bare model id used instead of an inference profile id — see Task Set 8, step 2. |
 | Bedrock `ResourceNotFoundException: ... marked by provider as Legacy` | That model id is retired; pick a currently-active one (Task Set 8, step 2). |
@@ -470,7 +475,7 @@ request to the API base URL. All endpoints and shapes are in
 | Uploading a consultation recording fails immediately (413, or a CORS error on the `PUT`) | Recordings go straight to S3 via a presigned `PUT` (`POST /cases/{caseId}/audio/upload-url`). A 413 means the old base64 route was used — API Gateway caps a body at 10MB. A CORS failure on the `PUT` means the documents bucket predates its CORS rule: re-run `cdk deploy`. |
 | A transcription job completes in `aws transcribe get-medical-scribe-job` but the app reports it failed | The Lambda couldn't read the job's output. Check the Lambda role can `s3:GetObject` on the documents bucket and decrypt with the stack's KMS key, and that `DOCUMENTS_KMS_KEY_ARN` is set on the function (Transcribe needs it to write the output at all). |
 | Frontend site shows a blank page / old content after redeploy | Hard-refresh (CloudFront may still be serving a stale edge cache for a few seconds after invalidation) or re-run `deploy-frontend.sh`. |
-| Browser console shows a CORS error calling the API from the deployed site | The backend's origin allowlist doesn't include your `SiteUrl` yet — see Task Set 11's CORS note. |
+| Browser console shows a CORS error calling the API from the deployed site | The API's CORS preflight allows any origin, so this is almost always a wrong `VITE_API_URL` (a failed request reads as a CORS error in the console) or a stale build — see Task Set 11 and `VERIFY_CHECKLIST.md` §8. |
 | Changed code but AWS didn't update | Re-run Task Set 9 (`cdk deploy`). |
 | Can't delete the audit bucket | It's WORM by design — see Task Set 10. |
 | `cdk deploy` fails with `Unzipped size must be smaller than 262144000 bytes` | A Python virtualenv (e.g. `backend/.venv`) is sitting inside `backend/` and getting bundled into the Lambda zip along with `boto3`/`botocore`. Move the venv outside `backend/` (e.g. to the repo root) and redeploy. The stack's asset `exclude` list also filters `.venv`/`venv`/`.pytest_cache` as a second line of defense. |

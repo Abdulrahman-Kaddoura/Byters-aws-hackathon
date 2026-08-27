@@ -52,16 +52,16 @@ aws cloudformation describe-stacks --stack-name SehatiBackend \
   --query "Stacks[0].Outputs" --output table
 ```
 
-You should see 8 outputs: `ApiUrl`, `UserPoolId`, `UserPoolClientId`,
-`Region`, `CasesTableName`, `UsersTableName`, `GroupsTableName`, `AIProvider`.
+You should see 7 outputs: `ApiUrl`, `UserPoolId`, `UserPoolClientId`,
+`Region`, `CasesTableName`, `UsersTableName`, `GroupsTableName`.
 If this list is empty or the stack doesn't exist, you haven't deployed yet —
 go run `./scripts/deploy.sh`.
 
 ---
 
-## 2. DynamoDB — 7 tables, all must exist and be `ACTIVE`
+## 2. DynamoDB — 8 tables, all must exist and be `ACTIVE`
 
-The app uses seven tables, all encrypted with a customer-managed KMS key
+The app uses eight tables, all encrypted with a customer-managed KMS key
 (`alias/sehati`):
 
 | Table | Partition key | Sort key | GSIs |
@@ -73,15 +73,16 @@ The app uses seven tables, all encrypted with a customer-managed KMS key
 | `sehati-resources` | `id` | — | — |
 | `sehati-users` | `sub` | — | — |
 | `sehati-groups` | `id` | — | — |
+| `sehati-settings` | `id` (always `"app"`) | — | — |
 
 ```bash
-for t in sehati-cases sehati-audit sehati-feedback sehati-doctor-feedback sehati-resources sehati-users sehati-groups; do
+for t in sehati-cases sehati-audit sehati-feedback sehati-doctor-feedback sehati-resources sehati-users sehati-groups sehati-settings; do
   echo "== $t =="
   aws dynamodb describe-table --table-name $t --query "Table.TableStatus" --output text
 done
 ```
 
-**Expect:** `ACTIVE` for all five. Then confirm the GSIs on the cases table
+**Expect:** `ACTIVE` for all eight. Then confirm the GSIs on the cases table
 specifically (this is the #1 cause of "list is empty" / "case doesn't show
 up"):
 
@@ -123,7 +124,7 @@ reads these directly over the internet, only the Lambda role does.
 
 ---
 
-## 4. Cognito — user pool, 4 groups, app client
+## 4. Cognito — user pool, 3 groups, app client
 
 ```bash
 aws cognito-idp describe-user-pool --user-pool-id <UserPoolId> \
@@ -173,7 +174,7 @@ session in an open tab won't unless you trigger it).
 ### 4b′. CLI-created users also need a `sehati-users` row, or every permission check fails
 
 This app added a second, admin-editable permission layer (permission groups
-in `sehati-users`/`sehati-groups`, on top of the 4 Cognito groups — see
+in `sehati-users`/`sehati-groups`, on top of the 3 Cognito groups — see
 [`ARCHITECTURE.md`](./ARCHITECTURE.md) §5). Cognito group membership alone is
 no longer enough: at request time the Lambda looks up the caller's `sub` in
 `sehati-users` to compute their permission set, and **a missing row means an
@@ -250,9 +251,9 @@ curl -s -o /dev/null -w "%{http_code}\n" "<ApiUrl>cases" -H "Authorization: Bear
   opposite of the old REST API's Cognito authorizer, which took the raw
   token with no prefix).
 - **403** → you're authenticated but the *resolver* rejected you — almost
-  always the group problem in step 4a, or (for a specific case) an ownership
-  mismatch (patient hitting a case that isn't theirs — that's correct
-  behavior, not a bug).
+  always the group problem in step 4a, the missing `sehati-users` row in 4b′,
+  or (for a specific case) an ownership mismatch (a doctor opening a case that
+  isn't assigned to them — that's correct behavior, not a bug).
 - **500** → Lambda crashed. Go straight to CloudWatch (step 6).
 - **Connection/timeout error, nothing about CORS** → check `ApiUrl` is
   correct in `.env` and that you're calling the right region.
@@ -296,7 +297,8 @@ aws lambda get-function-configuration --function-name sehati-orchestrator \
 **Expect:** `CASES_TABLE=sehati-cases`, `AUDIT_TABLE=sehati-audit`,
 `FEEDBACK_TABLE=sehati-feedback`, `DOCTOR_FEEDBACK_TABLE=sehati-doctor-feedback`,
 `RESOURCES_TABLE=sehati-resources`, `USERS_TABLE=sehati-users`,
-`GROUPS_TABLE=sehati-groups`, `USER_POOL_ID=...` (needed for the admin panel's
+`GROUPS_TABLE=sehati-groups`, `SETTINGS_TABLE=sehati-settings`,
+`BEDROCK_MODEL_ID=us.anthropic.claude-...`, `USER_POOL_ID=...` (needed for the admin panel's
 Cognito `Admin*` calls), `DOCUMENTS_BUCKET=...`, `AUDIT_BUCKET=...`,
 `HEALTHSCRIBE_BUCKET=...`, `HEALTHSCRIBE_ROLE_ARN=...`, `LOG_LEVEL=INFO`.
 
@@ -315,9 +317,14 @@ aws bedrock list-foundation-models --region us-east-1 \
   --query "modelSummaries[?contains(modelId, 'claude')].modelId"
 ```
 
-and confirm model access is actually **enabled** (not just listed) in
-Bedrock console → Model access. `AccessDeniedException` in the CloudWatch
-trace from step 6 confirms this is the problem.
+The console's old "Model access" page is gone — models now enable themselves
+the first time your account invokes them. Two things can still bite:
+`ValidationException: ... isn't supported. Retry ... with the ID or ARN of an
+inference profile` means `BEDROCK_MODEL_ID` is a bare model id instead of a
+`us.anthropic.…` inference profile, and `AccessDeniedException` in the
+CloudWatch trace from step 6 usually means the model is gated behind
+Anthropic's one-time use-case form. Both are covered in
+[`AWS_DEPLOYMENT.md`](./AWS_DEPLOYMENT.md) Task Set 8.
 
 ---
 
@@ -385,7 +392,8 @@ cd backend
 export AWS_REGION=us-east-1
 export SEED_NURSE_SUB=<a real nurse sub, from `aws cognito-idp admin-get-user`>
 export SEED_DOCTOR_SUB=<a real doctor sub>
-python scripts/seed_cases.py
+export CASES_TABLE=<CasesTableName output from step 1>
+python -m scripts.seed_cases
 ```
 
 ---

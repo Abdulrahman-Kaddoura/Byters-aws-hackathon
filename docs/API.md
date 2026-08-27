@@ -22,7 +22,8 @@ is in [`WORKFLOW.md`](./WORKFLOW.md).
   bodies and responses here are ordinary JSON — no double-encoding, no
   `JSON.parse()` on the result.
 - **Same call, different data per role.** The backend filters results by who you
-  are. A patient calling `GET /cases` sees only their own cases.
+  are. A doctor calling `GET /cases` sees only the cases assigned to them; a
+  nurse sees the admissions desk with the clinical fields stripped out.
 
 **Two shapes of response:**
 1. Some endpoints return the **whole Case** directly (a JSON object).
@@ -536,10 +537,11 @@ for everyone — downloads go through a presigned URL.
   (`pending` → `uploaded`/`transcribing` → `transcribed` | `failed`), `jobName`
   and, once transcribed, its `summary`.
 
-## `GET /cases/{caseId}/documents/{documentId}` — download or preview one
+## `GET /cases/{caseId}/documents/{documentId}` — download one
 - **Who:** requires `documents.manage`.
 - **Sends back:** `{ document, url, expiresIn }` — `url` is a presigned S3 link
-  valid for 5 minutes. Raw S3 keys are never handed to a client.
+  valid for 5 minutes. Raw S3 keys are never handed to a client. The UI hands
+  this straight to the browser as a download; there is no in-app preview.
 
 ## `DELETE /cases/{caseId}/documents/{documentId}` — remove a document
 - **Who:** requires `cases.view_clinical` (doctor, admin). A nurse can attach
@@ -718,8 +720,8 @@ route guard and the fixed, un-lockable super admin account.
 
 ## `GET /admin/groups` — list permission groups
 - **Sends back:** a JSON array of *PermissionGroup* (`id`, `name`,
-  `description`, `permissions`, `isSystem`, `createdAt`, `updatedAt`). The 4
-  system groups (`isSystem: true`) back the 4 Cognito roles.
+  `description`, `permissions`, `isSystem`, `createdAt`, `updatedAt`). The 3
+  system groups (`isSystem: true`) back the 3 Cognito roles.
 
 ## `POST /admin/groups` — create a custom permission group
 - **Wants (JSON body):** `name` (**yes**), `description` (no), `permissions`
