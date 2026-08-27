@@ -43,10 +43,10 @@ doctor works it up.
 11. **Timeline & completion** — a vertical case timeline and read-only archived cases with outcomes and lessons learned.
 
 A persistent, case-aware **Sehati Assistant** panel is available throughout for
-open-ended collaboration. Each case has a **Documents** tab (upload, list,
-download, inline preview — extracted text feeds every AI step as grounding,
-and nurses can attach referral letters at admission), and doctors can tag any
-case with **private labels** that nobody else can see. The **Knowledge Base**
+open-ended collaboration. Each case has a **Documents** tab (upload, list and
+download via a short-lived presigned URL — extracted text feeds every AI step
+as grounding, and nurses can attach referral letters at admission), and doctors
+can tag any case with **private labels** that nobody else can see. The **Knowledge Base**
 page holds a shared, tagged reference library (e.g. a diabetes guideline
 tagged "diabetes") that Sehati AI pulls in as grounding evidence for any case whose
 chief complaint or a doctor's question matches — no per-case action needed.
@@ -185,6 +185,20 @@ Then sign in and, in order:
 3. `npm run dev`, sign in as the nurse, admit a patient, run the interview,
    unlock with the exit password, and assign the case to the doctor.
 
+### Hosting the frontend on AWS (optional)
+
+`npm run dev` is enough to use the app locally. To put the built site on a real
+HTTPS URL, one more command deploys a second stack, `SehatiFrontend` (a private
+S3 bucket behind CloudFront, with SPA routing):
+
+```bash
+./scripts/deploy-frontend.sh        # or .\scripts\deploy-frontend.ps1 on Windows
+```
+
+It builds `dist/`, uploads it, invalidates the CDN cache and prints a `SiteUrl`.
+`.env` is baked in at **build** time, so re-run it after any `.env` change. Full
+detail: [`docs/AWS_DEPLOYMENT.md`](docs/AWS_DEPLOYMENT.md) Task Set 11.
+
 ### Upgrading an existing deployment
 
 If you are deploying over a stack that predates the doctor/nurse/admin roles,
@@ -236,7 +250,7 @@ Details: [`docs/AWS_DEPLOYMENT.md`](docs/AWS_DEPLOYMENT.md),
 
 - **React 18** + **TypeScript** + **Vite**
 - **Tailwind CSS** (custom design system, light + dark themes via CSS variables)
-- **React Router** for navigation
+- **wouter** for routing (a ~2 kB React Router alternative)
 - **Recharts** for confidence-trend charts
 - **lucide-react** for icons
 
@@ -248,15 +262,17 @@ API Gateway for data (`src/lib/api.ts`), with no SDK dependency.
 ```
 src/
   pages/         # Route pages (CasesHub, CasesBrowser, CaseWorkspace, NewCase,
-                 # PatientMode, Login, Settings, admin/…)
+                 # PatientMode, KnowledgeBase, Login, Settings, admin/…)
   tabs/          # The per-case workspace's tabs (Overview, Interview,
                  # Conversations, Examination, Differential, Tests, Diagnosis,
-                 # Timeline), rendered inside CaseWorkspace
+                 # Documents, Timeline), rendered inside CaseWorkspace
   components/    # Reusable UI: sidebar, cards, chat, charts, the consultation
                  # prompt, the sign-off feedback + completion dialogs
                  # (CaseCompletion.tsx), badges…
   hooks/         # React Query hooks wrapping lib/api.ts (one per endpoint)
-  lib/           # api.ts (fetch client), auth.ts (Cognito), theme, utils
+  lib/           # api.ts (fetch client), auth.ts (Cognito), config.ts (env),
+                 # session.tsx (GET /me permissions), kiosk.ts (device lock),
+                 # theme, utils
   data/          # UI helpers (data/helpers.ts) and suggested-prompt labels for
                  # the chat panels (data/prompts.ts)
   types.ts       # Domain model

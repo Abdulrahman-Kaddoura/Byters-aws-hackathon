@@ -334,22 +334,50 @@ one. See `GET/POST /resources` in [`API.md`](./API.md).
 > sent to the frontend — only used server-side as AI grounding evidence. See
 > [`ARCHITECTURE.md`](./ARCHITECTURE.md) §6.
 
+### 18. `CaseDocument` — a file attached to a case
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | text | Document id. |
+| `name` | text | Original filename, as shown in the document list. |
+| `contentType` | text | MIME type; set on the S3 object and shown in the document list. |
+| `extension` | text | File extension, used for text extraction. |
+| `size` | number | Bytes. |
+| `uploadedBy` / `uploadedByName` | text | Who attached it. |
+| `uploadedAt` | text | ISO timestamp. |
+| `s3Key` / `s3Uri` | text | **Server-side only** — never sent to a client; downloads go through a 5-minute presigned URL. |
+| `text` | text | **Server-side only** — extracted content, concatenated into the case's `documentContext` (capped ~40k chars, newest first) as AI grounding. |
+| `kind` | text, optional | `audio` for a consultation recording. Absent for an ordinary uploaded file. |
+| `status` | text, optional | Audio only: `pending` (presigned upload issued) → `uploaded` / `transcribing` → `transcribed` \| `failed`. |
+| `jobName` | text, optional | Audio only: the HealthScribe job transcribing it. |
+| `summary` | object, optional | Audio only: HealthScribe's sectioned clinical summary. |
+| `transcribedAt` / `failureReason` | text, optional | Audio only: when the transcript landed, or why it didn't. |
+
+> A **consultation recording is a `CaseDocument`**, not a separate concept.
+> Its transcript fills the same `text` field a PDF's extracted text fills, so
+> it becomes AI grounding on exactly the same path — retrieved by the model's
+> document tool, concatenated into `documentContext`. Until `status` reads
+> `transcribed`, `text` is empty and the recording is attached but not yet
+> context. The `consultation` object on the case points at it (`documentId`,
+> `jobName`) and carries the summary for display; the transcript itself lives
+> here.
+
 ---
 
 ## Part C — The database tables (where this lives on AWS)
 
 All data is stored in **Amazon DynamoDB**, a serverless database. There are
-**seven tables**: three for clinical cases (below) plus doctor feedback and
-the shared reference library, and two more for the admin panel's
-account/permission management (`sehati-users`,
-`sehati-groups` — see the end of this section). Every table is encrypted with a
-dedicated key and bills only for what you use (near-zero when idle).
+**eight tables**: three for clinical cases (below) plus doctor feedback and the
+shared reference library, two more for the admin panel's account/permission
+management (`sehati-users`, `sehati-groups`), and one for hospital-wide settings
+(`sehati-settings`) — see the end of this section. Every table is encrypted with
+a dedicated key and bills only for what you use (near-zero when idle).
 
 ### Table 1 — `sehati-cases` (the cases)
 
 - **One row = one whole Case** (the big JSON object from Part B).
 - **Primary key:** `id` (the case id). Fetching a case by id is a single, instant lookup.
-- **Three extra indexes** for listing cases quickly:
+- **Four indexes** for listing cases quickly (one of them retired):
   | Index | Lets you ask… |
   |-------|---------------|
   | `byNurse` | "all cases *this nurse* admitted" — the admissions desk |
@@ -395,7 +423,7 @@ dedicated key and bills only for what you use (near-zero when idle).
 ### Table 5 — `sehati-users` (hospital-provisioned accounts)
 
 - **One row = one account's app-level permission data** — Cognito remains the
-  identity store (sign-in, password, the 4 coarse groups); this table only
+  identity store (sign-in, password, the 3 coarse groups); this table only
   carries what Cognito has no concept of.
 - **Primary key:** `sub` (the Cognito subject — same id used as
   `createdByNurseId` / `assignedPhysicianId` elsewhere).
@@ -435,10 +463,6 @@ dedicated key and bills only for what you use (near-zero when idle).
 
 ---
 
-**Next:** read [`WORKFLOW.md`](./WORKFLOW.md) to see how these entities are created
-and updated as a case moves through its life, then [`API.md`](./API.md) for the
-exact endpoint inputs and outputs.
-
 ### Table 8 — `sehati-settings` (hospital-wide settings)
 
 - **One row, always** — `id = "app"`.
@@ -454,30 +478,6 @@ exact endpoint inputs and outputs.
 
 ---
 
-### 18. `CaseDocument` — a file attached to a case
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `id` | text | Document id. |
-| `name` | text | Original filename, as shown in the document list. |
-| `contentType` | text | MIME type; drives whether the UI can preview it inline. |
-| `extension` | text | File extension, used for text extraction. |
-| `size` | number | Bytes. |
-| `uploadedBy` / `uploadedByName` | text | Who attached it. |
-| `uploadedAt` | text | ISO timestamp. |
-| `s3Key` / `s3Uri` | text | **Server-side only** — never sent to a client; downloads go through a 5-minute presigned URL. |
-| `text` | text | **Server-side only** — extracted content, concatenated into the case's `documentContext` (capped ~40k chars, newest first) as AI grounding. |
-| `kind` | text, optional | `audio` for a consultation recording. Absent for an ordinary uploaded file. |
-| `status` | text, optional | Audio only: `pending` (presigned upload issued) → `uploaded` / `transcribing` → `transcribed` \| `failed`. |
-| `jobName` | text, optional | Audio only: the HealthScribe job transcribing it. |
-| `summary` | object, optional | Audio only: HealthScribe's sectioned clinical summary. |
-| `transcribedAt` / `failureReason` | text, optional | Audio only: when the transcript landed, or why it didn't. |
-
-> A **consultation recording is a `CaseDocument`**, not a separate concept.
-> Its transcript fills the same `text` field a PDF's extracted text fills, so
-> it becomes AI grounding on exactly the same path — retrieved by the model's
-> document tool, concatenated into `documentContext`. Until `status` reads
-> `transcribed`, `text` is empty and the recording is attached but not yet
-> context. The `consultation` object on the case points at it (`documentId`,
-> `jobName`) and carries the summary for display; the transcript itself lives
-> here.
+**Next:** read [`WORKFLOW.md`](./WORKFLOW.md) to see how these entities are created
+and updated as a case moves through its life, then [`API.md`](./API.md) for the
+exact endpoint inputs and outputs.

@@ -26,9 +26,10 @@ their symptoms; an AI interviews them and writes a tidy summary; the doctor open
 the case, gets a ranked list of possible diagnoses **with the reasoning and
 citations behind each one**, orders tests, discusses the results with the AI, and
 finally signs off a diagnosis. The AI **never decides** — it advises, and the
-doctor accepts or rejects everything. This repository is the **backend**: the
+doctor accepts or rejects everything. These pages document the **backend**: the
 "engine room" that stores the cases, runs that workflow, guards the data, and
-offers an API for the app screens to call.
+offers an API for the app screens to call. (The React frontend that consumes it
+lives in the same repository, under `src/` — see the [root README](../README.md).)
 
 ## 2. What this backend is (and is not) responsible for
 
@@ -104,7 +105,7 @@ Guardrails and a medical-literature knowledge base. This is the file the
 
 - **The AI is never the gatekeeper.** Whether you can see a case is decided by the
   database access layer based on *who you are*, not by asking the AI nicely. A
-  patient physically cannot retrieve another patient's case.
+  doctor physically cannot retrieve a case that isn't assigned to them.
 - **The doctor is always in the loop.** The AI proposes *lists of options*, never a
   single directive. Nothing is final until a physician signs off.
 - **Rejections need a reason.** To reject an AI suggestion you must say why — this

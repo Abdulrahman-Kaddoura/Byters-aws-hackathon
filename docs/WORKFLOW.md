@@ -11,8 +11,11 @@ mentioned are in [`DATA_MODEL.md`](./DATA_MODEL.md).
 ## 1. The stages (the "state machine")
 
 A case is always in exactly one **lifecycle state**. It can only move along allowed
-arrows — the backend rejects illegal jumps (e.g. you cannot go straight from Intake
-to Closed).
+arrows — the backend rejects illegal jumps (e.g. you cannot skip from `Intake`
+straight to `Diagnosis`). The one exception is `Closed`, which is reachable from
+**every** state: the doctor's "Mark complete" action sits in the case header at
+all times, because a case doesn't always end by reaching a diagnosis — the
+patient is discharged, referred on, or never comes back.
 
 ```mermaid
 stateDiagram-v2
@@ -27,6 +30,7 @@ stateDiagram-v2
     Diagnosis --> Treatment: doctor signs off
     Treatment --> ResultsDiscussion: unexpected outcome
     Treatment --> Closed: doctor marks resolved
+    AIInterview --> Closed: mark complete (allowed from any state)
     Closed --> [*]
 ```
 
@@ -47,8 +51,8 @@ them in sync.
 | `InProgress` | Awaiting Tests | Tests have been ordered; waiting on results. |
 | `ResultsDiscussion` | Diagnosis in Progress | Results are in; AI + doctor reason over them. |
 | `Diagnosis` | Diagnosis in Progress | A final diagnosis has been proposed. |
-| `Treatment` | Treatment | Doctor signed off; patient is being treated. Waiting to see how it goes. |
-| `Closed` | Completed | Doctor marked the case resolved; record retained immutably. Feedback unlocks here. |
+| `Treatment` | Treatment | Doctor signed off; patient is being treated. Waiting to see how it goes. **Feedback unlocks here.** |
+| `Closed` | Completed | Doctor marked the case resolved; record retained immutably. Feedback is still accepted. |
 
 ---
 
@@ -142,7 +146,8 @@ sequenceDiagram
   HealthScribe, and its clinical summary is stored on the case. From then on
   **every** AI step reasons over both accounts — the patient's AI interview and
   the doctor's consultation — because the two capture different things.
-- **Endpoints:** `uploadCaseAudio` → `startTranscription` →
+- **Endpoints:** `createCaseAudioUpload` (presigned `PUT`; `uploadCaseAudio` is
+  the base64 fallback for short clips) → `startTranscription` →
   `transcriptionStatus` (poll) → `setConsultation`.
 - **Result:** `consultation.prompted` becomes `true` whichever way it is
   answered, so the question is never asked twice. Saying "no recording" is a
@@ -250,14 +255,18 @@ sequenceDiagram
 - **Endpoints:** `resolveCase`, `reopenCase`.
 - **Result:** **Treatment → Closed**, or **Treatment → ResultsDiscussion**.
 
-### Step 13 — Feedback (only now)
+### Step 13 — Feedback (at sign-off)
 - **Who:** Doctor.
-- **What:** With the outcome known, the doctor says where the AI's reasoning was
+- **What:** Having just judged the AI's reasoning, the doctor says where it was
   right and where it was wrong. This is kept as memory and folded back into that
   doctor's future prompts.
-- **Endpoint:** `submitFeedback` — which **rejects an open case**. This is the
-  only state, and therefore the only place in the app, where feedback can be
-  given.
+- **When:** The moment the final diagnosis is **accepted** — the UI pops the
+  dialog as soon as `acceptFinalDiagnosis` returns, while the reasoning is still
+  fresh. It stays available through `Closed`.
+- **Endpoint:** `submitFeedback` — which **rejects a case whose final diagnosis
+  has not been accepted** (`ValidationError`); only `Treatment` and `Closed`
+  take it. That server rule is why this is the single place in the app feedback
+  can be given.
 - **Result:** Stored per doctor, against this case.
 
 ```mermaid
@@ -322,8 +331,8 @@ none of them move `lifecycleState`.
 |---|---|---|
 | Side conversation | `createConversation`, `postConversationMessage` | An extra chat thread layered on top of the main `interview` — for a return visit or follow-up question, without touching the original transcript. Starting one locks the device the same way admission does. |
 | Attach documents | `uploadCaseDocument`, `listCaseDocuments`, `getCaseDocument`, `deleteCaseDocument` | Any number of files per case. Nurses attach referral letters and prior records at admission; doctors add reports. Extracted text feeds `documentContext` (capped ~40k chars, newest first) as AI grounding; downloads go through a 5-minute presigned URL. Only clinical staff can delete. |
-| Tag a case privately | `setCaseTags` | Personal labels ("follow up monday") stored on **your** user record, not the case, so nobody else can see them. Read back from `getMe`. |
-| Audio transcription | `uploadCaseAudio` → `startTranscription` → poll `transcriptionStatus` | A doctor uploads an audio recording; AWS HealthScribe turns it into a structured clinical summary (chief complaint, HPI, review of systems, past medical history) once the job completes. |
+| Tag a case privately | `setCaseTags` | Personal labels ("follow up monday") stored on **your** user record, not the case, so nobody else can see them. Read back from `GET /me`. |
+| Audio transcription | `createCaseAudioUpload` (or `uploadCaseAudio` for short clips) → `startTranscription` → poll `transcriptionStatus` | A doctor uploads an audio recording; AWS HealthScribe turns it into a structured clinical summary (chief complaint, HPI, review of systems, past medical history) once the job completes. |
 | Leave feedback | `submitFeedback` | Free-text feedback on how the AI did on this case — separate from the accept/reject flywheel below, stored per doctor. |
 | Manage the reference library | `listResources`, `uploadResource`, `deleteResource` | Not tied to any one case: clinical staff upload/remove tagged guideline documents (e.g. "diabetes") from the Knowledge Base page. The AI seam keyword-matches them against *any* case's chief complaint or a doctor's question and folds matches in as grounding evidence automatically — no per-case action needed. |
 

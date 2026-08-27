@@ -22,7 +22,8 @@ Cognito (auth, groups)
       → Lambda orchestrator (this Python package, Lambda proxy integration)
          → AIService seam  (Amazon Bedrock + Guardrails + Knowledge Bases, both optional)
          → AWS HealthScribe (doctor-uploaded audio → structured clinical summary)
-         → DynamoDB        (cases · audit · feedback · doctor feedback · users · groups)
+         → DynamoDB        (cases · audit · feedback · doctor feedback · users ·
+                            groups · resources · settings)
          → S3 + KMS        (documents/audio · immutable WORM audit)
 ```
 
@@ -44,18 +45,21 @@ sehati/
   state_machine.py    # Case lifecycle transitions (design doc §7)
   errors.py           # Typed, client-safe errors
   permissions.py      # Fine-grained permission catalog (admin-editable groups)
-  cognito_admin.py     # Cognito Admin* API wrapper (admin panel account provisioning)
-  text_extract.py      # Shared PDF/DOCX/text extraction (documents.py + resources.py)
-  resolvers/          # cases · interview · conversations · exams · diagnosis ·
-                       # tests · collab · documents · transcribe · feedback ·
-                       # resources · admin
-  ai/                 # base (contract) · bedrock (shipped impl) · healthscribe ·
-                       # prompts · factory · client/service (unfinished, see docstrings)
+  cognito_admin.py    # Cognito Admin* API wrapper (admin panel account provisioning)
+  text_extract.py     # Shared PDF/DOCX/text extraction (documents.py + resources.py)
+  doc_extract.py      # Structured (JSON) extraction for the AI-facing document copy
+  resolvers/          # me · cases · interview · conversations · consultation ·
+                      # exams · diagnosis · tests · collab · documents ·
+                      # transcribe · feedback · resources · settings · admin
+  ai/                 # base (contract) · bedrock (shipped impl) · tools (the
+                      # case-document tool) · healthscribe · prompts · factory ·
+                      # client/service (unfinished, see docstrings)
   db/                 # tables · cases_repo (RLS) · audit_repo · feedback_repo ·
-                       # users_repo · groups_repo · resources_repo
+                      # users_repo · groups_repo · resources_repo · settings_repo
   data/seed_cases.json# 7 sample cases generated from ../src/data/cases.ts
 tests/                # pytest (moto-mocked DynamoDB)
-scripts/              # seed_cases.py · local_invoke.py · bootstrap_admin.py
+scripts/              # seed_cases.py · local_invoke.py · bootstrap_admin.py ·
+                      # migrate_roles.py
 ```
 
 ## Local development (no AWS account)
@@ -104,8 +108,10 @@ implementation follows this exact contract and output shapes (which match
 | `differential` | ranked `Diagnosis[]` with grounded references |
 | `recommend_tests` | `TestRecommendation[]` |
 | `rerank_after_results` | updated `Diagnosis[]` |
+| `analyze_results` | verdict (`no_results`/`confident`/`needs_more_tests`) + differential and/or a new round of tests |
 | `propose_final_diagnosis` | `FinalDiagnosis` |
-| `answer` | grounded chat reply (`ChatMessage`) |
+| `answer` | grounded chat reply to a physician (`ChatMessage`) |
+| `chat` | patient-facing reply for a side conversation (`ChatMessage`) |
 
 Every method returns an `AIResult(value, model_version, retrieved_context)` so the
 audit trail and feedback flywheel capture provenance. The **Bedrock adapter**
@@ -122,7 +128,7 @@ and reverts hand-set vars on the next `cdk deploy`).
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `CASES_TABLE` / `AUDIT_TABLE` / `FEEDBACK_TABLE` / `DOCTOR_FEEDBACK_TABLE` / `RESOURCES_TABLE` / `USERS_TABLE` / `GROUPS_TABLE` | `sehati-*` | DynamoDB table names |
+| `CASES_TABLE` / `AUDIT_TABLE` / `FEEDBACK_TABLE` / `DOCTOR_FEEDBACK_TABLE` / `RESOURCES_TABLE` / `USERS_TABLE` / `GROUPS_TABLE` / `SETTINGS_TABLE` | `sehati-*` | DynamoDB table names |
 | `DOCUMENTS_BUCKET` / `AUDIT_BUCKET` | – | S3 buckets for uploaded files/audio and the WORM audit mirror |
 | `USER_POOL_ID` | – | Cognito user pool id (admin panel's `Admin*` API calls) |
 | `AWS_REGION` | `us-east-1` | Region |
